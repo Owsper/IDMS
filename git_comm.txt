@@ -1,0 +1,206 @@
+# ==========================================
+# GIT TEAM WORKFLOW CHEAT SHEET
+# ==========================================
+
+# ------------------------------------------
+# FIRST TIME SETUP
+# ------------------------------------------
+
+git config --global user.name "Your Name"
+git config --global user.email "your@email.com"
+
+git config --global --list
+
+
+# ------------------------------------------
+# CLONE A REPOSITORY
+# ------------------------------------------
+
+git clone <repository-url>
+
+cd <repository-folder>
+
+
+# ------------------------------------------
+# CHECK STATUS
+# ------------------------------------------
+
+git status
+
+
+# ------------------------------------------
+# GET LATEST CHANGES FROM GITHUB
+# ------------------------------------------
+
+git pull
+
+
+# ------------------------------------------
+# CREATE A NEW BRANCH
+# Example: work
+# ------------------------------------------
+
+git checkout -b work
+
+# Check current branch
+git branch
+
+
+# ------------------------------------------
+# ADD CHANGES
+# ------------------------------------------
+
+git add .
+
+# OR add a specific file
+git add filename.py
+
+
+# ------------------------------------------
+# COMMIT CHANGES
+# ------------------------------------------
+
+git commit -m "Describe changes"
+
+
+# ------------------------------------------
+# PUSH BRANCH TO GITHUB (FIRST TIME)
+# ------------------------------------------
+
+git push -u origin work
+
+
+# ------------------------------------------
+# PUSH LATER CHANGES
+# ------------------------------------------
+
+git push
+
+
+# ------------------------------------------
+# SEE ALL BRANCHES
+# ------------------------------------------
+
+git branch
+
+# Local + remote branches
+git branch -a
+
+
+# ------------------------------------------
+# DOWNLOAD ALL REMOTE BRANCHES
+# ------------------------------------------
+
+git fetch
+
+
+# ------------------------------------------
+# SWITCH TO AN EXISTING BRANCH
+# ------------------------------------------
+
+git checkout work
+
+# Alternative
+git switch work
+
+
+# ------------------------------------------
+# GET A BRANCH CREATED BY SOMEONE ELSE
+# ------------------------------------------
+
+git fetch
+
+git checkout -b work origin/work
+
+# Alternative (newer Git)
+git switch -c work --track origin/work
+
+
+# ------------------------------------------
+# UPDATE YOUR CURRENT BRANCH
+# ------------------------------------------
+
+git pull
+
+
+# ------------------------------------------
+# GO BACK TO MAIN
+# ------------------------------------------
+
+git checkout main
+
+git pull
+
+
+# ------------------------------------------
+# MERGE A BRANCH INTO MAIN
+# ------------------------------------------
+
+git checkout main
+
+git pull
+
+git merge work
+
+git push
+
+
+# ------------------------------------------
+# DELETE A LOCAL BRANCH
+# (ONLY AFTER IT IS MERGED)
+# ------------------------------------------
+
+git branch -d work
+
+
+# ------------------------------------------
+# FORCE DELETE A LOCAL BRANCH
+# ------------------------------------------
+
+git branch -D work
+
+
+# ------------------------------------------
+# DELETE A REMOTE BRANCH ON GITHUB
+# ------------------------------------------
+
+git push origin --delete work
+
+
+# ==========================================
+# SIMPLE TEAM WORKFLOW
+# ==========================================
+
+# Before starting work
+
+git checkout main
+git pull
+
+# Create a branch
+
+git checkout -b work
+
+# Make changes...
+
+git add .
+git commit -m "My changes"
+
+# First push
+
+git push -u origin work
+
+# Later pushes
+
+git push
+
+# Merge branch into main
+# (Usually through a Pull Request on GitHub)
+
+# After merge
+
+git checkout main
+git pull
+
+git branch -d work
+
+git push origin --delete work
