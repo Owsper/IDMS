@@ -15,3 +15,8 @@ def init_db():
 
 
 init_db()
+
+def password():
+    return
+
+password()
