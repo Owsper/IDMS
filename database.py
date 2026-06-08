@@ -33,3 +33,18 @@ def insert_user_data(first_name, last_name, email, password_hash, phone):
     conn.commit()
     conn.close()
     
+# Verify if the email is unique before inserting a new user
+def fetch_unique_email(email):
+    conn = sqlite3.connect("main_db.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT email FROM users_data WHERE email = ?", (email,))
+    email = cursor.fetchone()
+    if email is None:
+        conn.close()
+        print("Email is unique.")
+        return True
+    else:
+        conn.close()
+        print("Email is not unique.")
+        return False
