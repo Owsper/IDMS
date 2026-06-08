@@ -48,3 +48,16 @@ def fetch_unique_email(email):
         conn.close()
         print("Email is not unique.")
         return False
+    
+# Update user data in the database based on the verified email
+def update_user_data(verified_email ,first_name, last_name, email, password_hash, phone):
+    conn = sqlite3.connect("main_db.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE users_data
+        SET first_name = ?, last_name = ?, email = ?, password_hash = ?, phone = ?
+        WHERE email = ?
+    """, (first_name, last_name, email, password_hash, phone, verified_email))
+    conn.commit()
+    conn.close()
+
