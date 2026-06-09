@@ -1,17 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="frontend\style.css">
-    
-    <title>Register1</title>
-    
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/frontend/style.css">
+  <title>IPA Registration</title>
+
 </head>
 
-
 <body>
-    <h1>Register</h1>
-    
+
+  <div class="card">
+
+    <div class="intro">
+      <div class="logo">IPA</div>
+      <h1>Join IPA</h1>
+      <p>
+       Create your IPA account and access member services in one secure platform.
+      </p>
+    </div>
+
+    <h2>Member Registration</h2>
+    <p class="subtitle">Please fill in your details to create an account.</p>
+
+    <form>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" placeholder="Enter your full name" />
+      </div>
+
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" placeholder="Enter your email" />
+      </div>
+
+      <div class="form-group">
+        <label>Member Type</label>
+        <select>
+          <option>Select member type</option>
+          <option>Regular Member</option>
+          <option>Professional Member</option>
+          <option>Student Member</option>
+          <option>Associate Member</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" placeholder="Create password" />
+      </div>
+
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" placeholder="Confirm password" />
+      </div>
+
+      <div class="checkbox">
+        <input type="checkbox" />
+        <span>I agree to the terms and privacy policy.</span>
+      </div>
+
+      <button type="submit">Create Account</button>
+    </form>
+
+    <div class="signin">
+      Already have an account? <a href="#">Sign in</a>
+    </div>
+
+  </div>
+
 </body>
 </html>
