@@ -139,6 +139,18 @@
       background: #1d4ed8;
     }
 
+    .error-message {
+      display: none;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      text-align: center;
+      font-size: 14px;
+    }
+
     .signup {
       margin-top: 20px;
       text-align: center;
@@ -177,16 +189,18 @@
     <h2>Member Login</h2>
     <p class="subtitle">Enter your credentials to continue.</p>
 
-    <form>
+    <form novalidate>
+
+      <div id="errorMessage" class="error-message"></div>
 
       <div class="form-group">
         <label>Email Address</label>
-        <input type="email" placeholder="Enter your email">
+        <input type="email" id="email" placeholder="Enter your email">
       </div>
 
       <div class="form-group">
         <label>Password</label>
-        <input type="password" placeholder="Enter your password">
+        <input type="password" id="password" placeholder="Enter your password">
       </div>
 
       <div class="checkbox">
@@ -208,6 +222,63 @@
     </div>
 
   </div>
+
+  <script>
+    const form = document.querySelector("form");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const errorMessage = document.getElementById("errorMessage");
+
+    const correctEmail = "member@ipa.com";
+    const correctPassword = "password123";
+
+    form.addEventListener("submit", function(event) {
+      event.preventDefault();
+
+      hideError();
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (email === "") {
+        showError("Please enter your email address.");
+        return;
+      }
+
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (!emailPattern.test(email)) {
+        showError("Please enter a valid email address.");
+        return;
+      }
+
+      if (password === "") {
+        showError("Please enter your password.");
+        return;
+      }
+
+      if (email !== correctEmail) {
+        showError("Email address is not registered.");
+        return;
+      }
+
+      if (password !== correctPassword) {
+        showError("Incorrect password. Please try again.");
+        return;
+      }
+
+      alert("Login successful!");
+    });
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.style.display = "block";
+    }
+
+    function hideError() {
+      errorMessage.style.display = "none";
+    }
+  </script>
 
 </body>
 
