@@ -1,4 +1,5 @@
 import sqlite3
+import bcrypt
 
 # Initialize the database and create the users_data table 
 def init_db():
@@ -11,7 +12,7 @@ def init_db():
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
             email TEXT NOT NULL,
-            password_hash TEXT NOT NULL,
+            password TEXT NOT NULL,
             phone TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -21,17 +22,21 @@ def init_db():
     conn.close()
 
 # Insert user data into the database
-def insert_user_data(first_name, last_name, email, password_hash, phone):
+def insert_user_data(first_name, last_name, email, password, phone):
     conn = sqlite3.connect("main_db.db")
     cursor = conn.cursor()
 
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    password_hash = hashed_password.decode('utf-8')
+
     cursor.execute("""
-        INSERT INTO users_data (first_name, last_name, email, password_hash, phone)
+        INSERT INTO users_data (first_name, last_name, email, password, phone)
         VALUES (?, ?, ?, ?, ?)
-    """, (first_name, last_name, email, password_hash, phone))
+    """, (first_name, last_name, email, hashed_password, phone))
 
     conn.commit()
     conn.close()
+
     
 # Verify if the email is unique before inserting a new user
 def fetch_unique_email(email):
