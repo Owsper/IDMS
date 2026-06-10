@@ -4,6 +4,4 @@ main_db.db
 .gitignore
 main_db.db
 git_comm.txt
-
-
-
+database/*__pycache__
