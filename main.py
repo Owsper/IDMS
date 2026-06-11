@@ -1,21 +1,23 @@
 from flask import Flask, render_template, request
-from database.database import insert_user_data
+from database.database import create_user
 
 app = Flask(__name__, template_folder="frontend/pages")
 
 @app.route("/", methods=["GET", "POST"])
+
+
 def register_user():
 
-
-    
     if request.method == "POST":
-        full_name = request.form["full_name"]
-        email = request.form["email"]
-        member_type = request.form["member_type"]
-        password = request.form["password"]
-        confirm_password = request.form["confirm_password"]
+        first_name = request.form.get("first_name")
+        last_name = request.form.get("last_name")
+        phone = request.form.get("phone")
+        email = request.form.get("email")
+        password = request.form.get("password") 
+        confirm_password = request.form.get("confirm_password")
+        checkbox = request.form.get("terms")  
 
-        if not full_name or not email or not member_type or not password or not confirm_password:
+        if not first_name or not last_name or not phone or not email or not password or not confirm_password or not checkbox:
             return render_template(
                 "RegisterPage.html",
                 error_message="All fields are required"
@@ -26,6 +28,9 @@ def register_user():
                 "RegisterPage.html",
                 password_error_message="Passwords do not match"
             )
+        else:
+            create_user(first_name, last_name, phone, email, password)
+            return render_template("LoginPage.html")
         
 
 
