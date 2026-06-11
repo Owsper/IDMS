@@ -1,12 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="frontend\style.css">
-    <title>Document</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPA Documents</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: #f4f7fb;
+      color: #111827;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .header,
+    .upload-card,
+    .documents-card {
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      color: #6b7280;
+    }
+
+    .upload-box {
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+      background: #f8fafc;
+      margin-top: 18px;
+    }
+
+    .upload-box h2 {
+      margin-bottom: 8px;
+    }
+
+    .upload-box p {
+      color: #6b7280;
+      margin-bottom: 18px;
+    }
+
+    input[type="file"] {
+      margin-bottom: 18px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 13px 22px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .documents-card h2 {
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 14px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    th {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .status {
+      color: #2563eb;
+      font-weight: 700;
+    }
+
+    .actions a {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 600;
+      margin-right: 12px;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 14px;
+      }
+
+      .header h1 {
+        font-size: 26px;
+      }
+
+      .header,
+      .upload-card,
+      .documents-card {
+        padding: 18px;
+      }
+
+      table {
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        padding: 10px;
+      }
+    }
+  </style>
 </head>
+
 <body>
-    
+  <main class="container">
+
+    <section class="header">
+      <h1>Document Upload & Management</h1>
+      <p>Upload, view, and manage IPA organization documents in one place.</p>
+    </section>
+
+    <section class="upload-card">
+      <div class="upload-box">
+        <h2>Upload Document</h2>
+        <p>Select a file from your device and upload it to the system.</p>
+
+        <input type="file" />
+        <br />
+        <button type="button">Upload Document</button>
+      </div>
+    </section>
+
+    <section class="documents-card">
+      <h2>Uploaded Documents</h2>
+
+      <table>
+        <tr>
+          <th>File Name</th>
+          <th>Type</th>
+          <th>Upload Date</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+
+        <tr>
+          <td>Annual_Report.pdf</td>
+          <td>PDF</td>
+          <td>10 Jun 2025</td>
+          <td class="status">Uploaded</td>
+          <td class="actions">
+            <a href="#">View</a>
+            <a href="#">Delete</a>
+          </td>
+        </tr>
+
+        <tr>
+          <td>Meeting_Minutes.docx</td>
+          <td>DOCX</td>
+          <td>8 Jun 2025</td>
+          <td class="status">Uploaded</td>
+          <td class="actions">
+            <a href="#">View</a>
+            <a href="#">Delete</a>
+          </td>
+        </tr>
+
+        <tr>
+          <td>Member_Guidelines.pdf</td>
+          <td>PDF</td>
+          <td>5 Jun 2025</td>
+          <td class="status">Uploaded</td>
+          <td class="actions">
+            <a href="#">View</a>
+            <a href="#">Delete</a>
+          </td>
+        </tr>
+      </table>
+    </section>
+
+  </main>
 </body>
 </html>
