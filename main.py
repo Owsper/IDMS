@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request
-from database.database import create_user
+from database.database import create_user, fetch_unique_email
 
 app = Flask(__name__, template_folder="frontend/pages")
 
@@ -22,16 +22,29 @@ def register_user():
                 "RegisterPage.html",
                 error_message="All fields are required"
             )
-
+        
         if password != confirm_password:
             return render_template(
                 "RegisterPage.html",
                 password_error_message="Passwords do not match"
             )
-        else:
+        
+        if fetch_unique_email(email):
+            return render_template(
+                "RegisterPage.html",
+                email_error_message="Email already exists"
+            )
+
+        try:
             create_user(first_name, last_name, phone, email, password)
             return render_template("LoginPage.html")
-        
+
+        except Exception as e:
+            print("ERROR:", e)
+            return render_template(
+                "RegisterPage.html",
+                error_message="Something went wrong. Please try again."
+            )
 
 
     return render_template("RegisterPage.html", )
