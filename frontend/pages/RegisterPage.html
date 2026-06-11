@@ -280,6 +280,16 @@
     </div>
     {% endif %}
 
+    {% if email_error_message %}
+    <div class="alert alert-warning">
+        <div class="alert-icon">🔒</div>
+        <div>
+            <strong>Email Error</strong>
+            <p>{{ email_error_message }}</p>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="name-row">
 
         <div class="form-group">
