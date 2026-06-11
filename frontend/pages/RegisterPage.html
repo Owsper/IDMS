@@ -1,286 +1,292 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="/frontend/style.css">
-  <title>IPA Registration</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPO Registration</title>
 
-  <style>
-    .error-message,
-    .password-error-message {
-      background: #fee2e2;
-      color: #b91c1c;
-      border: 1px solid #fecaca;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-      font-weight: 600;
-    }
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
 
-    .error-border,
-    .password-mismatch-border {
-      border: 2px solid #ef4444 !important;
-    }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(
+                135deg,
+                #f8fbff 0%,
+                #eef4ff 50%,
+                #dbeafe 100%
+            );
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
 
-    .error-border:focus,
-    .password-mismatch-border:focus {
-      border-color: #ef4444 !important;
-      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
-    }
+        .card {
+            width: 100%;
+            max-width: 520px;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(37, 99, 235, 0.08);
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: "Segoe UI", Arial, sans-serif;
-    }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: #2563eb;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0 auto 18px;
+        }
 
-    body {
-      min-height: 100vh;
-      background: #f4f7fb;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 30px;
-    }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
 
-    .card {
-      width: 100%;
-      max-width: 620px;
-      background: #ffffff;
-      padding: 42px;
-      border-radius: 18px;
-      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
-    }
+        .header h1 {
+            font-size: 30px;
+            color: #111827;
+            margin-bottom: 8px;
+        }
 
-    .intro {
-      text-align: center;
-      margin-bottom: 32px;
-    }
+        .header p {
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.6;
+        }
 
-    .logo {
-      width: 64px;
-      height: 64px;
-      background: #2563eb;
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      margin: 0 auto 18px;
-    }
+        .form-group {
+            margin-bottom: 18px;
+        }
 
-    .intro h1 {
-      font-size: 40px;
-      color: #111827;
-      margin-bottom: 12px;
-    }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
 
-    .intro p {
-      color: #6b7280;
-      font-size: 17px;
-      line-height: 1.6;
-    }
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            outline: none;
+        }
 
-    h2 {
-      font-size: 28px;
-      color: #1f2937;
-      margin-bottom: 8px;
-      text-align: center;
-    }
+        input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
 
-    .subtitle {
-      color: #6b7280;
-      text-align: center;
-      margin-bottom: 24px;
-    }
+        .name-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
 
-    .form-group {
-      margin-bottom: 18px;
-    }
+        .helper-text {
+            display: block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #6b7280;
+        }
 
-    label {
-      display: block;
-      margin-bottom: 7px;
-      font-weight: 600;
-      color: #374151;
-    }
+        .checkbox {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin: 22px 0;
+        }
 
-    input,
-    select {
-      width: 100%;
-      padding: 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 16px;
-      outline: none;
-    }
+        .checkbox input {
+            width: auto;
+            margin-top: 3px;
+        }
 
-    input:focus,
-    select:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-    }
+        .checkbox label {
+            margin: 0;
+            font-weight: 400;
+            color: #4b5563;
+            line-height: 1.5;
+        }
 
-    .checkbox {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 22px 0;
-      color: #374151;
-    }
+        button {
+            width: 100%;
+            border: none;
+            background: #2563eb;
+            color: white;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.25s;
+        }
 
-    .checkbox input {
-      width: auto;
-    }
+        button:hover {
+            background: #1d4ed8;
+        }
 
-    button {
-      width: 100%;
-      padding: 15px;
-      border: none;
-      border-radius: 10px;
-      background: #2563eb;
-      color: white;
-      font-size: 17px;
-      font-weight: 600;
-      cursor: pointer;
-    }
+        .signin {
+            margin-top: 22px;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+        }
 
-    button:hover {
-      background: #1d4ed8;
-    }
+        .signin a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 600;
+        }
 
-    .signin {
-      margin-top: 20px;
-      text-align: center;
-    }
+        .signin a:hover {
+            text-decoration: underline;
+        }
 
-    .signin a {
-      color: #2563eb;
-      font-weight: 600;
-      text-decoration: none;
-    }
+        @media (max-width: 600px) {
+            .card {
+                padding: 28px;
+            }
 
-    @media (max-width: 600px) {
-      .card {
-        padding: 28px;
-      }
+            .name-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
 
-      .intro h1 {
-        font-size: 32px;
-      }
-    }
-  </style>
-
+            .header h1 {
+                font-size: 26px;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-  <div class="card">
+    <div class="card">
 
-    <div class="intro">
-      <div class="logo">IPA</div>
-      <h1>Join IPA</h1>
-      <p>
-        Create your IPA account and access member services in one secure platform.
-      </p>
+        <div class="logo">IPO</div>
+
+        <div class="header">
+            <h1>Create Your Account</h1>
+            <p>
+                Register to access IPO member services and manage your account securely.
+            </p>
+        </div>
+
+        <form method="POST">
+
+            <div class="name-row">
+
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <input
+                        type="text"
+                        id="first_name"
+                        name="first_name"
+                        placeholder="John"
+                        required>
+                </div>
+
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input
+                        type="text"
+                        id="last_name"
+                        name="last_name"
+                        placeholder="Smith"
+                        required>
+                </div>
+
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number</label>
+                <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    placeholder="+1 234 567 8900"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="john.smith@example.com"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Create a secure password"
+                    required>
+                <small class="helper-text">
+                    Minimum 8 characters, including a number and special character.
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    placeholder="Re-enter your password"
+                    required>
+            </div>
+
+            <div class="checkbox">
+                <input
+                    type="checkbox"
+                    id="terms"
+                    name="terms"
+                    required>
+
+                <label for="terms">
+                    I agree to the Terms of Service and Privacy Policy.
+                </label>
+            </div>
+
+            <button type="submit">
+                Create Account
+            </button>
+
+        </form>
+
+        <div class="signin">
+            Already have an account?
+            <a href="LoginPage.html">Sign In</a>
+        </div>
+
     </div>
-
-    <h2>Member Registration</h2>
-    <p class="subtitle">Please fill in your details to create an account.</p>
-
-    <form method="POST">
-
-  {% if error_message %}
-    <div class="error-message">
-      {{ error_message }}
-    </div>
-  {% endif %}
-
-  {% if password_error_message %}
-    <div class="password-error-message">
-      {{ password_error_message }}
-    </div>
-  {% endif %}
-
-  <div class="form-group">
-    <label>Full Name</label>
-    <input
-      type="text"
-      name="full_name"
-      placeholder="Enter your full name"
-      class="{% if error_message %}error-border{% endif %}"
-    />
-  </div>
-
-  <div class="form-group">
-    <label>Email Address</label>
-    <input
-      type="email"
-      name="email"
-      placeholder="Enter your email"
-      class="{% if error_message %}error-border{% endif %}"
-    />
-  </div>
-
-  <div class="form-group">
-    <label>Member Type</label>
-    <select
-      name="member_type"
-      class="{% if error_message %}error-border{% endif %}"
-    >
-      <option value="">Select member type</option>
-      <option>Regular Member</option>
-      <option>Professional Member</option>
-      <option>Student Member</option>
-      <option>Associate Member</option>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label>Password</label>
-    <input
-      type="password"
-      name="password"
-      placeholder="Create password"
-      class="
-        {% if error_message %}error-border{% endif %}
-        {% if password_error_message %}password-mismatch-border{% endif %}
-      "
-    />
-  </div>
-
-  <div class="form-group">
-    <label>Confirm Password</label>
-    <input
-      type="password"
-      name="confirm_password"
-      placeholder="Confirm password"
-      class="
-        {% if error_message %}error-border{% endif %}
-        {% if password_error_message %}password-mismatch-border{% endif %}
-      "
-    />
-  </div>
-
-  <div class="checkbox">
-    <input type="checkbox" />
-    <span>I agree to the terms and privacy policy.</span>
-  </div>
-
-  <button type="submit">Create Account</button>
-
-</form>
-
-    <div class="signin">
-      Already have an account? <a href="LoginPage.html">Sign in</a>
-    </div>
-
-  </div>
 
 </body>
 
 </html>
+```
