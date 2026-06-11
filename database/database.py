@@ -20,7 +20,7 @@ def init_db():
 
     conn.commit()
     conn.close()
-init_db()
+
 # Insert user data into the database
 def create_user(first_name, last_name, phone, email, password):
     conn = sqlite3.connect("main_db.db")
@@ -32,7 +32,7 @@ def create_user(first_name, last_name, phone, email, password):
     cursor.execute("""
         INSERT INTO users_data (first_name, last_name, phone, email, password_hash)
         VALUES (?, ?, ?, ?, ?)
-    """, (first_name, last_name, phone, email, hashed_password))
+    """, (first_name, last_name, phone, email, password_hash))
 
     conn.commit()
     conn.close()
@@ -45,14 +45,16 @@ def fetch_unique_email(email):
 
     cursor.execute("SELECT email FROM users_data WHERE email = ?", (email,))
     email = cursor.fetchone()
+    conn.close()
+
     if email is None:
-        conn.close()
-        print("Email does not exist.")
-        return True
-    else:
-        conn.close()
-        print("Email exists.")
+
         return False
+    else:
+
+        return True # EMAIL EXIST
+
+
 
 
     
