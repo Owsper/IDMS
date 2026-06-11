@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request
-from database.database import create_user, fetch_unique_email, user_login
+from database.database import create_user, fetch_unique_email, init_db
 
 app = Flask(__name__, template_folder="frontend/pages")
+init_db()
 
 @app.route("/", methods=["GET", "POST"])
 
@@ -48,23 +49,6 @@ def register_user():
 
 
     return render_template("RegisterPage.html", )
-
-def login_user():
-    if request.method == "POST":
-
-        email = request.form.get("email")
-        password = request.form.get("password")
-
-        if not email or not password:
-            return render_template(
-                "LoginPage.html",
-                error_message="All fields are required"
-            )
-
-        
-
-
-    return render_template("LoginPage.html")
 
 if __name__ == "__main__":
     app.run(debug=True)
