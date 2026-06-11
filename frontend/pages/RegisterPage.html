@@ -8,7 +8,8 @@
   <title>IPA Registration</title>
 
   <style>
-      .error-message {
+    .error-message,
+    .password-error-message {
       background: #fee2e2;
       color: #b91c1c;
       border: 1px solid #fecaca;
@@ -18,14 +19,17 @@
       font-weight: 600;
     }
 
-    .error-border {
+    .error-border,
+    .password-mismatch-border {
       border: 2px solid #ef4444 !important;
     }
 
-    .error-border:focus {
+    .error-border:focus,
+    .password-mismatch-border:focus {
       border-color: #ef4444 !important;
       box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
     }
+
     * {
       margin: 0;
       padding: 0;
@@ -190,9 +194,15 @@
 
     <form method="POST">
 
-  {% if error %}
+  {% if error_message %}
     <div class="error-message">
-      {{ error }}
+      {{ error_message }}
+    </div>
+  {% endif %}
+
+  {% if password_error_message %}
+    <div class="password-error-message">
+      {{ password_error_message }}
     </div>
   {% endif %}
 
@@ -202,7 +212,7 @@
       type="text"
       name="full_name"
       placeholder="Enter your full name"
-      class="{% if error %}error-border{% endif %}"
+      class="{% if error_message %}error-border{% endif %}"
     />
   </div>
 
@@ -212,7 +222,7 @@
       type="email"
       name="email"
       placeholder="Enter your email"
-      class="{% if error %}error-border{% endif %}"
+      class="{% if error_message %}error-border{% endif %}"
     />
   </div>
 
@@ -220,7 +230,7 @@
     <label>Member Type</label>
     <select
       name="member_type"
-      class="{% if error %}error-border{% endif %}"
+      class="{% if error_message %}error-border{% endif %}"
     >
       <option value="">Select member type</option>
       <option>Regular Member</option>
@@ -236,7 +246,10 @@
       type="password"
       name="password"
       placeholder="Create password"
-      class="{% if error %}error-border{% endif %}"
+      class="
+        {% if error_message %}error-border{% endif %}
+        {% if password_error_message %}password-mismatch-border{% endif %}
+      "
     />
   </div>
 
@@ -246,7 +259,10 @@
       type="password"
       name="confirm_password"
       placeholder="Confirm password"
-      class="{% if error %}error-border{% endif %}"
+      class="
+        {% if error_message %}error-border{% endif %}
+        {% if password_error_message %}password-mismatch-border{% endif %}
+      "
     />
   </div>
 
@@ -260,7 +276,7 @@
 </form>
 
     <div class="signin">
-      Already have an account? <a href="#">Sign in</a>
+      Already have an account? <a href="LoginPage.html">Sign in</a>
     </div>
 
   </div>
