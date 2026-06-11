@@ -1,0 +1,4 @@
+id,first_name,last_name,phone,email,password_hash,created_at,member_type,address
+1,john,smith,+30 6987971647,asdliaoisd@gmail.com,$2b$12$B3HhdV7jXVERBrIoI/gLGOdfoBMIJCPV86Pq/IZuqJNwCVsFsflMW,2026-06-11 12:55:53,Student Member,
+2,john,smith,+49 1751400552,johnsmith@gmail.com,$2b$12$7xRO0TQToS8RCPbCjan0IOrKowEtMiOba2LY7ymMqf7wtRRlgNo5O,2026-06-11 13:27:28,Student Member,
+3,Updated,User,0987654321,test_new@example.com,$2b$12$meFfAbYW4KauT8s8gdnFHOJYqJrOL0y3TOLUr1I73CLyhwv3zPmUa,2026-06-11 13:31:32,Premium Member,New Address

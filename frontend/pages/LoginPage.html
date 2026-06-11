@@ -205,13 +205,15 @@
 
     <h2>Member Login</h2>
 
-    <form novalidate>
+    <form action="/login" method="POST">
 
-      <div id="errorMessage" class="error-message"></div>
+      {% if error_message %}
+      <div class="error-message" style="display: block;">{{ error_message }}</div>
+      {% endif %}
 
       <div class="form-group">
         <label>Email Address</label>
-        <input type="email" name="email" id="email" placeholder="Enter your email">
+        <input type="email" name="email" id="email" placeholder="Enter your email" value="{{ request.form.get('email', '') }}">
       </div>
 
       <div class="form-group">
@@ -234,7 +236,7 @@
 
     <div class="signup">
       Don't have an account?
-      <a href="RegisterPage.html">Create Account</a>
+      <a href="/register">Create Account</a>
     </div>
 
   </div>

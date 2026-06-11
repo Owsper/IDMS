@@ -166,40 +166,53 @@
     <h2>Profile Management</h2>
     <p class="subtitle">Update your personal details below.</p>
 
-    <form>
+    <form action="/profile" method="POST">
 
-      <div id="successMessage" class="success-message">
-        Profile information updated successfully.
+      {% if success_message %}
+      <div id="successMessage" class="success-message" style="display: block;">
+        {{ success_message }}
+      </div>
+      {% endif %}
+
+      {% if error_message %}
+      <div class="error-message" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 12px; border-radius: 10px; margin-bottom: 18px; text-align: center; font-size: 14px; display: block;">
+        {{ error_message }}
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label>First Name</label>
+        <input type="text" name="first_name" placeholder="Enter your first name" value="{{ user.first_name }}">
       </div>
 
       <div class="form-group">
-        <label>Full Name</label>
-        <input type="text" placeholder="Enter your full name">
+        <label>Last Name</label>
+        <input type="text" name="last_name" placeholder="Enter your last name" value="{{ user.last_name }}">
       </div>
 
       <div class="form-group">
         <label>Email Address</label>
-        <input type="email" placeholder="Enter your email">
+        <input type="email" name="email" placeholder="Enter your email" value="{{ user.email }}">
       </div>
 
       <div class="form-group">
         <label>Phone Number</label>
-        <input type="tel" placeholder="Enter your phone number">
+        <input type="tel" name="phone" placeholder="Enter your phone number" value="{{ user.phone }}">
       </div>
 
       <div class="form-group">
         <label>Member Type</label>
-        <select>
-          <option selected>Student Member</option>
-          <option>Regular Member</option>
-          <option>Premium Member</option>
-          <option>Honorary Member</option>
+        <select name="member_type">
+          <option value="Student Member" {% if user.member_type == 'Student Member' %}selected{% endif %}>Student Member</option>
+          <option value="Regular Member" {% if user.member_type == 'Regular Member' %}selected{% endif %}>Regular Member</option>
+          <option value="Premium Member" {% if user.member_type == 'Premium Member' %}selected{% endif %}>Premium Member</option>
+          <option value="Honorary Member" {% if user.member_type == 'Honorary Member' %}selected{% endif %}>Honorary Member</option>
         </select>
       </div>
 
       <div class="form-group">
         <label>Address</label>
-        <textarea placeholder="Enter your address"></textarea>
+        <textarea name="address" placeholder="Enter your address">{{ user.address if user.address }}</textarea>
       </div>
 
       <button type="submit">Save Changes</button>
@@ -208,16 +221,6 @@
 
   </div>
 
-  <script>
-    const form = document.querySelector("form");
-    const successMessage = document.getElementById("successMessage");
-
-    form.addEventListener("submit", function(event) {
-      event.preventDefault();
-
-      successMessage.style.display = "block";
-    });
-  </script>
 
 </body>
 
