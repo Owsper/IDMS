@@ -11,18 +11,18 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             first_name TEXT NOT NULL,
             last_name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            password TEXT NOT NULL,
-            phone TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            phone TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
     conn.commit()
     conn.close()
-
+init_db()
 # Insert user data into the database
-def insert_user_data(first_name, last_name, email, password, phone):
+def create_user(first_name, last_name, phone, email, password):
     conn = sqlite3.connect("main_db.db")
     cursor = conn.cursor()
 
@@ -30,9 +30,9 @@ def insert_user_data(first_name, last_name, email, password, phone):
     password_hash = hashed_password.decode('utf-8')
 
     cursor.execute("""
-        INSERT INTO users_data (first_name, last_name, email, password, phone)
+        INSERT INTO users_data (first_name, last_name, phone, email, password_hash)
         VALUES (?, ?, ?, ?, ?)
-    """, (first_name, last_name, email, hashed_password, phone))
+    """, (first_name, last_name, phone, email, hashed_password))
 
     conn.commit()
     conn.close()
@@ -47,12 +47,14 @@ def fetch_unique_email(email):
     email = cursor.fetchone()
     if email is None:
         conn.close()
-        print("Email is unique.")
+        print("Email does not exist.")
         return True
     else:
         conn.close()
-        print("Email is not unique.")
+        print("Email exists.")
         return False
+
+
     
 # Update user data in the database based on the verified email
 def update_user_data(verified_email ,first_name, last_name, email, password_hash, phone):
