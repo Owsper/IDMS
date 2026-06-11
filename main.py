@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request
-from database.database import create_user, fetch_unique_email
+from database.database import create_user, fetch_unique_email, init_db
 
 app = Flask(__name__, template_folder="frontend/pages")
+init_db()
 
 @app.route("/", methods=["GET", "POST"])
 
