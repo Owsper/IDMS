@@ -49,10 +49,10 @@ def fetch_unique_email(email):
     email_record = cursor.fetchone()
     conn.close()
 
-    if email_record is None:
-        return False
+    if email_record is True:
+        return True
     else:
-        return True # EMAIL EXIST
+        return False
 
 def fetch_user_by_email(email):
     conn = sqlite3.connect("main_db.db")
