@@ -22,18 +22,23 @@
 
     .dashboard {
       max-width: 1200px;
-      margin: auto;
+      margin: 0 auto;
+    }
+
+    .topbar,
+    .metric-card,
+    .panel {
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.06);
     }
 
     .topbar {
-      background: white;
-      padding: 24px;
-      border-radius: 18px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+      padding: 22px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 22px;
+      justify-content: space-between;
+      margin-bottom: 20px;
     }
 
     .brand {
@@ -43,11 +48,11 @@
     }
 
     .logo {
-      width: 58px;
-      height: 58px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
       background: #2563eb;
       color: white;
-      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -55,13 +60,12 @@
     }
 
     h1 {
-      font-size: 32px;
-      color: #111827;
+      font-size: 30px;
     }
 
-    .topbar p {
+    .topbar p,
+    .activity span {
       color: #6b7280;
-      margin-top: 4px;
     }
 
     .admin {
@@ -69,28 +73,25 @@
       font-weight: 700;
     }
 
-    .cards {
+    .metrics {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 16px;
-      margin-bottom: 22px;
+      margin-bottom: 20px;
     }
 
-    .card {
-      background: white;
-      padding: 22px;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+    .metric-card {
+      padding: 20px;
     }
 
-    .card h3 {
-      font-size: 15px;
-      color: #6b7280;
+    .metric-card h3 {
+      font-size: 14px;
+      color: #4b5563;
       margin-bottom: 8px;
     }
 
-    .card p {
-      font-size: 30px;
+    .metric-card p {
+      font-size: 28px;
       font-weight: 800;
     }
 
@@ -101,15 +102,12 @@
     }
 
     .panel {
-      background: white;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+      padding: 22px;
     }
 
     .panel h2 {
-      font-size: 24px;
       margin-bottom: 16px;
+      font-size: 24px;
     }
 
     table {
@@ -117,9 +115,10 @@
       border-collapse: collapse;
     }
 
-    th, td {
+    th,
+    td {
       text-align: left;
-      padding: 12px;
+      padding: 11px;
       border-bottom: 1px solid #e5e7eb;
     }
 
@@ -138,62 +137,64 @@
     }
 
     .activity li {
-      padding: 12px 0;
+      padding: 11px 0;
       border-bottom: 1px solid #e5e7eb;
+      font-weight: 600;
     }
 
     .activity span {
       display: block;
-      color: #6b7280;
       font-size: 14px;
-      margin-top: 3px;
+      margin-top: 4px;
+      font-weight: 400;
     }
 
     @media (max-width: 900px) {
-      .cards {
+      .metrics {
         grid-template-columns: repeat(2, 1fr);
       }
 
       .content {
         grid-template-columns: 1fr;
       }
-
-      .topbar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-      }
     }
 
     @media (max-width: 600px) {
       body {
-        padding: 16px;
+        padding: 14px;
       }
 
-      .cards {
-        grid-template-columns: 1fr 1fr;
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
       }
 
       h1 {
-        font-size: 26px;
+        font-size: 25px;
       }
 
-      .card {
+      .metrics {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .metric-card,
+      .panel,
+      .topbar {
         padding: 18px;
       }
 
-      .card p {
-        font-size: 24px;
+      table {
+        font-size: 14px;
       }
     }
   </style>
 </head>
 
 <body>
+  <main class="dashboard">
 
-  <div class="dashboard">
-
-    <div class="topbar">
+    <section class="topbar">
       <div class="brand">
         <div class="logo">IPA</div>
         <div>
@@ -203,32 +204,31 @@
       </div>
 
       <div class="admin">Admin User</div>
-    </div>
+    </section>
 
-    <section class="cards">
-      <div class="card">
+    <section class="metrics">
+      <div class="metric-card">
         <h3>Total Members</h3>
         <p>248</p>
       </div>
 
-      <div class="card">
+      <div class="metric-card">
         <h3>Documents</h3>
         <p>64</p>
       </div>
 
-      <div class="card">
+      <div class="metric-card">
         <h3>Meetings</h3>
         <p>12</p>
       </div>
 
-      <div class="card">
+      <div class="metric-card">
         <h3>Pending Votes</h3>
         <p>5</p>
       </div>
     </section>
 
     <section class="content">
-
       <div class="panel">
         <h2>Recent Members</h2>
 
@@ -266,10 +266,8 @@
           <li>Voting results published <span>3 days ago</span></li>
         </ul>
       </div>
-
     </section>
 
-  </div>
-
+  </main>
 </body>
 </html>
