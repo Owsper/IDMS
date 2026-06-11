@@ -18,16 +18,15 @@ def register_user():
         if not full_name or not email or not member_type or not password or not confirm_password:
             return render_template(
                 "RegisterPage.html",
-                error="All fields are required"
+                error_message="All fields are required"
             )
-                
 
-    
-
-
-
-
- 
+        if password != confirm_password:
+            return render_template(
+                "RegisterPage.html",
+                password_error_message="Passwords do not match"
+            )
+        
 
 
     return render_template("RegisterPage.html", )
