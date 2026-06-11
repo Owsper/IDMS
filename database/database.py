@@ -1,7 +1,5 @@
 import sqlite3
 import bcrypt
-import csv
-import os
 
 # Initialize the database and create the users_data table 
 def init_db():
@@ -24,36 +22,6 @@ def init_db():
 
     conn.commit()
     conn.close()
-    sync_db_to_csv()
-
-def sync_db_to_csv():
-    """Export all users from database to data/members.csv."""
-    db_path = "main_db.db"
-    csv_path = "data/members.csv"
-    
-    # Ensure directory exists
-    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("SELECT * FROM users_data")
-        rows = cursor.fetchall()
-        
-        if rows:
-            headers = rows[0].keys()
-            with open(csv_path, mode='w', newline='', encoding='utf-8') as f:
-                writer = csv.DictWriter(f, fieldnames=headers)
-                writer.writeheader()
-                for row in rows:
-                    writer.writerow(dict(row))
-    except sqlite3.OperationalError:
-        # Table might not exist yet
-        pass
-    finally:
-        conn.close()
 
 # Insert user data into the database
 def create_user(first_name, last_name, phone, email, password, member_type='Student Member', address=None):
@@ -70,7 +38,6 @@ def create_user(first_name, last_name, phone, email, password, member_type='Stud
 
     conn.commit()
     conn.close()
-    sync_db_to_csv()
 
     
 # Verify if the email is unique before inserting a new user
@@ -131,5 +98,4 @@ def update_user_data(verified_email ,first_name, last_name, email, password_hash
     """, (first_name, last_name, email, password_hash, phone, member_type, address, verified_email))
     conn.commit()
     conn.close()
-    sync_db_to_csv()
 
