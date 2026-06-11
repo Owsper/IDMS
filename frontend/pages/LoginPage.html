@@ -194,12 +194,12 @@
 
       <div class="form-group">
         <label>Email Address</label>
-        <input type="email" id="email" placeholder="Enter your email">
+        <input type="email" name="email" id="email" placeholder="Enter your email">
       </div>
 
       <div class="form-group">
         <label>Password</label>
-        <input type="password" id="password" placeholder="Enter your password">
+        <input type="password" name="password" id="password" placeholder="Enter your password">
       </div>
 
       <div class="checkbox">
@@ -221,63 +221,6 @@
     </div>
 
   </div>
-
-  <script>
-    const form = document.querySelector("form");
-    const emailInput = document.getElementById("email");
-    const passwordInput = document.getElementById("password");
-    const errorMessage = document.getElementById("errorMessage");
-
-    const correctEmail = "member@ipa.com";
-    const correctPassword = "password123";
-
-    form.addEventListener("submit", function(event) {
-      event.preventDefault();
-
-      hideError();
-
-      const email = emailInput.value.trim();
-      const password = passwordInput.value.trim();
-
-      if (email === "") {
-        showError("Please enter your email address.");
-        return;
-      }
-
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-      if (!emailPattern.test(email)) {
-        showError("Please enter a valid email address.");
-        return;
-      }
-
-      if (password === "") {
-        showError("Please enter your password.");
-        return;
-      }
-
-      if (email !== correctEmail) {
-        showError("Email address is not registered.");
-        return;
-      }
-
-      if (password !== correctPassword) {
-        showError("Incorrect password. Please try again.");
-        return;
-      }
-
-      alert("Login successful!");
-    });
-
-    function showError(message) {
-      errorMessage.textContent = message;
-      errorMessage.style.display = "block";
-    }
-
-    function hideError() {
-      errorMessage.style.display = "none";
-    }
-  </script>
 
 </body>
 
