@@ -1,391 +1,320 @@
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPO Registration</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelHack Register</title>
 
-    <style>
-  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
 
+    body {
+      min-height: 100vh;
+      background: #0b0d14;
+      color: #ffffff;
+    }
 
-        .alert {
-            display: flex;
-            align-items: flex-start;
-            gap: 14px;
-            padding: 16px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            border: 1px solid;
-        }
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
 
-        .alert-icon {
-            font-size: 20px;
-            line-height: 1;
-        }
+    .left {
+      position: relative;
+      padding: 48px;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+        radial-gradient(circle at 55% 70%, rgba(0, 184, 255, 0.25), transparent 30%),
+        radial-gradient(circle at 45% 45%, rgba(6, 182, 212, 0.28), transparent 35%),
+        #11101e;
+      background-size: 40px 40px, 40px 40px, auto, auto;
+      overflow: hidden;
+    }
 
-        .alert strong {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 14px;
-        }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: 0.3px;
+    }
 
-        .alert p {
-            margin: 0;
-            font-size: 14px;
-        }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      background: #06b6d4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: white;
+    }
 
-        .alert-error {
-            background: #fef2f2;
-            border-color: #fecaca;
-            color: #b91c1c;
-        }
+    .hero {
+      margin-top: 210px;
+      max-width: 560px;
+    }
 
-        .alert-warning {
-            background: #fff7ed;
-            border-color: #fed7aa;
-            color: #c2410c;
-        }
+    .hero h1 {
+      font-size: 44px;
+      line-height: 1.35;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
 
-        /* Error Inputs */
+    .gradient-text {
+      background: linear-gradient(90deg, #22d3ee, #38bdf8);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
 
-        .input-error {
-            border: 2px solid #ef4444 !important;
-            background: #fffafa;
-        }
+    .hero p {
+      margin-top: 26px;
+      color: #8ea0c8;
+      font-size: 16px;
+      line-height: 1.7;
+    }
 
-        .input-error:focus {
-            border-color: #ef4444 !important;
-            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12) !important;
-        }
+    .stats {
+      margin-top: 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      color: #8ea0c8;
+      font-size: 15px;
+    }
 
-        /* Helper Text */
+    .footer {
+      position: absolute;
+      bottom: 44px;
+      left: 48px;
+      color: #6e7fa7;
+      font-size: 13px;
+    }
 
-        .helper-text {
-            display: block;
-            margin-top: 6px;
-            color: #6b7280;
-            font-size: 12px;
-        }
+    .right {
+      background: #0d1017;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      padding: 40px;
+    }
 
+    .back {
+      position: absolute;
+      top: 30px;
+      left: 26px;
+      color: #8ea0c8;
+      text-decoration: none;
+      font-size: 14px;
+    }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Segoe UI", Arial, sans-serif;
-        }
+    .form-box {
+      width: 100%;
+      max-width: 385px;
+    }
 
-        body {
-            min-height: 100vh;
-            background: linear-gradient(
-                135deg,
-                #f8fbff 0%,
-                #eef4ff 50%,
-                #dbeafe 100%
-            );
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 24px;
-        }
+    .form-box h2 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+    }
 
-        .card {
-            width: 100%;
-            max-width: 520px;
-            background: #ffffff;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 15px 40px rgba(37, 99, 235, 0.08);
-        }
+    .subtitle {
+      color: #8ea0c8;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
 
-        .logo {
-            width: 60px;
-            height: 60px;
-            background: #2563eb;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: 700;
-            margin: 0 auto 18px;
-        }
+    .social-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
 
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+    .social-btn {
+      height: 42px;
+      border: 1px solid #2a3150;
+      background: #1a1f2d;
+      color: white;
+      border-radius: 7px;
+      font-weight: 700;
+      cursor: pointer;
+    }
 
-        .header h1 {
-            font-size: 30px;
-            color: #111827;
-            margin-bottom: 8px;
-        }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #7080aa;
+      font-size: 12px;
+      margin-bottom: 26px;
+    }
 
-        .header p {
-            color: #6b7280;
-            font-size: 14px;
-            line-height: 1.6;
-        }
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #252b45;
+    }
 
-        .form-group {
-            margin-bottom: 18px;
-        }
+    .form-group {
+      margin-bottom: 18px;
+    }
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #374151;
-        }
+    label {
+      display: block;
+      color: #8ea0c8;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
 
-        input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 12px;
-            font-size: 15px;
-            transition: all 0.2s ease;
-            outline: none;
-        }
+    input {
+      width: 100%;
+      height: 42px;
+      background: #1a1f2d;
+      border: 1px solid #2a3150;
+      color: white;
+      border-radius: 7px;
+      padding: 0 14px;
+      font-size: 14px;
+      outline: none;
+    }
 
-        input:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
-        }
+    input:focus {
+      border-color: #06b6d4;
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+    }
 
-        .name-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-        }
+    .main-btn {
+      width: 100%;
+      height: 44px;
+      border: none;
+      border-radius: 7px;
+      background: linear-gradient(90deg, #06b6d4, #0891b2);
+      color: white;
+      font-weight: 900;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 2px;
+    }
 
-        .helper-text {
-            display: block;
-            margin-top: 6px;
-            font-size: 12px;
-            color: #6b7280;
-        }
+    .switch {
+      margin-top: 28px;
+      text-align: center;
+      color: #8ea0c8;
+      font-size: 14px;
+    }
 
-        .checkbox {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            margin: 22px 0;
-        }
+    .switch a {
+      color: #22d3ee;
+      text-decoration: none;
+      font-weight: 800;
+    }
 
-        .checkbox input {
-            width: auto;
-            margin-top: 3px;
-        }
+    @media (max-width: 900px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
 
-        .checkbox label {
-            margin: 0;
-            font-weight: 400;
-            color: #4b5563;
-            line-height: 1.5;
-        }
+      .left {
+        min-height: 420px;
+      }
 
-        button {
-            width: 100%;
-            border: none;
-            background: #2563eb;
-            color: white;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.25s;
-        }
+      .hero {
+        margin-top: 120px;
+      }
 
-        button:hover {
-            background: #1d4ed8;
-        }
-
-        .signin {
-            margin-top: 22px;
-            text-align: center;
-            font-size: 14px;
-            color: #6b7280;
-        }
-
-        .signin a {
-            color: #2563eb;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .signin a:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 600px) {
-            .card {
-                padding: 28px;
-            }
-
-            .name-row {
-                grid-template-columns: 1fr;
-                gap: 0;
-            }
-
-            .header h1 {
-                font-size: 26px;
-            }
-        }
-    </style>
+      .right {
+        min-height: 620px;
+      }
+    }
+  </style>
 </head>
 
 <body>
+  <div class="page">
 
-    <div class="card">
+    <section class="left">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <span>PixelHack</span>
+      </div>
 
-        <div class="logo">IPO</div>
+      <div class="hero">
+        <h1>
+          Build.<br />
+          <span class="gradient-text">Compete.</span><br />
+          Win.
+        </h1>
 
-        <div class="header">
-            <h1>Create Your Account</h1>
-            <p>
-                Register to access IPO member services and manage your account securely.
-            </p>
+        <p>
+          Join 12,400+ developers competing in 48-hour game jams.<br />
+          Build your portfolio. Claim your prize. Ship your game.
+        </p>
+
+        <div class="stats">
+          <div>🏆 &nbsp; 284 teams competing in Spring Jam 2026</div>
+          <div>🎮 &nbsp; $24,000 in prizes awarded this year</div>
+          <div>⚡ &nbsp; Live voting and real-time leaderboards</div>
+        </div>
+      </div>
+
+      <div class="footer">© 2026 PixelHack Platform · Built for Game Devs</div>
+    </section>
+
+    <section class="right">
+      <a href="#" class="back">← Back</a>
+
+      <div class="form-box">
+        <h2>Create account</h2>
+        <p class="subtitle">Start competing in game jams today</p>
+
+        <div class="social-row">
+          <button class="social-btn">◎ &nbsp; Google</button>
+          <button class="social-btn">⌘ &nbsp; GitHub</button>
         </div>
 
+        <div class="divider">or continue with email</div>
 
-<form method="POST" novalidate>
+        <form>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" placeholder="cool_gamedev" />
+          </div>
 
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" placeholder="dev@pixelhack.io" />
+          </div>
 
-    {% if error_message %}
-    <div class="alert alert-error">
-        <div class="alert-icon">⚠</div>
-        <div>
-            <strong>Registration Error</strong>
-            <p>{{ error_message }}</p>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" placeholder="••••••••" />
+          </div>
+
+          <button class="main-btn" type="submit">Create Account →</button>
+        </form>
+
+        <div class="switch">
+          Already have an account? <a href="LoginPage.html">Sign in</a>
         </div>
-    </div>
-    {% endif %}
+      </div>
+    </section>
 
-
-    {% if password_error_message %}
-    <div class="alert alert-warning">
-        <div class="alert-icon">🔒</div>
-        <div>
-            <strong>Password Error</strong>
-            <p>{{ password_error_message }}</p>
-        </div>
-    </div>
-    {% endif %}
-
-    {% if email_error_message %}
-    <div class="alert alert-warning">
-        <div class="alert-icon">🔒</div>
-        <div>
-            <strong>Email Error</strong>
-            <p>{{ email_error_message }}</p>
-        </div>
-    </div>
-    {% endif %}
-
-    <div class="name-row">
-
-        <div class="form-group">
-            <label for="first_name">First Name</label>
-            <input
-                type="text"
-                id="first_name"
-                name="first_name"
-                value="{{ request.form.get('first_name', '') }}"
-                placeholder="John"
-                class="{% if error_message %}input-error{% endif %}">
-        </div>
-
-        <div class="form-group">
-            <label for="last_name">Last Name</label>
-            <input
-                type="text"
-                id="last_name"
-                name="last_name"
-                value="{{ request.form.get('last_name', '') }}"
-                placeholder="Smith"
-                class="{% if error_message %}input-error{% endif %}">
-        </div>
-
-    </div>
-
-    <div class="form-group">
-        <label for="phone">Phone Number</label>
-        <input
-            type="tel"
-            id="phone"
-            name="phone"
-            value="{{ request.form.get('phone', '') }}"
-            placeholder="+1 234 567 8900"
-            class="{% if error_message %}input-error{% endif %}">
-    </div>
-
-    <div class="form-group">
-        <label for="email">Email Address</label>
-        <input
-            type="email"
-            id="email"
-            name="email"
-            value="{{ request.form.get('email', '') }}"
-            placeholder="john@example.com"
-            class="{% if error_message %}input-error{% endif %}">
-    </div>
-
-    <div class="form-group">
-        <label for="password">Password</label>
-        <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="Create a secure password"
-            class="{% if password_error_message %}input-error{% endif %}"d>
-
-        <small class="helper-text">
-            Minimum 8 characters with a number and special character.
-        </small>
-    </div>
-
-    <div class="form-group">
-        <label for="confirm_password">Confirm Password</label>
-        <input
-            type="password"
-            id="confirm_password"
-            name="confirm_password"
-            placeholder="Re-enter password"
-            class="{% if password_error_message %}input-error{% endif %}">
-    </div>
-
-    <div class="checkbox">
-        <input type="checkbox" id="terms" name="terms">
-
-        <label for="terms">
-            I agree to the Terms of Service and Privacy Policy.
-        </label>
-    </div>
-
-    <button type="submit">
-        Create Account
-    </button>
-
-</form>
-
-
-
-        <div class="signin">
-            Already have an account?
-            <a href="/login">Sign In</a>
-        </div>
-
-    </div>
-
+  </div>
 </body>
-
 </html>
-

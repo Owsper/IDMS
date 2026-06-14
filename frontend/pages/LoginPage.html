@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPA Login</title>
+  <title>PixelHack Login</title>
 
   <style>
     * {
@@ -16,63 +15,160 @@
 
     body {
       min-height: 100vh;
-      background: #f4f7fb;
+      background: #0b0d14;
+      color: #ffffff;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .left {
+      position: relative;
+      padding: 48px;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+        radial-gradient(circle at 55% 70%, rgba(0, 184, 255, 0.25), transparent 30%),
+        radial-gradient(circle at 45% 45%, rgba(6, 182, 212, 0.28), transparent 35%),
+        #11101e;
+      background-size: 40px 40px, 40px 40px, auto, auto;
+      overflow: hidden;
+    }
+
+    .brand {
       display: flex;
-      justify-content: center;
       align-items: center;
-      padding: 30px;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: 0.3px;
     }
 
-    .card {
-      width: 100%;
-      max-width: 620px;
-      background: #ffffff;
-      padding: 42px;
-      border-radius: 18px;
-      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
-    }
-
-    .intro {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-
-    .logo {
-      width: 64px;
-      height: 64px;
-      background: #2563eb;
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      background: #06b6d4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
       color: white;
-      border-radius: 50%;
+    }
+
+    .hero {
+      margin-top: 210px;
+      max-width: 560px;
+    }
+
+    .hero h1 {
+      font-size: 44px;
+      line-height: 1.35;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #22d3ee, #38bdf8);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .hero p {
+      margin-top: 26px;
+      color: #8ea0c8;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .stats {
+      margin-top: 34px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      gap: 16px;
+      color: #8ea0c8;
+      font-size: 15px;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 44px;
+      left: 48px;
+      color: #6e7fa7;
+      font-size: 13px;
+    }
+
+    .right {
+      background: #0d1017;
+      display: flex;
       justify-content: center;
-      font-weight: 700;
-      margin: 0 auto 18px;
+      align-items: center;
+      position: relative;
+      padding: 40px;
     }
 
-    .intro h1 {
-      font-size: 40px;
-      color: #111827;
-      margin-bottom: 12px;
+    .back {
+      position: absolute;
+      top: 30px;
+      left: 26px;
+      color: #8ea0c8;
+      text-decoration: none;
+      font-size: 14px;
     }
 
-    .intro p {
-      color: #6b7280;
-      font-size: 17px;
-      line-height: 1.6;
+    .form-box {
+      width: 100%;
+      max-width: 385px;
     }
 
-    h2 {
+    .form-box h2 {
       font-size: 28px;
-      color: #1f2937;
       margin-bottom: 8px;
-      text-align: center;
+      font-weight: 900;
+      letter-spacing: 0.5px;
     }
 
     .subtitle {
-      color: #6b7280;
-      text-align: center;
-      margin-bottom: 24px;
+      color: #8ea0c8;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .social-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .social-btn {
+      height: 42px;
+      border: 1px solid #2a3150;
+      background: #1a1f2d;
+      color: white;
+      border-radius: 7px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #7080aa;
+      font-size: 12px;
+      margin-bottom: 26px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #252b45;
     }
 
     .form-group {
@@ -81,166 +177,149 @@
 
     label {
       display: block;
-      margin-bottom: 7px;
-      font-weight: 600;
-      color: #374151;
+      color: #8ea0c8;
+      font-size: 14px;
+      margin-bottom: 8px;
     }
 
     input {
       width: 100%;
-      padding: 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 16px;
+      height: 42px;
+      background: #1a1f2d;
+      border: 1px solid #2a3150;
+      color: white;
+      border-radius: 7px;
+      padding: 0 14px;
+      font-size: 14px;
       outline: none;
     }
 
     input:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-    }
-
-
-    .input-error {
-      border: 1px solid #dc2626 !important;
-      background: #fef2f2;
-    }
-
-    .error-message {
-      background: #fee2e2;
-      color: #b91c1c;
-      border: 1px solid #fecaca;
-      padding: 12px;
-      border-radius: 10px;
-      margin-bottom: 18px;
-      text-align: center;
-      font-size: 14px;
-    }
-
-    .checkbox {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin: 22px 0;
-      color: #374151;
-    }
-
-    .checkbox input {
-      width: auto;
+      border-color: #06b6d4;
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
     }
 
     .forgot {
       text-align: right;
-      margin-bottom: 20px;
+      margin-top: 4px;
+      margin-bottom: 22px;
     }
 
-    .forgot a {
-      color: #2563eb;
+    .forgot a,
+    .switch a {
+      color: #22d3ee;
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 800;
     }
 
-    button {
+    .main-btn {
       width: 100%;
-      padding: 15px;
+      height: 44px;
       border: none;
-      border-radius: 10px;
-      background: #2563eb;
+      border-radius: 7px;
+      background: linear-gradient(90deg, #06b6d4, #0891b2);
       color: white;
-      font-size: 17px;
-      font-weight: 600;
+      font-weight: 900;
       cursor: pointer;
-    }
-
-    button:hover {
-      background: #1d4ed8;
-    }
-
-    .error-message {
-      display: none;
-      background: #fee2e2;
-      color: #b91c1c;
-      border: 1px solid #fecaca;
-      padding: 12px;
-      border-radius: 10px;
-      margin-bottom: 18px;
-      text-align: center;
       font-size: 14px;
     }
 
-    .signup {
-      margin-top: 20px;
+    .switch {
+      margin-top: 28px;
       text-align: center;
+      color: #8ea0c8;
+      font-size: 14px;
     }
 
-    .signup a {
-      color: #2563eb;
-      font-weight: 600;
-      text-decoration: none;
-    }
-
-    @media (max-width: 600px) {
-      .card {
-        padding: 28px;
+    @media (max-width: 900px) {
+      .page {
+        grid-template-columns: 1fr;
       }
 
-      .intro h1 {
-        font-size: 32px;
+      .left {
+        min-height: 420px;
+      }
+
+      .hero {
+        margin-top: 120px;
+      }
+
+      .right {
+        min-height: 560px;
       }
     }
   </style>
 </head>
 
 <body>
+  <div class="page">
 
-  <div class="card">
-
-    <div class="intro">
-      <div class="logo">IPA</div>
-      <h1>Welcome Back</h1>
-      <p>
-        Sign in to access your IPA member account.
-      </p>
-    </div>
-
-    <h2>Member Login</h2>
-
-    <form action="/login" method="POST">
-
-      {% if error_message %}
-      <div class="error-message" style="display: block;">{{ error_message }}</div>
-      {% endif %}
-
-      <div class="form-group">
-        <label>Email Address</label>
-        <input type="email" name="email" id="email" placeholder="Enter your email" value="{{ request.form.get('email', '') }}">
+    <section class="left">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <span>PixelHack</span>
       </div>
 
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" name="password" id="password" placeholder="Enter your password">
+      <div class="hero">
+        <h1>
+          Build.<br />
+          <span class="gradient-text">Compete.</span><br />
+          Win.
+        </h1>
+
+        <p>
+          Join 12,400+ developers competing in 48-hour game jams.<br />
+          Build your portfolio. Claim your prize. Ship your game.
+        </p>
+
+        <div class="stats">
+          <div>🏆 &nbsp; 284 teams competing in Spring Jam 2026</div>
+          <div>🎮 &nbsp; $24,000 in prizes awarded this year</div>
+          <div>⚡ &nbsp; Live voting and real-time leaderboards</div>
+        </div>
       </div>
 
-      <div class="checkbox">
-        <input type="checkbox">
-        <span>Remember me</span>
+      <div class="footer">© 2026 PixelHack Platform · Built for Game Devs</div>
+    </section>
+
+    <section class="right">
+      <a href="#" class="back">← Back</a>
+
+      <div class="form-box">
+        <h2>Welcome back</h2>
+        <p class="subtitle">Sign in to your PixelHack account</p>
+
+        <div class="social-row">
+          <button class="social-btn">◎ &nbsp; Google</button>
+          <button class="social-btn">⌘ &nbsp; GitHub</button>
+        </div>
+
+        <div class="divider">or continue with email</div>
+
+        <form>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" placeholder="dev@pixelhack.io" />
+          </div>
+
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" placeholder="••••••••" />
+          </div>
+
+          <div class="forgot">
+            <a href="#">Forgot password?</a>
+          </div>
+
+          <button class="main-btn" type="submit">Sign In →</button>
+        </form>
+
+        <div class="switch">
+          Don't have an account? <a href="RegisterPage.html">Sign up free</a>
+        </div>
       </div>
-
-      <div class="forgot">
-        <a href="#">Forgot Password?</a>
-      </div>
-
-      <button type="submit">Sign In</button>
-
-    </form>
-
-    <div class="signup">
-      Don't have an account?
-      <a href="/register">Create Account</a>
-    </div>
+    </section>
 
   </div>
-
 </body>
-
 </html>
