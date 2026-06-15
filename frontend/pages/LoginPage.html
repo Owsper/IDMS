@@ -296,15 +296,23 @@
 
         <div class="divider">or continue with email</div>
 
+
         <form method="POST" novalidate>
+
+        {% if error %}
+        <p style="color:rgb(207, 67, 67);">{{ error }}</p>
+        {% endif %}
+
+        <br>
+
           <div class="form-group">
             <label>Email</label>
-            <input type="email" placeholder="dev@pixelhack.io" />
+            <input type="email" name="email" placeholder="dev@pixelhack.io" />
           </div>
 
           <div class="form-group">
             <label>Password</label>
-            <input type="password" placeholder="••••••••" />
+            <input type="password" name="password" placeholder="••••••••" />
           </div>
 
           <div class="forgot">
