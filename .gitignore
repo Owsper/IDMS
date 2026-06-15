@@ -5,3 +5,4 @@ main_db.db
 main_db.db
 git_comm.txt
 database/*__pycache__
+clean.py
