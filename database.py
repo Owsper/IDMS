@@ -10,7 +10,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL,
             password_hash TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -23,6 +23,7 @@ def init_db():
 def create_user(username, email, password):
     conn = sqlite3.connect("main_db.db")
     cursor = conn.cursor()
+    
 
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     password_hash = hashed_password.decode('utf-8')
@@ -45,10 +46,24 @@ def fetch_unique_email(email):
     email_record = cursor.fetchone()
     conn.close()
 
-    if email_record is True:
-        return True
-    else:
+    if email_record is None:
         return False
+    else:
+        return True
+
+def fetch_unique_username(username):
+    conn = sqlite3.connect("main_db.db")
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT username FROM users_data WHERE username = ?", (username,))
+    username_record = cursor.fetchone()
+    conn.close()
+
+    if username_record is None:
+        return False
+    else:
+        return True
+
 
 def fetch_user_by_email(email):
     conn = sqlite3.connect("main_db.db")
