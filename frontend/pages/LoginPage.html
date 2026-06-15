@@ -3,20 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pexel Login</title>
+  <title>PixelHack Login</title>
 
   <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: "Segoe UI", Arial, sans-serif;
     }
 
     body {
       min-height: 100vh;
-      background: #0b0d14;
+      background: #05070d;
       color: #ffffff;
+      font-family: "Inter", Arial, sans-serif;
     }
 
     .page {
@@ -29,10 +31,10 @@
       position: relative;
       padding: 48px;
       background:
-        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
-        radial-gradient(circle at 55% 70%, rgba(0, 184, 255, 0.25), transparent 30%),
-        radial-gradient(circle at 45% 45%, rgba(6, 182, 212, 0.28), transparent 35%),
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        radial-gradient(circle at 55% 66%, rgba(0, 194, 230, 0.16), transparent 28%),
+        radial-gradient(circle at 45% 48%, rgba(124, 58, 255, 0.28), transparent 34%),
         #11101e;
       background-size: 40px 40px, 40px 40px, auto, auto;
       overflow: hidden;
@@ -42,16 +44,18 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      font-weight: 800;
+      font-weight: 900;
       font-size: 22px;
       letter-spacing: 0.3px;
+      color: #f3f5ff;
     }
 
     .brand-icon {
       width: 40px;
       height: 40px;
       border-radius: 11px;
-      background: #06b6d4;
+      background: linear-gradient(135deg, #7d39ff, #9a45ff);
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.35);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -65,6 +69,7 @@
     }
 
     .hero h1 {
+      font-family: "Orbitron", sans-serif;
       font-size: 44px;
       line-height: 1.35;
       font-weight: 900;
@@ -72,14 +77,14 @@
     }
 
     .gradient-text {
-      background: linear-gradient(90deg, #22d3ee, #38bdf8);
+      background: linear-gradient(90deg, #7a39ff, #4d75ff, #08c6e9);
       -webkit-background-clip: text;
       color: transparent;
     }
 
     .hero p {
       margin-top: 26px;
-      color: #8ea0c8;
+      color: #8293c4;
       font-size: 16px;
       line-height: 1.7;
     }
@@ -89,7 +94,7 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      color: #8ea0c8;
+      color: #8293c4;
       font-size: 15px;
     }
 
@@ -97,7 +102,7 @@
       position: absolute;
       bottom: 44px;
       left: 48px;
-      color: #6e7fa7;
+      color: #6f7da3;
       font-size: 13px;
     }
 
@@ -114,9 +119,13 @@
       position: absolute;
       top: 30px;
       left: 26px;
-      color: #8ea0c8;
+      color: #8293c4;
       text-decoration: none;
       font-size: 14px;
+    }
+
+    .back:hover {
+      color: #ffffff;
     }
 
     .form-box {
@@ -125,14 +134,16 @@
     }
 
     .form-box h2 {
+      font-family: "Orbitron", sans-serif;
       font-size: 28px;
       margin-bottom: 8px;
       font-weight: 900;
       letter-spacing: 0.5px;
+      color: #f3f5ff;
     }
 
     .subtitle {
-      color: #8ea0c8;
+      color: #8293c4;
       font-size: 14px;
       margin-bottom: 32px;
     }
@@ -146,12 +157,18 @@
 
     .social-btn {
       height: 42px;
-      border: 1px solid #2a3150;
+      border: 1px solid rgba(129, 72, 255, 0.35);
       background: #1a1f2d;
       color: white;
       border-radius: 7px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .social-btn:hover {
+      border-color: #8c48ff;
+      background: rgba(124, 57, 255, 0.14);
     }
 
     .divider {
@@ -168,7 +185,13 @@
       content: "";
       flex: 1;
       height: 1px;
-      background: #252b45;
+      background: rgba(129, 72, 255, 0.25);
+    }
+
+    .error-message {
+      color: rgb(207, 67, 67);
+      font-size: 14px;
+      margin-bottom: 14px;
     }
 
     .form-group {
@@ -177,7 +200,7 @@
 
     label {
       display: block;
-      color: #8ea0c8;
+      color: #8293c4;
       font-size: 14px;
       margin-bottom: 8px;
     }
@@ -186,7 +209,7 @@
       width: 100%;
       height: 42px;
       background: #1a1f2d;
-      border: 1px solid #2a3150;
+      border: 1px solid rgba(129, 72, 255, 0.35);
       color: white;
       border-radius: 7px;
       padding: 0 14px;
@@ -194,9 +217,13 @@
       outline: none;
     }
 
+    input::placeholder {
+      color: #8293c4;
+    }
+
     input:focus {
-      border-color: #06b6d4;
-      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+      border-color: #8c48ff;
+      box-shadow: 0 0 0 3px rgba(124, 57, 255, 0.18);
     }
 
     .forgot {
@@ -207,9 +234,14 @@
 
     .forgot a,
     .switch a {
-      color: #22d3ee;
+      color: #8c48ff;
       text-decoration: none;
-      font-weight: 800;
+      font-weight: 900;
+    }
+
+    .forgot a:hover,
+    .switch a:hover {
+      color: #00d7f4;
     }
 
     .main-btn {
@@ -217,17 +249,22 @@
       height: 44px;
       border: none;
       border-radius: 7px;
-      background: linear-gradient(90deg, #06b6d4, #0891b2);
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
       color: white;
       font-weight: 900;
       cursor: pointer;
       font-size: 14px;
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.28);
+    }
+
+    .main-btn:hover {
+      background: linear-gradient(135deg, #8c48ff, #9b55ff);
     }
 
     .switch {
       margin-top: 28px;
       text-align: center;
-      color: #8ea0c8;
+      color: #8293c4;
       font-size: 14px;
     }
 
@@ -248,6 +285,26 @@
         min-height: 560px;
       }
     }
+
+    @media (max-width: 600px) {
+      .left,
+      .right {
+        padding: 28px;
+      }
+
+      .hero h1 {
+        font-size: 36px;
+      }
+
+      .footer {
+        left: 28px;
+        bottom: 28px;
+      }
+
+      .social-row {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -257,7 +314,7 @@
     <section class="left">
       <div class="brand">
         <div class="brand-icon">⚡</div>
-        <span>Pexel</span>
+        <span>PixelHack</span>
       </div>
 
       <div class="hero">
@@ -290,20 +347,17 @@
         <p class="subtitle">Sign in to your PixelHack account</p>
 
         <div class="social-row">
-          <button class="social-btn">◎ &nbsp; Google</button>
-          <button class="social-btn">⌘ &nbsp; GitHub</button>
+          <button class="social-btn" type="button">◎ &nbsp; Google</button>
+          <button class="social-btn" type="button">⌘ &nbsp; GitHub</button>
         </div>
 
         <div class="divider">or continue with email</div>
 
-
         <form method="POST" novalidate>
 
-        {% if error %}
-        <p style="color:rgb(207, 67, 67);">{{ error }}</p>
-        {% endif %}
-
-        <br>
+          {% if error %}
+            <p class="error-message">{{ error }}</p>
+          {% endif %}
 
           <div class="form-group">
             <label>Email</label>
