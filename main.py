@@ -4,7 +4,7 @@ from database import init_db, create_user
 app = Flask(__name__, template_folder="frontend/pages")
 
 @app.route("/", methods=["GET", "POST"])
-def login_page():
+def register_user():
     error = None
 
     if request.method == "POST":
@@ -30,6 +30,8 @@ def login_page():
             return render_template("LoginPage.html")
 
     return render_template("RegisterPage.html", error=error)
+
+def 
 
 if __name__ == "__main__":
     app.run(debug=True)
