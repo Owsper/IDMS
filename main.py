@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request
-from database import init_db, create_user
+from database import init_db, create_user, user_login, fetch_unique_email, fetch_unique_username
 
 app = Flask(__name__, template_folder="frontend/pages")
 
@@ -13,8 +13,6 @@ def register_user():
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
 
-        admin_username = "owsper", "christos", "arda", "jira", "salami"
-        admin_pass = "owsper", "christos", "arda", "jira", "salami"
 
         if not username or not email or not password or not confirm_password:
             error = "All fields are required."
@@ -22,16 +20,42 @@ def register_user():
         elif password != confirm_password:
             error = "Passwords do not match."
         
-        elif username in admin_username and password in admin_pass:
-            return render_template("DashboardPage.html")
         
         else: 
-            create_user(username, email, password)
-            return render_template("LoginPage.html")
+            if fetch_unique_username(username):
+                error = "Username already exists."
+            elif fetch_unique_email(email):
+                error = "Email already exists."
+            else:
+                create_user(username, email, password)
+                return render_template("LoginPage.html")
+    
+
 
     return render_template("RegisterPage.html", error=error)
 
-def 
+def login_user():
+    error = None
+
+    if request.method == "POST":
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        if not email or not password:
+            error = "All fields are required."
+        
+        elif not user_login(email, password):
+            error = "Invalid email or password."
+        
+        else:
+            return render_template("DashboardPage.html")
+
+
+
+
+
+
+    return render_template("LoginPage.html", error=error)
 
 if __name__ == "__main__":
     app.run(debug=True)
