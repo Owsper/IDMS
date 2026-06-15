@@ -1,7 +1,12 @@
 from flask import Flask, render_template, request, redirect, url_for
 from database import init_db, create_user, user_login, fetch_unique_email, fetch_unique_username
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+import os
 
 app = Flask(__name__, template_folder="frontend/pages")
+
+init_db() if not os.path.exists("main_db.db") else None
 
 @app.route("/")
 def home():
@@ -65,6 +70,8 @@ def login():
             return render_template("MeetingPage.html")
 
     return render_template("LoginPage.html", error=error)
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
