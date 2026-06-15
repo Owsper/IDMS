@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelHack</title>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 45% 42%, rgba(120, 48, 255, 0.22), transparent 30%),
+        radial-gradient(circle at 28% 42%, rgba(0, 220, 255, 0.12), transparent 24%),
+        #05070d;
+      color: #f2f4ff;
+      font-family: "Inter", sans-serif;
+    }
+
+    .navbar {
+      height: 73px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(5, 7, 13, 0.95);
+      border-bottom: 1px solid rgba(133, 82, 255, 0.18);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .logo-box {
+      width: 33px;
+      height: 33px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #7b35ff, #a44cff);
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.35);
+    }
+
+    .logo-box svg {
+      width: 19px;
+      height: 19px;
+      fill: none;
+      stroke: white;
+      stroke-width: 2.4;
+      stroke-linejoin: round;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      color: #7480a4;
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: #ffffff;
+    }
+
+    .nav-buttons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .login-btn,
+    .join-btn {
+      padding: 12px 18px;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .login-btn {
+      color: white;
+      border: 1px solid rgba(129, 72, 255, 0.35);
+      background: transparent;
+    }
+
+    .join-btn {
+      color: white;
+      background: linear-gradient(135deg, #7d35ff, #9747ff);
+    }
+
+    .hero {
+      min-height: calc(100vh - 73px);
+      padding: 58px 20px 40px;
+      text-align: center;
+    }
+
+    .badge {
+      width: fit-content;
+      margin: 0 auto 32px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      color: #8a52ff;
+      font-size: 14px;
+      background: rgba(116, 55, 255, 0.18);
+      border: 1px solid rgba(146, 75, 255, 0.55);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00a6c8;
+    }
+
+    h1 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      line-height: 1.15;
+      font-family: "Orbitron", sans-serif;
+    }
+
+    h1 span {
+      font-size: clamp(42px, 5vw, 68px);
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: #eef1ff;
+    }
+
+    h1 strong {
+      font-size: clamp(43px, 5.6vw, 68px);
+      font-weight: 900;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #7a39ff, #4c73ff, #06c5e6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-text {
+      max-width: 680px;
+      margin: 36px auto 0;
+      color: #8293c4;
+      font-size: 18px;
+      line-height: 1.65;
+    }
+
+    .hero-buttons {
+      margin-top: 40px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      min-width: 200px;
+      height: 54px;
+      border-radius: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .primary-btn {
+      color: white;
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.28);
+    }
+
+    .secondary-btn {
+      color: #00d7f4;
+      border: 1px solid rgba(0, 203, 232, 0.45);
+      background: rgba(0, 180, 220, 0.06);
+    }
+
+    .play-icon {
+      font-size: 21px;
+    }
+
+    .stats {
+      margin-top: 52px;
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+    }
+
+    .stats h3 {
+      font-size: 22px;
+      font-weight: 900;
+      color: white;
+    }
+
+    .stats p {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #7d8bb8;
+    }
+
+    @media (max-width: 900px) {
+      .nav-links {
+        display: none;
+      }
+
+      .stats {
+        gap: 28px;
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .navbar {
+        padding: 0 16px;
+      }
+
+      .logo span {
+        font-size: 17px;
+      }
+
+      .nav-buttons {
+        gap: 8px;
+      }
+
+      .login-btn,
+      .join-btn {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      .hero {
+        padding-top: 45px;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .primary-btn,
+      .secondary-btn {
+        width: 100%;
+        max-width: 280px;
+      }
+
+      .stats {
+        flex-direction: column;
+        gap: 22px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="navbar">
+    <div class="logo">
+      <div class="logo-box">
+        <svg viewBox="0 0 24 24">
+          <path d="M13 2L4 14h7l-1 8 10-13h-7V2z" />
+        </svg>
+      </div>
+      <span>PixelHack</span>
+    </div>
+
+    <nav class="nav-links">
+      <a href="#">Features</a>
+      <a href="#">Games</a>
+      <a href="#">Events</a>
+      <a href="#">Leaderboard</a>
+    </nav>
+
+    <div class="nav-buttons">
+      <a href="#" class="login-btn">Log In</a>
+      <a href="#" class="join-btn">Join Free</a>
+    </div>
+  </header>
+
+  <main class="hero">
+    <div class="badge">
+      <span class="dot"></span>
+      Spring Jam 2026 is LIVE — 3 days left to submit
+    </div>
+
+    <h1>
+      <span>Build. Compete. Win.</span>
+      <strong>Join the Ultimate Game Jam</strong>
+      <strong>Platform.</strong>
+    </h1>
+
+    <p class="hero-text">
+      PixelHack brings together developers, designers, and artists to compete in
+      48-hour game jams. Track your submissions, vote on favorites, and claim
+      your place on the global leaderboard.
+    </p>
+
+    <div class="hero-buttons">
+      <a href="#" class="primary-btn">
+        <span class="play-icon">▷</span>
+        Join Game Jam
+      </a>
+
+      <a href="#" class="secondary-btn">
+        Explore Projects
+        <span>›</span>
+      </a>
+    </div>
+
+    <section class="stats">
+      <div>
+        <h3>12,400+</h3>
+        <p>Active Developers</p>
+      </div>
+
+      <div>
+        <h3>847</h3>
+        <p>Games Submitted</p>
+      </div>
+
+      <div>
+        <h3>38</h3>
+        <p>Jams Hosted</p>
+      </div>
+
+      <div>
+        <h3>$24,000</h3>
+        <p>Prize Pool Awarded</p>
+      </div>
+    </section>
+  </main>
+
+</body>
+</html>
