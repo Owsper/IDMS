@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PixelHack</title>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      background: #05070d;
+      color: #f2f4ff;
+      font-family: "Inter", sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 48% 18%, rgba(123, 57, 255, 0.22), transparent 26%),
+        radial-gradient(circle at 26% 28%, rgba(0, 220, 255, 0.10), transparent 22%),
+        #05070d;
+    }
+
+    .navbar {
+      height: 70px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(5, 7, 13, 0.96);
+      border-bottom: 1px solid rgba(130, 72, 255, 0.22);
+      position: sticky;
+      top: 0;
+      z-index: 99;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 20px;
+      font-weight: 900;
+      color: white;
+      text-decoration: none;
+    }
+
+    .logo-box {
+      width: 33px;
+      height: 33px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #7d38ff, #9f45ff);
+      box-shadow: 0 0 22px rgba(124, 58, 255, 0.35);
+    }
+
+    .logo-box svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: white;
+      stroke-width: 2.5;
+      stroke-linejoin: round;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .nav-links a {
+      color: #7f8aad;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .nav-links a:hover {
+      color: white;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .login-btn,
+    .join-btn {
+      padding: 11px 18px;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .login-btn {
+      color: white;
+      border: 1px solid rgba(135, 75, 255, 0.45);
+      background: transparent;
+    }
+
+    .join-btn {
+      color: white;
+      background: linear-gradient(135deg, #7d39ff, #9a45ff);
+    }
+
+    .hero {
+      min-height: calc(100vh - 70px);
+      padding: 58px 20px 70px;
+      text-align: center;
+    }
+
+    .badge {
+      width: fit-content;
+      margin: 0 auto 32px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      color: #8d55ff;
+      font-size: 14px;
+      background: rgba(116, 55, 255, 0.18);
+      border: 1px solid rgba(146, 75, 255, 0.55);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00c8e8;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: "Orbitron", sans-serif;
+    }
+
+    h1 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      line-height: 1.15;
+    }
+
+    h1 span {
+      font-size: clamp(42px, 5vw, 68px);
+      font-weight: 900;
+      color: #eef1ff;
+      letter-spacing: 1px;
+    }
+
+    h1 strong {
+      font-size: clamp(43px, 5.6vw, 68px);
+      font-weight: 900;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #7a39ff, #4d75ff, #08c6e9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-text {
+      max-width: 680px;
+      margin: 36px auto 0;
+      color: #8293c4;
+      font-size: 18px;
+      line-height: 1.65;
+    }
+
+    .hero-buttons {
+      margin-top: 40px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      min-width: 200px;
+      height: 54px;
+      border-radius: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .primary-btn {
+      color: white;
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.28);
+    }
+
+    .secondary-btn {
+      color: #00d7f4;
+      border: 1px solid rgba(0, 203, 232, 0.45);
+      background: rgba(0, 180, 220, 0.06);
+    }
+
+    .stats {
+      margin-top: 52px;
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+    }
+
+    .stats h3 {
+      font-size: 22px;
+      color: white;
+    }
+
+    .stats p {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #7d8bb8;
+    }
+
+    .section {
+      max-width: 1150px;
+      margin: 0 auto;
+      padding: 70px 20px;
+    }
+
+    .timer-card {
+      max-width: 675px;
+      margin: 0 auto 62px;
+      padding: 34px 24px;
+      text-align: center;
+      border-radius: 15px;
+      background: rgba(14, 18, 27, 0.82);
+      border: 1px solid rgba(130, 72, 255, 0.35);
+    }
+
+    .timer-label {
+      color: #00d7f4;
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .deadline {
+      margin-top: 12px;
+      color: white;
+      font-size: 18px;
+      font-weight: 900;
+      font-family: "Orbitron", sans-serif;
+    }
+
+    .countdown {
+      margin-top: 28px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .time-box {
+      width: 65px;
+      height: 64px;
+      border-radius: 10px;
+      background: rgba(70, 35, 125, 0.45);
+      border: 1px solid rgba(139, 74, 255, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Orbitron", sans-serif;
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .time-name {
+      margin-top: 8px;
+      color: #7d8bb8;
+      font-size: 11px;
+    }
+
+    .theme {
+      margin-top: 20px;
+      color: #8293c4;
+      font-size: 14px;
+    }
+
+    .theme span {
+      color: #8c48ff;
+      font-weight: 800;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-title h2 {
+      font-size: 32px;
+      color: white;
+    }
+
+    .section-title p {
+      margin-top: 14px;
+      color: #8293c4;
+      font-size: 16px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+
+    .feature-card {
+      min-height: 230px;
+      padding: 26px 24px;
+      border-radius: 10px;
+      background: rgba(14, 18, 27, 0.78);
+      border: 1px solid rgba(128, 71, 255, 0.22);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #00d7f4;
+      font-size: 22px;
+    }
+
+    .feature-card:nth-child(1) .feature-icon {
+      color: #8c48ff;
+    }
+
+    .feature-card:nth-child(4) .feature-icon {
+      color: #22e69a;
+      background: rgba(34, 230, 154, 0.14);
+    }
+
+    .feature-card h3 {
+      font-size: 14px;
+      margin-bottom: 14px;
+      color: white;
+    }
+
+    .feature-card p {
+      color: #8293c4;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .submissions-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      margin-bottom: 40px;
+    }
+
+    .submissions-header h2 {
+      font-size: 32px;
+    }
+
+    .submissions-header p {
+      margin-top: 10px;
+      color: #8293c4;
+    }
+
+    .view-all {
+      color: #8c48ff;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .game-card {
+      overflow: hidden;
+      border-radius: 10px;
+      background: rgba(14, 18, 27, 0.86);
+      border: 1px solid rgba(128, 71, 255, 0.22);
+    }
+
+    .game-image {
+      height: 178px;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .arcade {
+      background:
+        linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.55)),
+        radial-gradient(circle at 60% 12%, #00e5ff, transparent 18%),
+        radial-gradient(circle at 30% 52%, #7d39ff, transparent 15%),
+        linear-gradient(135deg, #041a24, #0c4060 40%, #10101d 70%, #111);
+    }
+
+    .retro {
+      background:
+        linear-gradient(rgba(0,0,0,0.08), rgba(0,0,0,0.45)),
+        radial-gradient(circle at 30% 35%, #00d7f4, transparent 22%),
+        radial-gradient(circle at 72% 20%, #ff3fc8, transparent 30%),
+        linear-gradient(135deg, #151023, #3b174d, #07101f);
+    }
+
+    .matrix {
+      background:
+        linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.5)),
+        repeating-linear-gradient(90deg, rgba(0,255,89,0.35) 0 2px, transparent 2px 16px),
+        linear-gradient(135deg, #00180b, #06391c, #05070d);
+    }
+
+    .rank-badge,
+    .tag-badge {
+      position: absolute;
+      top: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      color: white;
+    }
+
+    .rank-badge {
+      left: 14px;
+      background: #f2aa18;
+    }
+
+    .tag-badge {
+      right: 14px;
+      background: linear-gradient(135deg, #7d39ff, #9b45ff);
+    }
+
+    .game-body {
+      padding: 18px 16px 16px;
+    }
+
+    .game-body h3 {
+      font-size: 14px;
+      color: white;
+      margin-bottom: 12px;
+    }
+
+    .game-body p {
+      color: #8293c4;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .game-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .votes {
+      color: #00d7f4;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .vote-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(140, 72, 255, 0.55);
+      color: #8c48ff;
+      text-decoration: none;
+      background: rgba(124, 57, 255, 0.2);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .cta-section {
+      padding: 70px 20px 80px;
+    }
+
+    .cta-card {
+      max-width: 675px;
+      margin: 0 auto;
+      padding: 54px 30px 50px;
+      border-radius: 15px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 85% 20%, rgba(124, 57, 255, 0.23), transparent 20%),
+        radial-gradient(circle at 10% 85%, rgba(0, 217, 244, 0.12), transparent 22%),
+        linear-gradient(135deg, rgba(44, 22, 84, 0.92), rgba(8, 27, 35, 0.92));
+      border: 1px solid rgba(140, 72, 255, 0.45);
+    }
+
+    .shield {
+      font-size: 28px;
+      color: #8c48ff;
+      margin-bottom: 18px;
+    }
+
+    .cta-card h2 {
+      font-size: 32px;
+      color: white;
+    }
+
+    .cta-card p {
+      max-width: 520px;
+      margin: 18px auto 32px;
+      color: #8293c4;
+      line-height: 1.6;
+    }
+
+    .cta-btn {
+      min-width: 257px;
+      height: 58px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      text-decoration: none;
+      font-weight: 900;
+      font-size: 18px;
+    }
+
+    footer {
+      padding: 32px 20px 24px;
+      border-top: 1px solid rgba(128, 71, 255, 0.22);
+      text-align: center;
+      color: #8293c4;
+    }
+
+    .footer-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: white;
+      font-weight: 900;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .footer-logo span {
+      color: #8c48ff;
+      font-size: 17px;
+    }
+
+    @media (max-width: 950px) {
+      .nav-links {
+        display: none;
+      }
+
+      .feature-grid,
+      .game-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stats {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .navbar {
+        padding: 0 15px;
+      }
+
+      .logo {
+        font-size: 17px;
+      }
+
+      .login-btn,
+      .join-btn {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      .hero-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .primary-btn,
+      .secondary-btn {
+        width: 100%;
+        max-width: 280px;
+      }
+
+      .stats,
+      .countdown {
+        flex-wrap: wrap;
+      }
+
+      .feature-grid,
+      .game-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .submissions-header {
+        flex-direction: column;
+        align-items: start;
+        gap: 16px;
+      }
+
+      .section {
+        padding: 55px 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="navbar">
+    <a href="#" class="logo">
+      <div class="logo-box">
+        <svg viewBox="0 0 24 24">
+          <path d="M13 2L4 14h7l-1 8 10-13h-7V2z" />
+        </svg>
+      </div>
+      PixelHack
+    </a>
+
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#games">Games</a>
+      <a href="#events">Events</a>
+      <a href="#leaderboard">Leaderboard</a>
+    </nav>
+
+    <div class="nav-buttons">
+      <a href="#" class="login-btn">Log In</a>
+      <a href="#" class="join-btn">Join Free</a>
+    </div>
+  </header>
+
+  <main class="hero">
+    <div class="badge">
+      <span class="dot"></span>
+      Spring Jam 2026 is LIVE — 3 days left to submit
+    </div>
+
+    <h1>
+      <span>Build. Compete. Win.</span>
+      <strong>Join the Ultimate Game Jam</strong>
+      <strong>Platform.</strong>
+    </h1>
+
+    <p class="hero-text">
+      PixelHack brings together developers, designers, and artists to compete in
+      48-hour game jams. Track your submissions, vote on favorites, and claim
+      your place on the global leaderboard.
+    </p>
+
+    <div class="hero-buttons">
+      <a href="#" class="primary-btn">▷ Join Game Jam</a>
+      <a href="#" class="secondary-btn">Explore Projects ›</a>
+    </div>
+
+    <section class="stats">
+      <div>
+        <h3>12,400+</h3>
+        <p>Active Developers</p>
+      </div>
+
+      <div>
+        <h3>847</h3>
+        <p>Games Submitted</p>
+      </div>
+
+      <div>
+        <h3>38</h3>
+        <p>Jams Hosted</p>
+      </div>
+
+      <div>
+        <h3>$24,000</h3>
+        <p>Prize Pool Awarded</p>
+      </div>
+    </section>
+  </main>
+
+  <section class="section" id="events">
+    <div class="timer-card">
+      <p class="timer-label">◷ Spring Jam 2026 Ends In</p>
+      <p class="deadline">Submission deadline: June 17, 2026 at 23:59 UTC</p>
+
+      <div class="countdown">
+        <div>
+          <div class="time-box">03</div>
+          <div class="time-name">DAYS</div>
+        </div>
+
+        <div>
+          <div class="time-box">14</div>
+          <div class="time-name">HRS</div>
+        </div>
+
+        <div>
+          <div class="time-box">22</div>
+          <div class="time-name">MIN</div>
+        </div>
+
+        <div>
+          <div class="time-box">41</div>
+          <div class="time-name">SEC</div>
+        </div>
+      </div>
+
+      <p class="theme">
+        Theme: <span>Parallel Dimensions</span> — 284 teams registered
+      </p>
+    </div>
+
+    <div class="section-title" id="features">
+      <h2>Everything You Need to Compete</h2>
+      <p>A complete platform for hosting, participating, and winning game jams.</p>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">♙</div>
+        <h3>Register & Join Teams</h3>
+        <p>
+          Form squads of up to 5 developers, designers, and artists.
+          Find your perfect team using skill tags.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">↥</div>
+        <h3>Submit Games</h3>
+        <p>
+          Upload builds directly or link itch.io/GitHub.
+          Auto-screenshot capture for previews.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">☑</div>
+        <h3>Vote for Winners</h3>
+        <p>
+          Community voting with weighted categories:
+          Design, Gameplay, Innovation, and Theme adherence.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">♕</div>
+        <h3>Compete in Real-Time</h3>
+        <p>
+          Live leaderboards update every 30 seconds.
+          Watch rankings shift as votes pour in.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="games">
+    <div class="submissions-header">
+      <div>
+        <h2>Featured Submissions</h2>
+        <p>Top games from the current jam</p>
+      </div>
+
+      <a href="#" class="view-all">View all →</a>
+    </div>
+
+    <div class="game-grid">
+      <div class="game-card">
+        <div class="game-image arcade">
+          <span class="rank-badge">🏆 #1</span>
+          <span class="tag-badge">Racing</span>
+        </div>
+
+        <div class="game-body">
+          <h3>Neon Drift</h3>
+          <p>by Team Velocity</p>
+
+          <div class="game-footer">
+            <span class="votes">★ 482 votes</span>
+            <a href="#" class="vote-btn">Vote</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-image retro">
+          <span class="tag-badge">Puzzle</span>
+        </div>
+
+        <div class="game-body">
+          <h3>Quantum Break</h3>
+          <p>by Pixel Forge</p>
+
+          <div class="game-footer">
+            <span class="votes">★ 371 votes</span>
+            <a href="#" class="vote-btn">Vote</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-image matrix">
+          <span class="tag-badge">Stealth</span>
+        </div>
+
+        <div class="game-body">
+          <h3>Shadow Protocol</h3>
+          <p>by Dark Matter Dev</p>
+
+          <div class="game-footer">
+            <span class="votes">★ 318 votes</span>
+            <a href="#" class="vote-btn">Vote</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section" id="leaderboard">
+    <div class="cta-card">
+      <div class="shield">♢</div>
+      <h2>Ready to Ship Your Game?</h2>
+      <p>
+        Join 12,400+ developers competing in the world's most active
+        game jam community.
+      </p>
+
+      <a href="#" class="cta-btn">Start Building Today →</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-logo">
+      <span>↯</span>
+      PixelHack
+    </div>
+
+    <p>© 2026 PixelHack Platform. Built for game developers, by game developers.</p>
+  </footer>
+
+</body>
+</html>
