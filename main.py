@@ -10,7 +10,7 @@ init_db() if not os.path.exists("main_db.db") else None
 
 @app.route("/")
 def home():
-    return redirect(url_for("register"))
+    return render_template("HomePage.html")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
