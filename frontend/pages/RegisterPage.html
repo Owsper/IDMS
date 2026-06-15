@@ -290,7 +290,13 @@
 
         <div class="divider">or continue with email</div>
 
-        <form>
+        {% if error %}
+        <p style="color:rgb(207, 67, 67);">{{ error }}</p>
+        {% endif %}
+
+        <br>
+
+        <form method="POST" novalidate>
           <div class="form-group">
             <label>Username</label>
             <input type="text" name="username" placeholder="cool_gamedev" />
