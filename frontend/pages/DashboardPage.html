@@ -3,113 +3,451 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPA Dashboard</title>
+  <title>PixelHack Admin Dashboard</title>
 
   <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: "Segoe UI", Arial, sans-serif;
     }
 
     body {
       min-height: 100vh;
-      background: #f4f7fb;
-      color: #111827;
-      padding: 24px;
+      background:
+        radial-gradient(circle at 35% 10%, rgba(124, 57, 255, 0.18), transparent 30%),
+        radial-gradient(circle at 85% 25%, rgba(0, 215, 244, 0.08), transparent 24%),
+        #05070d;
+      color: #f3f5ff;
+      font-family: "Inter", Arial, sans-serif;
     }
 
-    .dashboard {
-      max-width: 1200px;
-      margin: auto;
+    h1,
+    h2,
+    h3 {
+      font-family: "Orbitron", sans-serif;
     }
 
-    .topbar {
-      background: white;
-      padding: 24px;
-      border-radius: 18px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+    .layout {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 228px 1fr;
+    }
+
+    /* SIDEBAR */
+
+    .sidebar {
+      background: rgba(7, 9, 18, 0.95);
+      border-right: 1px solid rgba(124, 57, 255, 0.32);
       display: flex;
+      flex-direction: column;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 22px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
     }
 
     .logo {
-      width: 58px;
-      height: 58px;
-      background: #2563eb;
-      color: white;
-      border-radius: 50%;
+      height: 78px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-weight: 700;
+      gap: 12px;
+      padding: 0 18px;
+      border-bottom: 1px solid rgba(124, 57, 255, 0.22);
     }
 
-    h1 {
-      font-size: 32px;
-      color: #111827;
-    }
-
-    .topbar p {
-      color: #6b7280;
-      margin-top: 4px;
-    }
-
-    .admin {
-      color: #2563eb;
-      font-weight: 700;
-    }
-
-    .cards {
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #7d39ff, #9747ff);
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 22px;
+      place-items: center;
+      font-size: 22px;
+      box-shadow: 0 0 28px rgba(124, 57, 255, 0.45);
     }
 
-    .card {
-      background: white;
-      padding: 22px;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+    .logo span {
+      font-size: 20px;
+      font-weight: 900;
     }
 
-    .card h3 {
-      font-size: 15px;
-      color: #6b7280;
-      margin-bottom: 8px;
+    .menu {
+      padding: 22px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .card p {
-      font-size: 30px;
-      font-weight: 800;
+    .menu a {
+      height: 42px;
+      padding: 0 14px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #8fa0cc;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .menu a:hover {
+      background: rgba(124, 57, 255, 0.12);
+      color: white;
+    }
+
+    .menu a.active {
+      background: linear-gradient(135deg, rgba(124, 57, 255, 0.38), rgba(124, 57, 255, 0.16));
+      color: white;
+      border: 1px solid rgba(140, 72, 255, 0.7);
+      box-shadow: 0 0 18px rgba(124, 57, 255, 0.22);
+    }
+
+    .admin-box {
+      padding: 16px;
+      border-top: 1px solid rgba(124, 57, 255, 0.22);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #00d7f4, #7d39ff);
+      color: white;
+      font-weight: 900;
+    }
+
+    .admin-box strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .admin-box a {
+      color: #8293c4;
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    .admin-box a:hover {
+      color: #8c48ff;
+    }
+
+    /* MAIN */
+
+    .main {
+      min-width: 0;
+    }
+
+    .topbar {
+      height: 67px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(7, 9, 18, 0.92);
+      border-bottom: 1px solid rgba(124, 57, 255, 0.28);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .topbar h1 {
+      font-size: 20px;
+      letter-spacing: 0.4px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .search {
+      width: 255px;
+      height: 38px;
+      border-radius: 14px;
+      border: 1px solid rgba(124, 57, 255, 0.32);
+      background: #111827;
+      color: white;
+      padding: 0 14px;
+      outline: none;
+    }
+
+    .search:focus {
+      border-color: #8c48ff;
+      box-shadow: 0 0 0 3px rgba(124, 57, 255, 0.18);
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(124, 57, 255, 0.32);
+      background: #111827;
+      color: #8293c4;
+      cursor: pointer;
+    }
+
+    .create-btn {
+      height: 38px;
+      padding: 0 18px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #7d39ff, #9747ff);
+      color: white;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 24px rgba(124, 57, 255, 0.28);
     }
 
     .content {
+      padding: 24px;
       display: grid;
-      grid-template-columns: 1.4fr 1fr;
+      grid-template-columns: 1fr 258px;
+      gap: 24px;
+    }
+
+    .left-content {
+      min-width: 0;
+    }
+
+    /* CARDS */
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
       gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      min-height: 174px;
+      padding: 22px;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at 85% 20%, rgba(124, 57, 255, 0.18), transparent 35%),
+        #0f1420;
+      border: 1px solid rgba(124, 57, 255, 0.45);
+      box-shadow: 0 0 24px rgba(124, 57, 255, 0.08);
+    }
+
+    .stat-card.cyan {
+      border-color: rgba(0, 215, 244, 0.5);
+      background:
+        radial-gradient(circle at 85% 20%, rgba(0, 215, 244, 0.16), transparent 35%),
+        #0f1420;
+    }
+
+    .stat-card.gold {
+      border-color: rgba(245, 158, 11, 0.5);
+      background:
+        radial-gradient(circle at 85% 20%, rgba(245, 158, 11, 0.16), transparent 35%),
+        #0f1420;
+    }
+
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      color: #8c48ff;
+      border: 1px solid rgba(140, 72, 255, 0.55);
+      background: rgba(124, 57, 255, 0.16);
+      margin-bottom: 22px;
+      font-size: 20px;
+    }
+
+    .stat-card.cyan .stat-icon {
+      color: #00d7f4;
+      border-color: rgba(0, 215, 244, 0.55);
+      background: rgba(0, 215, 244, 0.12);
+    }
+
+    .stat-card.gold .stat-icon {
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.55);
+      background: rgba(245, 158, 11, 0.13);
+    }
+
+    .stat-card h2 {
+      font-size: 27px;
+      margin-bottom: 6px;
+    }
+
+    .stat-card p {
+      color: #8293c4;
+      font-size: 13px;
+    }
+
+    .trend {
+      margin-top: 12px;
+      color: #00e39f;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    /* PANELS */
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
     .panel {
-      background: white;
-      padding: 24px;
+      background: #0f1420;
+      border: 1px solid rgba(124, 57, 255, 0.28);
       border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+      padding: 20px;
     }
 
     .panel h2 {
-      font-size: 24px;
-      margin-bottom: 16px;
+      font-size: 17px;
+      margin-bottom: 18px;
+    }
+
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      color: #8293c4;
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+
+    .purple {
+      background: #8c48ff;
+    }
+
+    .cyan-dot {
+      background: #00d7f4;
+    }
+
+    .chart {
+      width: 100%;
+      height: 200px;
+    }
+
+    .event-label {
+      color: #00d7f4;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .event-title {
+      font-family: "Orbitron", sans-serif;
+      font-size: 19px;
+      font-weight: 900;
+      margin-bottom: 5px;
+    }
+
+    .event-meta {
+      color: #8293c4;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .countdown {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .time-box {
+      text-align: center;
+    }
+
+    .time-box strong {
+      height: 58px;
+      border-radius: 14px;
+      border: 1px solid rgba(140, 72, 255, 0.7);
+      background: rgba(124, 57, 255, 0.18);
+      display: grid;
+      place-items: center;
+      font-family: "Orbitron", sans-serif;
+      font-size: 22px;
+    }
+
+    .time-box span {
+      display: block;
+      margin-top: 8px;
+      color: #8293c4;
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+
+    .participants {
+      margin-top: 18px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(0, 215, 244, 0.1);
+      border: 1px solid rgba(0, 215, 244, 0.35);
+      color: #8293c4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-size: 13px;
+    }
+
+    .participants strong {
+      color: #00d7f4;
+      font-family: "Orbitron", sans-serif;
+    }
+
+    /* TABLE */
+
+    .table-panel {
+      background: #0f1420;
+      border: 1px solid rgba(124, 57, 255, 0.28);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .table-title {
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid rgba(124, 57, 255, 0.22);
+    }
+
+    .table-title h2 {
+      font-size: 17px;
+    }
+
+    .table-title a {
+      color: #8c48ff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
     }
 
     table {
@@ -117,73 +455,307 @@
       border-collapse: collapse;
     }
 
-    th, td {
+    th,
+    td {
+      padding: 18px 20px;
       text-align: left;
-      padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid rgba(124, 57, 255, 0.12);
+      font-size: 14px;
     }
 
     th {
-      color: #6b7280;
-      font-size: 14px;
+      color: #8fa0cc;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    td {
+      color: #d8def5;
+    }
+
+    .game-name {
+      color: white;
+      font-weight: 900;
+    }
+
+    .muted {
+      color: #8293c4;
+    }
+
+    .category {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: #c7b7ff;
+      background: rgba(124, 57, 255, 0.2);
+      border: 1px solid rgba(124, 57, 255, 0.5);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .votes {
+      color: white;
+      font-weight: 900;
     }
 
     .status {
-      color: #2563eb;
-      font-weight: 700;
+      display: inline-block;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
     }
 
-    .activity {
-      list-style: none;
+    .approved {
+      color: #00e39f;
+      background: rgba(0, 227, 159, 0.12);
     }
 
-    .activity li {
-      padding: 12px 0;
-      border-bottom: 1px solid #e5e7eb;
+    .pending {
+      color: #f6b931;
+      background: rgba(246, 185, 49, 0.14);
     }
 
-    .activity span {
-      display: block;
-      color: #6b7280;
+    .flagged {
+      color: #ff4b6e;
+      background: rgba(255, 75, 110, 0.13);
+    }
+
+    .action-row {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      padding: 7px 11px;
+      border-radius: 9px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid transparent;
+    }
+
+    .view {
+      color: #c7b7ff;
+      background: rgba(124, 57, 255, 0.18);
+      border-color: rgba(124, 57, 255, 0.45);
+    }
+
+    .approve {
+      color: #00e39f;
+      background: rgba(0, 227, 159, 0.12);
+      border-color: rgba(0, 227, 159, 0.35);
+    }
+
+    .reject {
+      color: #ff4b6e;
+      background: rgba(255, 75, 110, 0.11);
+      border-color: rgba(255, 75, 110, 0.35);
+    }
+
+    /* RIGHT SIDE */
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .side-card {
+      background: #0f1420;
+      border: 1px solid rgba(124, 57, 255, 0.28);
+      border-radius: 16px;
+      padding: 18px 14px;
+    }
+
+    .side-card h3 {
       font-size: 14px;
-      margin-top: 3px;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
     }
 
-    @media (max-width: 900px) {
-      .cards {
+    .alert-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .alert {
+      padding: 13px;
+      border-radius: 14px;
+      font-size: 13px;
+      color: #d8def5;
+      line-height: 1.35;
+    }
+
+    .alert.red {
+      background: rgba(255, 75, 110, 0.13);
+      border: 1px solid rgba(255, 75, 110, 0.28);
+    }
+
+    .alert.blue {
+      background: rgba(0, 215, 244, 0.12);
+      border: 1px solid rgba(0, 215, 244, 0.28);
+    }
+
+    .alert.gold {
+      background: rgba(245, 158, 11, 0.13);
+      border: 1px solid rgba(245, 158, 11, 0.28);
+    }
+
+    .alert.green {
+      background: rgba(0, 227, 159, 0.11);
+      border: 1px solid rgba(0, 227, 159, 0.25);
+    }
+
+    .quick-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .quick-actions a {
+      height: 38px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .qa-primary {
+      color: white;
+      background: linear-gradient(135deg, #7d39ff, #9747ff);
+    }
+
+    .qa-muted {
+      color: #8293c4;
+      background: #1a1f2d;
+      border: 1px solid rgba(124, 57, 255, 0.2);
+    }
+
+    .qa-red {
+      color: #ff4b6e;
+      border: 1px solid rgba(255, 75, 110, 0.45);
+      background: rgba(255, 75, 110, 0.06);
+    }
+
+    .qa-gold {
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      background: rgba(245, 158, 11, 0.06);
+    }
+
+    .health-row {
+      display: flex;
+      justify-content: space-between;
+      color: #8293c4;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .health-row strong {
+      color: #00d7f4;
+    }
+
+    .bar {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #7d39ff, #00d7f4);
+      margin-top: 12px;
+    }
+
+    /* RESPONSIVE */
+
+    @media (max-width: 1180px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+
+      .side-panel {
+        grid-template-columns: repeat(3, 1fr);
+        display: grid;
+      }
+    }
+
+    @media (max-width: 950px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .menu {
+        flex-direction: row;
+        overflow-x: auto;
+      }
+
+      .menu a {
+        min-width: fit-content;
+      }
+
+      .admin-box {
+        display: none;
+      }
+
+      .stats-grid {
         grid-template-columns: repeat(2, 1fr);
       }
 
-      .content {
+      .panel-grid,
+      .side-panel {
         grid-template-columns: 1fr;
       }
 
       .topbar {
         flex-direction: column;
         align-items: flex-start;
-        gap: 12px;
-      }
-    }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 16px;
-      }
-
-      .cards {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      h1 {
-        font-size: 26px;
-      }
-
-      .card {
+        height: auto;
+        gap: 14px;
         padding: 18px;
       }
 
-      .card p {
-        font-size: 24px;
+      .top-actions {
+        width: 100%;
+        flex-wrap: wrap;
+      }
+
+      .search {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .content {
+        padding: 16px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      th,
+      td {
+        padding: 14px 12px;
+      }
+
+      table {
+        min-width: 820px;
+      }
+
+      .table-panel {
+        overflow-x: auto;
+      }
+
+      .countdown {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
   </style>
@@ -191,88 +763,297 @@
 
 <body>
 
-  <div class="dashboard">
+  <div class="layout">
 
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">IPA</div>
+    <aside class="sidebar">
+      <div>
+        <div class="logo">
+          <div class="logo-icon">⚡</div>
+          <span>PixelHack</span>
+        </div>
+
+        <nav class="menu">
+          <a href="#" class="active">▦ Dashboard</a>
+          <a href="#">♙ Users</a>
+          <a href="#">♧ Teams</a>
+          <a href="#">▱ Submissions</a>
+          <a href="#">☷ Events</a>
+          <a href="#">☆ Voting</a>
+          <a href="#">▥ Reports</a>
+          <a href="#">⚙ Settings</a>
+        </nav>
+      </div>
+
+      <div class="admin-box">
+        <div class="avatar">AD</div>
         <div>
-          <h1>Dashboard Overview</h1>
-          <p>Quick overview of IPA members, documents, meetings, and voting.</p>
+          <strong>Admin User</strong>
+          <a href="/profile">Profile</a>
+          <span class="muted"> | </span>
+          <a href="/logout">Logout</a>
         </div>
       </div>
+    </aside>
 
-      <div class="admin">
-        <div style="font-size: 14px; font-weight: normal; margin-top: 5px;">
-          <a href="/profile" style="color: #2563eb; text-decoration: none;">Profile</a> | 
-          <a href="/logout" style="color: #dc2626; text-decoration: none;">Logout</a>
+    <main class="main">
+
+      <header class="topbar">
+        <h1>Admin Dashboard</h1>
+
+        <div class="top-actions">
+          <input class="search" type="text" placeholder="Search users, teams, games..." />
+          <button class="icon-btn">🔔</button>
+          <div class="avatar">AD</div>
+          <button class="create-btn">＋ Create Event</button>
         </div>
+      </header>
+
+      <div class="content">
+
+        <section class="left-content">
+
+          <section class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">♙</div>
+              <h2>12,400+</h2>
+              <p>Total Users</p>
+              <div class="trend">↗ +12% this week</div>
+            </div>
+
+            <div class="stat-card cyan">
+              <div class="stat-icon">♧</div>
+              <h2>284</h2>
+              <p>Active Teams</p>
+              <div class="trend">↗ +8% this week</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon">▱</div>
+              <h2>847</h2>
+              <p>Games Submitted</p>
+              <div class="trend">↗ +23% this week</div>
+            </div>
+
+            <div class="stat-card gold">
+              <div class="stat-icon">🏆</div>
+              <h2>$24,000</h2>
+              <p>Prize Pool</p>
+              <div class="trend">↗ +5% this week</div>
+            </div>
+          </section>
+
+          <section class="panel-grid">
+            <div class="panel">
+              <div class="chart-head">
+                <h2>Submission Activity</h2>
+                <div class="legend">
+                  <span><i class="dot purple"></i>Submissions</span>
+                  <span><i class="dot cyan-dot"></i>Votes</span>
+                </div>
+              </div>
+
+              <svg class="chart" viewBox="0 0 700 220" preserveAspectRatio="none">
+                <line x1="0" y1="190" x2="700" y2="190" stroke="rgba(130,147,196,0.12)" />
+                <line x1="0" y1="145" x2="700" y2="145" stroke="rgba(130,147,196,0.12)" />
+                <line x1="0" y1="100" x2="700" y2="100" stroke="rgba(130,147,196,0.12)" />
+                <line x1="0" y1="55" x2="700" y2="55" stroke="rgba(130,147,196,0.12)" />
+
+                <polyline
+                  points="0,175 100,160 200,170 300,148 400,155 500,130 600,142 700,168"
+                  fill="none"
+                  stroke="#00d7f4"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+
+                <polyline
+                  points="0,188 100,170 200,150 300,115 400,125 500,92 600,75 700,105"
+                  fill="none"
+                  stroke="#8c48ff"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  opacity="0.75"
+                />
+              </svg>
+            </div>
+
+            <div class="panel">
+              <p class="event-label">Live Event</p>
+              <div class="event-title">Spring Jam 2026</div>
+              <p class="event-meta">
+                Theme: Parallel Dimensions<br />
+                Deadline: Jun 17, 2026 at 23:59 UTC
+              </p>
+
+              <div class="countdown">
+                <div class="time-box">
+                  <strong>02</strong>
+                  <span>DAYS</span>
+                </div>
+
+                <div class="time-box">
+                  <strong>06</strong>
+                  <span>HOURS</span>
+                </div>
+
+                <div class="time-box">
+                  <strong>50</strong>
+                  <span>MINS</span>
+                </div>
+
+                <div class="time-box">
+                  <strong>37</strong>
+                  <span>SECS</span>
+                </div>
+              </div>
+
+              <div class="participants">
+                <span>Participants</span>
+                <strong>1,204</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="table-panel">
+            <div class="table-title">
+              <h2>Recent Submissions</h2>
+              <a href="#">View all ›</a>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Game Name</th>
+                  <th>Team</th>
+                  <th>Category</th>
+                  <th>Votes</th>
+                  <th>Status</th>
+                  <th>Submitted At</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr>
+                  <td class="game-name">Neon Drift</td>
+                  <td class="muted">Team Velocity</td>
+                  <td><span class="category">Racing</span></td>
+                  <td class="votes">⭐ 482</td>
+                  <td><span class="status approved">● Approved</span></td>
+                  <td class="muted">Jun 12, 2026</td>
+                  <td>
+                    <div class="action-row">
+                      <a href="#" class="action-btn view">View</a>
+                      <a href="#" class="action-btn approve">Approve</a>
+                      <a href="#" class="action-btn reject">Reject</a>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="game-name">Quantum Break</td>
+                  <td class="muted">Pixel Forge</td>
+                  <td><span class="category">Puzzle</span></td>
+                  <td class="votes">⭐ 371</td>
+                  <td><span class="status pending">● Pending Review</span></td>
+                  <td class="muted">Jun 13, 2026</td>
+                  <td>
+                    <div class="action-row">
+                      <a href="#" class="action-btn view">View</a>
+                      <a href="#" class="action-btn approve">Approve</a>
+                      <a href="#" class="action-btn reject">Reject</a>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="game-name">Shadow Protocol</td>
+                  <td class="muted">Dark Matter Dev</td>
+                  <td><span class="category">Stealth</span></td>
+                  <td class="votes">⭐ 318</td>
+                  <td><span class="status flagged">● Flagged</span></td>
+                  <td class="muted">Jun 13, 2026</td>
+                  <td>
+                    <div class="action-row">
+                      <a href="#" class="action-btn view">View</a>
+                      <a href="#" class="action-btn approve">Approve</a>
+                      <a href="#" class="action-btn reject">Reject</a>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="game-name">Astro Forge</td>
+                  <td class="muted">Nova Team</td>
+                  <td><span class="category">Adventure</span></td>
+                  <td class="votes">⭐ 224</td>
+                  <td><span class="status approved">● Approved</span></td>
+                  <td class="muted">Jun 14, 2026</td>
+                  <td>
+                    <div class="action-row">
+                      <a href="#" class="action-btn view">View</a>
+                      <a href="#" class="action-btn approve">Approve</a>
+                      <a href="#" class="action-btn reject">Reject</a>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+        </section>
+
+        <aside class="side-panel">
+
+          <div class="side-card">
+            <h3>ADMIN ALERTS</h3>
+
+            <div class="alert-list">
+              <div class="alert red">⚠️ &nbsp; 3 reported submissions need review</div>
+              <div class="alert blue">♙ &nbsp; 12 new users joined today</div>
+              <div class="alert gold">⏱ &nbsp; Voting closes in 3 days</div>
+              <div class="alert green">▭ &nbsp; Server health: Normal</div>
+            </div>
+          </div>
+
+          <div class="side-card">
+            <h3>QUICK ACTIONS</h3>
+
+            <div class="quick-actions">
+              <a href="#" class="qa-primary">＋ Create New Jam</a>
+              <a href="#" class="qa-muted">⇩ Export Report</a>
+              <a href="#" class="qa-red">⚑ Review Flagged Games</a>
+              <a href="#" class="qa-gold">🎁 Manage Prize Pool</a>
+            </div>
+          </div>
+
+          <div class="side-card">
+            <h3>PLATFORM HEALTH</h3>
+
+            <div class="health-row">
+              <span>API Uptime</span>
+              <strong>99.98%</strong>
+            </div>
+
+            <div class="health-row">
+              <span>Avg. Response</span>
+              <strong>42ms</strong>
+            </div>
+
+            <div class="health-row">
+              <span>Active Sessions</span>
+              <strong>3,241</strong>
+            </div>
+
+            <div class="bar"></div>
+          </div>
+
+        </aside>
+
       </div>
-    </div>
-
-    <section class="cards">
-      <div class="card">
-        <h3>Total Members</h3>
-        <p>248</p>
-      </div>
-
-      <div class="card">
-        <h3>Documents</h3>
-        <p>64</p>
-      </div>
-
-      <div class="card">
-        <h3>Meetings</h3>
-        <p>12</p>
-      </div>
-
-      <div class="card">
-        <h3>Pending Votes</h3>
-        <p>5</p>
-      </div>
-    </section>
-
-    <section class="content">
-
-      <div class="panel">
-        <h2>Recent Members</h2>
-
-        <table>
-          <tr>
-            <th>Name</th>
-            <th>Role</th>
-            <th>Status</th>
-          </tr>
-          <tr>
-            <td>John Doe</td>
-            <td>Professional Member</td>
-            <td class="status">Active</td>
-          </tr>
-          <tr>
-            <td>Sarah Smith</td>
-            <td>Student Member</td>
-            <td class="status">Active</td>
-          </tr>
-          <tr>
-            <td>Michael Brown</td>
-            <td>Associate Member</td>
-            <td class="status">Pending</td>
-          </tr>
-        </table>
-      </div>
-
-      <div class="panel">
-        <h2>Recent Activity</h2>
-
-        <ul class="activity">
-          <li>New member registered <span>Today</span></li>
-          <li>Meeting schedule updated <span>Yesterday</span></li>
-          <li>New document uploaded <span>2 days ago</span></li>
-          <li>Voting results published <span>3 days ago</span></li>
-        </ul>
-      </div>
-
-    </section>
+    </main>
 
   </div>
 
