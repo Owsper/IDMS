@@ -67,7 +67,11 @@ def login():
             error = "Invalid email or password."
         
         else:
-            return render_template("MeetingPage.html")
+            if user_login(email, password) is True:
+                return render_template("MeetingsPage.html")
+            else:
+                error = "Invalid email or password."
+            
 
     return render_template("LoginPage.html", error=error)
 
