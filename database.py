@@ -65,16 +65,6 @@ def fetch_unique_username(username):
         return True
 
 
-def fetch_user_by_email(email):
-    conn = sqlite3.connect("main_db.db")
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM users_data WHERE email = ?", (email,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
-
 
 def user_login(email, password):
     conn = sqlite3.connect("main_db.db")
@@ -91,10 +81,6 @@ def user_login(email, password):
     else:
         stored_password_hash = user_data["password_hash"]
         return bcrypt.checkpw(password.encode('utf-8'), stored_password_hash.encode('utf-8'))
-
-
-
-
 
 
 
