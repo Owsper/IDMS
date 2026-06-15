@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pexel Register</title>
+  <title>PixelHack Register</title>
 
   <style>
     * {
@@ -25,14 +25,15 @@
       grid-template-columns: 1fr 1fr;
     }
 
+    /* LEFT SIDE */
     .left {
       position: relative;
       padding: 48px;
       background:
-        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
-        radial-gradient(circle at 55% 70%, rgba(0, 184, 255, 0.25), transparent 30%),
-        radial-gradient(circle at 45% 45%, rgba(6, 182, 212, 0.28), transparent 35%),
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+        radial-gradient(circle at 55% 62%, rgba(124, 58, 237, 0.32), transparent 32%),
+        radial-gradient(circle at 70% 70%, rgba(14, 165, 233, 0.18), transparent 28%),
         #11101e;
       background-size: 40px 40px, 40px 40px, auto, auto;
       overflow: hidden;
@@ -42,7 +43,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      font-weight: 800;
+      font-weight: 900;
       font-size: 22px;
       letter-spacing: 0.3px;
     }
@@ -51,7 +52,7 @@
       width: 40px;
       height: 40px;
       border-radius: 11px;
-      background: #06b6d4;
+      background: #7c3aed;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -60,7 +61,7 @@
     }
 
     .hero {
-      margin-top: 210px;
+      margin-top: 205px;
       max-width: 560px;
     }
 
@@ -72,15 +73,16 @@
     }
 
     .gradient-text {
-      background: linear-gradient(90deg, #22d3ee, #38bdf8);
+      background: linear-gradient(90deg, #7c3aed, #3b82f6, #06b6d4);
       -webkit-background-clip: text;
+      background-clip: text;
       color: transparent;
     }
 
     .hero p {
       margin-top: 26px;
-      color: #8ea0c8;
-      font-size: 16px;
+      color: #8190b8;
+      font-size: 15.5px;
       line-height: 1.7;
     }
 
@@ -90,17 +92,18 @@
       flex-direction: column;
       gap: 16px;
       color: #8ea0c8;
-      font-size: 15px;
+      font-size: 14.5px;
     }
 
     .footer {
       position: absolute;
       bottom: 44px;
       left: 48px;
-      color: #6e7fa7;
-      font-size: 13px;
+      color: #5f6f95;
+      font-size: 12.5px;
     }
 
+    /* RIGHT SIDE */
     .right {
       background: #0d1017;
       display: flex;
@@ -114,7 +117,7 @@
       position: absolute;
       top: 30px;
       left: 26px;
-      color: #8ea0c8;
+      color: #8190b8;
       text-decoration: none;
       font-size: 14px;
     }
@@ -132,7 +135,7 @@
     }
 
     .subtitle {
-      color: #8ea0c8;
+      color: #8190b8;
       font-size: 14px;
       margin-bottom: 32px;
     }
@@ -146,12 +149,18 @@
 
     .social-btn {
       height: 42px;
-      border: 1px solid #2a3150;
+      border: 1px solid #2b3152;
       background: #1a1f2d;
       color: white;
       border-radius: 7px;
       font-weight: 700;
       cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .social-btn:hover {
+      background: #22283a;
+      border-color: #7c3aed;
     }
 
     .divider {
@@ -171,6 +180,12 @@
       background: #252b45;
     }
 
+    .error {
+      color: #ef4444;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
     .form-group {
       margin-bottom: 18px;
     }
@@ -182,11 +197,15 @@
       margin-bottom: 8px;
     }
 
+    .input-wrap {
+      position: relative;
+    }
+
     input {
       width: 100%;
       height: 42px;
       background: #1a1f2d;
-      border: 1px solid #2a3150;
+      border: 1px solid #2b3152;
       color: white;
       border-radius: 7px;
       padding: 0 14px;
@@ -194,9 +213,24 @@
       outline: none;
     }
 
+    input::placeholder {
+      color: #7c89aa;
+    }
+
     input:focus {
-      border-color: #06b6d4;
-      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+    }
+
+    .eye {
+      position: absolute;
+      right: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #7c89aa;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
     }
 
     .main-btn {
@@ -204,25 +238,35 @@
       height: 44px;
       border: none;
       border-radius: 7px;
-      background: linear-gradient(90deg, #06b6d4, #0891b2);
+      background: linear-gradient(90deg, #7c3aed, #8b5cf6);
       color: white;
       font-weight: 900;
       cursor: pointer;
       font-size: 14px;
       margin-top: 2px;
+      transition: 0.2s;
+    }
+
+    .main-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
     }
 
     .switch {
       margin-top: 28px;
       text-align: center;
-      color: #8ea0c8;
+      color: #8190b8;
       font-size: 14px;
     }
 
     .switch a {
-      color: #22d3ee;
+      color: #a855f7;
       text-decoration: none;
       font-weight: 800;
+    }
+
+    .switch a:hover {
+      text-decoration: underline;
     }
 
     @media (max-width: 900px) {
@@ -250,8 +294,8 @@
 
     <section class="left">
       <div class="brand">
-        <div class="brand-icon">⚡</div>
-        <span>Pexel</span>
+        <div class="brand-icon">↯</div>
+        <span>PixelHack</span>
       </div>
 
       <div class="hero">
@@ -273,7 +317,9 @@
         </div>
       </div>
 
-      <div class="footer">© 2026 PixelHack Platform · Built for Game Devs</div>
+      <div class="footer">
+        © 2026 PixelHack Platform · Built for Game Devs
+      </div>
     </section>
 
     <section class="right">
@@ -284,48 +330,52 @@
         <p class="subtitle">Start competing in game jams today</p>
 
         <div class="social-row">
-          <button class="social-btn">◎ &nbsp; Google</button>
-          <button class="social-btn">⌘ &nbsp; GitHub</button>
+          <button class="social-btn" type="button">◎ &nbsp; Google</button>
+          <button class="social-btn" type="button">⌘ &nbsp; GitHub</button>
         </div>
 
         <div class="divider">or continue with email</div>
 
         {% if error %}
-        <p style="color:rgb(207, 67, 67);">{{ error }}</p>
+          <p class="error">{{ error }}</p>
         {% endif %}
-
-        <br>
 
         <form method="POST" novalidate>
           <div class="form-group">
             <label>Username</label>
-            <input type="text" name="username" placeholder="cool_gamedev" />
+            <input type="text" name="username" placeholder="cool_gamedev" required />
           </div>
 
           <div class="form-group">
             <label>Email</label>
-            <input type="email" name="email" placeholder="dev@pixelhack.io" />
+            <input type="email" name="email" placeholder="dev@pixelhack.io" required />
           </div>
 
           <div class="form-group">
             <label>Password</label>
-            <input type="password" name="password" placeholder="••••••••" />
-          </div>
-
-          <div class="form-group">
-            <label>Confirm Password</label>
-            <input type="password" name="confirm_password" placeholder="••••••••" />
+            <div class="input-wrap">
+              <input id="password" type="password" name="password" placeholder="••••••••" required />
+              <span class="eye" onclick="togglePassword()">◉</span>
+            </div>
           </div>
 
           <button class="main-btn" type="submit">Create Account →</button>
         </form>
 
         <div class="switch">
-          Already have an account? <a href= "{{ url_for('login') }}">Log in</a>
+          Already have an account?
+          <a href="{{ url_for('login') }}">Sign in</a>
         </div>
       </div>
     </section>
 
   </div>
+
+  <script>
+    function togglePassword() {
+      const password = document.getElementById("password");
+      password.type = password.type === "password" ? "text" : "password";
+    }
+  </script>
 </body>
 </html>
