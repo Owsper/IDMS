@@ -1,9 +1,40 @@
 import sqlite3
 import bcrypt
 
-# Initialize the database and create the users_data table 
+DB_NAME = "main_db.db"
+
+
+def get_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def row_to_dict(row):
+    return dict(row) if row else None
+
+
+def table_exists(cursor, table_name):
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
+def column_exists(cursor, table_name, column_name):
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    return any(row["name"] == column_name for row in cursor.fetchall())
+
+
+def add_column_if_missing(cursor, table_name, column_name, definition):
+    if not column_exists(cursor, table_name, column_name):
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+
+
+# Initialize and migrate the database without breaking existing registered users.
 def init_db():
-    conn = sqlite3.connect("main_db.db")
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -16,83 +47,248 @@ def init_db():
         )
     """)
 
+    add_column_if_missing(cursor, "users_data", "full_name", "TEXT DEFAULT ''")
+    add_column_if_missing(cursor, "users_data", "bio", "TEXT DEFAULT ''")
+    add_column_if_missing(cursor, "users_data", "skills", "TEXT DEFAULT ''")
+    add_column_if_missing(cursor, "users_data", "team_role", "TEXT DEFAULT 'Developer'")
+    add_column_if_missing(cursor, "users_data", "profile_picture", "TEXT DEFAULT ''")
+    add_column_if_missing(cursor, "users_data", "role", "TEXT DEFAULT 'Participant'")
+    add_column_if_missing(cursor, "users_data", "updated_at", "DATETIME")
+    add_column_if_missing(cursor, "users_data", "last_login_at", "DATETIME")
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users_data(email)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users_data(username)")
+
     conn.commit()
     conn.close()
 
-# Insert user data into the database
-def create_user(username, email, password):
-    conn = sqlite3.connect("main_db.db")
-    cursor = conn.cursor()
-    
 
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    password_hash = hashed_password.decode('utf-8')
+# Insert user data into the database.
+def create_user(username, email, password):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     cursor.execute("""
-        INSERT INTO users_data (username, email, password_hash)
-        VALUES (?, ?, ?)
-    """, (username, email, password_hash))
+        INSERT INTO users_data (username, email, password_hash, full_name)
+        VALUES (?, ?, ?, ?)
+    """, (username.strip(), email.strip().lower(), password_hash, username.strip()))
 
     conn.commit()
     conn.close()
 
-    
-# Verify if the email is unique before inserting a new user
-def fetch_unique_email(email):
-    conn = sqlite3.connect("main_db.db")
-    cursor = conn.cursor()
 
-    cursor.execute("SELECT email FROM users_data WHERE email = ?", (email,))
+def fetch_unique_email(email):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users_data WHERE lower(email) = lower(?)", (email.strip(),))
     email_record = cursor.fetchone()
     conn.close()
+    return email_record is not None
 
-    if email_record is None:
-        return False
-    else:
-        return True
 
 def fetch_unique_username(username):
-    conn = sqlite3.connect("main_db.db")
+    conn = get_connection()
     cursor = conn.cursor()
-
-    cursor.execute("SELECT username FROM users_data WHERE username = ?", (username,))
+    cursor.execute("SELECT id FROM users_data WHERE lower(username) = lower(?)", (username.strip(),))
     username_record = cursor.fetchone()
     conn.close()
+    return username_record is not None
 
-    if username_record is None:
-        return False
-    else:
-        return True
 
+def email_exists_for_other_user(email, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id FROM users_data WHERE lower(email) = lower(?) AND id != ?",
+        (email.strip(), user_id),
+    )
+    record = cursor.fetchone()
+    conn.close()
+    return record is not None
+
+
+def username_exists_for_other_user(username, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id FROM users_data WHERE lower(username) = lower(?) AND id != ?",
+        (username.strip(), user_id),
+    )
+    record = cursor.fetchone()
+    conn.close()
+    return record is not None
+
+
+def get_user_by_id(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users_data WHERE id = ?", (user_id,))
+    user = row_to_dict(cursor.fetchone())
+    conn.close()
+    return user
 
 
 def user_login(email, password):
-    conn = sqlite3.connect("main_db.db")
-    conn.row_factory = sqlite3.Row
+    conn = get_connection()
     cursor = conn.cursor()
-    
-
-    cursor.execute("SELECT email, password_hash FROM users_data WHERE email = ?", (email,))
+    cursor.execute("SELECT * FROM users_data WHERE lower(email) = lower(?)", (email.strip(),))
     user_data = cursor.fetchone()
-    conn.close()
 
     if user_data is None:
-        return False
-    else:
-        stored_password_hash = user_data["password_hash"]
-        return bcrypt.checkpw(password.encode('utf-8'), stored_password_hash.encode('utf-8'))
+        conn.close()
+        return None
+
+    stored_password_hash = user_data["password_hash"]
+    password_is_valid = bcrypt.checkpw(
+        password.encode("utf-8"),
+        stored_password_hash.encode("utf-8"),
+    )
+
+    if not password_is_valid:
+        conn.close()
+        return None
+
+    cursor.execute(
+        "UPDATE users_data SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (user_data["id"],),
+    )
+    conn.commit()
+
+    cursor.execute("SELECT * FROM users_data WHERE id = ?", (user_data["id"],))
+    user = row_to_dict(cursor.fetchone())
+    conn.close()
+    return user
 
 
-
-# Update user data in the database based on the verified email
-def update_user_data(verified_email ,first_name, last_name, email, password_hash, phone, member_type=None, address=None):
-    conn = sqlite3.connect("main_db.db")
+def update_user_profile(user_id, full_name, username, email, bio, skills, team_role, profile_picture):
+    conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE users_data
-        SET first_name = ?, last_name = ?, email = ?, password_hash = ?, phone = ?, member_type = ?, address = ?
+        SET full_name = ?,
+            username = ?,
+            email = ?,
+            bio = ?,
+            skills = ?,
+            team_role = ?,
+            profile_picture = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """, (
+        full_name.strip(),
+        username.strip(),
+        email.strip().lower(),
+        bio.strip(),
+        skills.strip(),
+        team_role.strip(),
+        profile_picture.strip(),
+        user_id,
+    ))
+    conn.commit()
+    conn.close()
+
+
+def count_rows(cursor, table_name, where_clause="", params=()):
+    if not table_exists(cursor, table_name):
+        return 0
+
+    query = f"SELECT COUNT(*) AS total FROM {table_name}"
+    if where_clause:
+        query += f" WHERE {where_clause}"
+
+    cursor.execute(query, params)
+    return cursor.fetchone()["total"]
+
+
+def get_dashboard_stats(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    stats = {
+        "teams_joined": count_rows(cursor, "team_members", "user_id = ?", (user_id,)),
+        "games_submitted": 0,
+        "votes_cast": count_rows(cursor, "votes", "user_id = ?", (user_id,)),
+        "upcoming_events": 0,
+    }
+
+    if table_exists(cursor, "submissions"):
+        if column_exists(cursor, "submissions", "user_id"):
+            stats["games_submitted"] = count_rows(cursor, "submissions", "user_id = ?", (user_id,))
+        elif table_exists(cursor, "team_members") and column_exists(cursor, "submissions", "team_id"):
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM submissions
+                WHERE team_id IN (
+                    SELECT team_id FROM team_members WHERE user_id = ?
+                )
+            """, (user_id,))
+            stats["games_submitted"] = cursor.fetchone()["total"]
+
+    if table_exists(cursor, "events"):
+        stats["upcoming_events"] = count_rows(cursor, "events", "date >= CURRENT_TIMESTAMP")
+
+    conn.close()
+    return stats
+
+
+def get_recent_activity(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    activities = []
+
+    user = get_user_by_id(user_id)
+    if user and user.get("last_login_at"):
+        activities.append({
+            "label": "Recent login",
+            "detail": "You signed in to PixelHack.",
+            "time": user["last_login_at"],
+        })
+
+    if user and user.get("updated_at"):
+        activities.append({
+            "label": "Profile updated",
+            "detail": "Your public profile details were saved.",
+            "time": user["updated_at"],
+        })
+
+    if table_exists(cursor, "events"):
+        cursor.execute("""
+            SELECT title, date
+            FROM events
+            WHERE date >= CURRENT_TIMESTAMP
+            ORDER BY date ASC
+            LIMIT 2
+        """)
+        for event in cursor.fetchall():
+            activities.append({
+                "label": "Upcoming event",
+                "detail": event["title"],
+                "time": event["date"],
+            })
+
+    if not activities:
+        activities.append({
+            "label": "Welcome",
+            "detail": "Your PixelHack dashboard is ready.",
+            "time": "Today",
+        })
+
+    conn.close()
+    return activities[:5]
+
+
+# Backward-compatible wrapper kept for older code paths.
+def update_user_data(verified_email, first_name, last_name, email, password_hash, phone, member_type=None, address=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    full_name = f"{first_name} {last_name}".strip()
+    cursor.execute("""
+        UPDATE users_data
+        SET full_name = ?, email = ?, updated_at = CURRENT_TIMESTAMP
         WHERE email = ?
-    """, (first_name, last_name, email, password_hash, phone, member_type, address, verified_email))
+    """, (full_name, email, verified_email))
     conn.commit()
     conn.close()
 

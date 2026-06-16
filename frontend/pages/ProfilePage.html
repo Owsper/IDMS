@@ -1,227 +1,501 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPA Profile Management</title>
+  <title>PixelHack Profile</title>
 
   <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
-      font-family: "Segoe UI", Arial, sans-serif;
     }
 
     body {
       min-height: 100vh;
-      background: #f4f7fb;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        radial-gradient(circle at 28% 8%, rgba(124, 58, 237, 0.2), transparent 27%),
+        radial-gradient(circle at 78% 6%, rgba(6, 182, 212, 0.12), transparent 22%),
+        #05070d;
+      background-size: 42px 42px, 42px 42px, auto, auto;
+      color: #f3f5ff;
+      font-family: "Inter", Arial, sans-serif;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .topbar {
+      min-height: 70px;
+      padding: 18px 28px;
+      border-bottom: 1px solid rgba(129, 72, 255, 0.22);
+      background: rgba(5, 7, 13, 0.9);
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
-      padding: 30px;
+      position: sticky;
+      top: 0;
+      z-index: 4;
     }
 
-    .card {
-      width: 100%;
-      max-width: 620px;
-      background: #ffffff;
-      padding: 42px;
-      border-radius: 18px;
-      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      text-decoration: none;
+      font-size: 20px;
     }
 
-    .intro {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-
-    .logo {
-      width: 64px;
-      height: 64px;
-      background: #2563eb;
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
       color: white;
-      border-radius: 50%;
+      background: linear-gradient(135deg, #7d39ff, #9a45ff);
+      box-shadow: 0 0 26px rgba(124, 58, 255, 0.28);
+    }
+
+    .nav-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .button {
+      min-height: 40px;
+      border-radius: 7px;
+      padding: 0 14px;
+      border: 1px solid rgba(129, 72, 255, 0.35);
+      background: #1a1f2d;
+      color: white;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .button.primary {
+      border: none;
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      box-shadow: 0 0 24px rgba(124, 58, 255, 0.24);
+    }
+
+    .page {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 28px;
+      display: grid;
+      gap: 22px;
+    }
+
+    .profile-header,
+    .panel {
+      border-radius: 8px;
+      border: 1px solid rgba(129, 72, 255, 0.24);
+      background: rgba(15, 20, 32, 0.9);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+    }
+
+    .profile-header {
+      padding: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .identity {
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      margin: 0 auto 18px;
+      gap: 18px;
+      min-width: 0;
     }
 
-    .intro h1 {
-      font-size: 40px;
-      color: #111827;
-      margin-bottom: 12px;
+    .avatar {
+      width: 78px;
+      height: 78px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      color: white;
+      overflow: hidden;
+      background: linear-gradient(135deg, #00d7f4, #7d39ff);
+      font-size: 24px;
+      font-weight: 900;
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.28);
     }
 
-    .intro p {
-      color: #6b7280;
-      font-size: 17px;
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    h1,
+    h2 {
+      font-family: "Orbitron", sans-serif;
+    }
+
+    h1 {
+      font-size: clamp(26px, 3vw, 36px);
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .muted {
+      color: #8293c4;
       line-height: 1.6;
     }
 
-    h2 {
-      font-size: 28px;
-      color: #1f2937;
-      margin-bottom: 8px;
-      text-align: center;
+    .role-pill {
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: #c7b7ff;
+      background: rgba(124, 58, 237, 0.16);
+      border: 1px solid rgba(124, 58, 237, 0.42);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
     }
 
-    .subtitle {
-      color: #6b7280;
-      text-align: center;
-      margin-bottom: 24px;
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+      gap: 22px;
+      align-items: start;
     }
 
-    .form-group {
+    .panel {
+      padding: 22px;
+    }
+
+    .panel h2 {
+      font-size: 17px;
       margin-bottom: 18px;
+    }
+
+    .info-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .info-item {
+      padding: 14px;
+      border-radius: 8px;
+      background: #1a1f2d;
+      border: 1px solid rgba(129, 72, 255, 0.18);
+    }
+
+    .info-item span {
+      display: block;
+      color: #8ea0c8;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .info-item strong {
+      color: white;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .stat {
+      padding: 14px;
+      border-radius: 8px;
+      background: rgba(124, 58, 237, 0.12);
+      border: 1px solid rgba(124, 58, 237, 0.28);
+    }
+
+    .stat strong {
+      display: block;
+      color: white;
+      font-size: 22px;
+    }
+
+    .stat span {
+      color: #8293c4;
+      font-size: 12px;
+    }
+
+    .message {
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin-bottom: 18px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .success {
+      color: #55f0b3;
+      background: rgba(0, 227, 159, 0.11);
+      border: 1px solid rgba(0, 227, 159, 0.25);
+    }
+
+    .error {
+      color: #ff8aa0;
+      background: rgba(255, 75, 110, 0.12);
+      border: 1px solid rgba(255, 75, 110, 0.28);
+    }
+
+    form {
+      display: grid;
+      gap: 16px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .form-group.full {
+      grid-column: 1 / -1;
     }
 
     label {
       display: block;
-      margin-bottom: 7px;
-      font-weight: 600;
-      color: #374151;
+      color: #8ea0c8;
+      font-size: 14px;
+      margin-bottom: 8px;
     }
 
     input,
-    select,
-    textarea {
+    textarea,
+    select {
       width: 100%;
-      padding: 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 16px;
+      min-height: 42px;
+      background: #1a1f2d;
+      border: 1px solid rgba(129, 72, 255, 0.35);
+      color: white;
+      border-radius: 7px;
+      padding: 0 14px;
+      font: inherit;
+      font-size: 14px;
       outline: none;
-      background: white;
     }
 
     textarea {
+      min-height: 104px;
       resize: vertical;
-      min-height: 90px;
+      padding-top: 12px;
+      line-height: 1.5;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: #8293c4;
     }
 
     input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    textarea:focus,
+    select:focus {
+      border-color: #8c48ff;
+      box-shadow: 0 0 0 3px rgba(124, 57, 255, 0.18);
     }
 
-    button {
-      width: 100%;
-      padding: 15px;
-      border: none;
-      border-radius: 10px;
-      background: #2563eb;
-      color: white;
-      font-size: 17px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 8px;
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
     }
 
-    button:hover {
-      background: #1d4ed8;
-    }
+    @media (max-width: 860px) {
+      .profile-header,
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
 
-    .success-message {
-      display: none;
-      background: #dcfce7;
-      color: #166534;
-      border: 1px solid #bbf7d0;
-      padding: 12px;
-      border-radius: 10px;
-      margin-bottom: 18px;
-      text-align: center;
-      font-size: 14px;
+      .grid,
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-group.full {
+        grid-column: auto;
+      }
     }
 
     @media (max-width: 600px) {
-      .card {
-        padding: 28px;
+      .page {
+        padding: 18px;
       }
 
-      .intro h1 {
-        font-size: 32px;
+      .identity {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .nav-actions,
+      .button,
+      .form-actions {
+        width: 100%;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 
 <body>
+  <header class="topbar">
+    <a href="{{ url_for('dashboard') }}" class="brand">
+      <span class="brand-icon">P</span>
+      <span>PixelHack</span>
+    </a>
 
-  <div class="card">
+    <nav class="nav-actions" aria-label="Profile navigation">
+      <a class="button" href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a class="button" href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+  </header>
 
-    <div class="intro">
-      <div class="logo">IPA</div>
-      <h1>My Profile</h1>
-      <p>
-        View and update your IPA member information.
-      </p>
-    </div>
-
-    <h2>Profile Management</h2>
-    <p class="subtitle">Update your personal details below.</p>
-
-    <form action="/profile" method="POST">
-
-      {% if success_message %}
-      <div id="successMessage" class="success-message" style="display: block;">
-        {{ success_message }}
+  <main class="page">
+    <section class="profile-header">
+      <div class="identity">
+        <div class="avatar">
+          {% if user.profile_picture %}
+            <img src="{{ user.profile_picture }}" alt="{{ user.full_name or user.username }}">
+          {% else %}
+            {{ (user.full_name or user.username or 'U')[:2].upper() }}
+          {% endif %}
+        </div>
+        <div>
+          <h1>{{ user.full_name or user.username }}</h1>
+          <p class="muted">@{{ user.username }} · {{ user.email }}</p>
+        </div>
       </div>
-      {% endif %}
+      <span class="role-pill">{{ user.role or 'Participant' }} · {{ user.team_role or 'Developer' }}</span>
+    </section>
 
-      {% if error_message %}
-      <div class="error-message" style="background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 12px; border-radius: 10px; margin-bottom: 18px; text-align: center; font-size: 14px; display: block;">
-        {{ error_message }}
-      </div>
-      {% endif %}
+    <section class="grid">
+      <aside class="panel">
+        <h2>About</h2>
+        <div class="info-list">
+          <div class="info-item">
+            <span>Bio</span>
+            <strong>{{ user.bio or 'No bio added yet.' }}</strong>
+          </div>
+          <div class="info-item">
+            <span>Skills</span>
+            <strong>{{ user.skills or 'Add your development, design, or audio skills.' }}</strong>
+          </div>
+          <div class="info-item">
+            <span>Joined</span>
+            <strong>{{ user.created_at or 'Recently' }}</strong>
+          </div>
+          <div class="info-item">
+            <span>Team Membership</span>
+            <strong>{{ stats.teams_joined }} team{{ '' if stats.teams_joined == 1 else 's' }}</strong>
+          </div>
+        </div>
 
-      <div class="form-group">
-        <label>First Name</label>
-        <input type="text" name="first_name" placeholder="Enter your first name" value="{{ user.first_name }}">
-      </div>
+        <div class="stats" aria-label="Account statistics">
+          <div class="stat">
+            <strong>{{ stats.games_submitted }}</strong>
+            <span>Submissions</span>
+          </div>
+          <div class="stat">
+            <strong>{{ stats.votes_cast }}</strong>
+            <span>Votes</span>
+          </div>
+          <div class="stat">
+            <strong>{{ stats.upcoming_events }}</strong>
+            <span>Events</span>
+          </div>
+        </div>
+      </aside>
 
-      <div class="form-group">
-        <label>Last Name</label>
-        <input type="text" name="last_name" placeholder="Enter your last name" value="{{ user.last_name }}">
-      </div>
+      <section class="panel">
+        <h2>Edit Profile</h2>
 
-      <div class="form-group">
-        <label>Email Address</label>
-        <input type="email" name="email" placeholder="Enter your email" value="{{ user.email }}">
-      </div>
+        {% if success_message %}
+          <div class="message success">{{ success_message }}</div>
+        {% endif %}
 
-      <div class="form-group">
-        <label>Phone Number</label>
-        <input type="tel" name="phone" placeholder="Enter your phone number" value="{{ user.phone }}">
-      </div>
+        {% if error_message %}
+          <div class="message error">{{ error_message }}</div>
+        {% endif %}
 
-      <div class="form-group">
-        <label>Member Type</label>
-        <select name="member_type">
-          <option value="Student Member" {% if user.member_type == 'Student Member' %}selected{% endif %}>Student Member</option>
-          <option value="Regular Member" {% if user.member_type == 'Regular Member' %}selected{% endif %}>Regular Member</option>
-          <option value="Premium Member" {% if user.member_type == 'Premium Member' %}selected{% endif %}>Premium Member</option>
-          <option value="Honorary Member" {% if user.member_type == 'Honorary Member' %}selected{% endif %}>Honorary Member</option>
-        </select>
-      </div>
+        <form action="{{ url_for('profile') }}" method="POST" novalidate>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="full_name">Full Name</label>
+              <input id="full_name" type="text" name="full_name" value="{{ user.full_name or '' }}" placeholder="John Pixel" required>
+            </div>
 
-      <div class="form-group">
-        <label>Address</label>
-        <textarea name="address" placeholder="Enter your address">{{ user.address if user.address }}</textarea>
-      </div>
+            <div class="form-group">
+              <label for="username">Username</label>
+              <input id="username" type="text" name="username" value="{{ user.username or '' }}" placeholder="cool_gamedev" required>
+            </div>
 
-      <button type="submit">Save Changes</button>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input id="email" type="email" name="email" value="{{ user.email or '' }}" placeholder="dev@pixelhack.io" required>
+            </div>
 
-    </form>
+            <div class="form-group">
+              <label for="team_role">Role in Team</label>
+              <select id="team_role" name="team_role">
+                {% set selected_role = user.team_role or 'Developer' %}
+                <option value="Developer" {% if selected_role == 'Developer' %}selected{% endif %}>Developer</option>
+                <option value="Designer" {% if selected_role == 'Designer' %}selected{% endif %}>Designer</option>
+                <option value="Artist" {% if selected_role == 'Artist' %}selected{% endif %}>Artist</option>
+                <option value="Audio" {% if selected_role == 'Audio' %}selected{% endif %}>Audio</option>
+                <option value="Producer" {% if selected_role == 'Producer' %}selected{% endif %}>Producer</option>
+              </select>
+            </div>
 
-  </div>
+            <div class="form-group full">
+              <label for="profile_picture">Profile Picture URL</label>
+              <input id="profile_picture" type="url" name="profile_picture" value="{{ user.profile_picture or '' }}" placeholder="https://example.com/avatar.png">
+            </div>
 
+            <div class="form-group full">
+              <label for="skills">Skills</label>
+              <input id="skills" type="text" name="skills" value="{{ user.skills or '' }}" placeholder="Unity, Python, pixel art, sound design">
+            </div>
 
+            <div class="form-group full">
+              <label for="bio">Bio</label>
+              <textarea id="bio" name="bio" placeholder="Tell teams what you like to build.">{{ user.bio or '' }}</textarea>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <a class="button" href="{{ url_for('dashboard') }}">Cancel</a>
+            <button class="button primary" type="submit">Save Changes</button>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
 </body>
-
 </html>

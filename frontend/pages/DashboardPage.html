@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PixelHack Admin Dashboard</title>
+  <title>PixelHack Dashboard</title>
 
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
@@ -17,672 +17,405 @@
     body {
       min-height: 100vh;
       background:
-        radial-gradient(circle at 35% 10%, rgba(124, 57, 255, 0.18), transparent 30%),
-        radial-gradient(circle at 85% 25%, rgba(0, 215, 244, 0.08), transparent 24%),
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        radial-gradient(circle at 25% 12%, rgba(124, 58, 237, 0.18), transparent 28%),
+        radial-gradient(circle at 78% 4%, rgba(6, 182, 212, 0.12), transparent 24%),
         #05070d;
+      background-size: 42px 42px, 42px 42px, auto, auto;
       color: #f3f5ff;
       font-family: "Inter", Arial, sans-serif;
     }
 
-    h1,
-    h2,
-    h3 {
-      font-family: "Orbitron", sans-serif;
+    a {
+      color: inherit;
     }
 
     .layout {
       min-height: 100vh;
       display: grid;
-      grid-template-columns: 228px 1fr;
+      grid-template-columns: 236px minmax(0, 1fr);
     }
 
-    /* SIDEBAR */
-
     .sidebar {
-      background: rgba(7, 9, 18, 0.95);
-      border-right: 1px solid rgba(124, 57, 255, 0.32);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
       position: sticky;
       top: 0;
       height: 100vh;
+      padding: 22px 14px;
+      background: rgba(8, 11, 19, 0.94);
+      border-right: 1px solid rgba(129, 72, 255, 0.24);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
-    .logo {
-      height: 78px;
+    .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 0 18px;
-      border-bottom: 1px solid rgba(124, 57, 255, 0.22);
-    }
-
-    .logo-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #7d39ff, #9747ff);
-      display: grid;
-      place-items: center;
-      font-size: 22px;
-      box-shadow: 0 0 28px rgba(124, 57, 255, 0.45);
-    }
-
-    .logo span {
+      padding: 0 8px 24px;
       font-size: 20px;
       font-weight: 900;
     }
 
-    .menu {
-      padding: 22px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .menu a {
-      height: 42px;
-      padding: 0 14px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: #8fa0cc;
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    .menu a:hover {
-      background: rgba(124, 57, 255, 0.12);
+    .brand-icon,
+    .avatar {
+      display: grid;
+      place-items: center;
       color: white;
+      background: linear-gradient(135deg, #7d39ff, #9a45ff);
+      box-shadow: 0 0 26px rgba(124, 58, 255, 0.28);
     }
 
-    .menu a.active {
-      background: linear-gradient(135deg, rgba(124, 57, 255, 0.38), rgba(124, 57, 255, 0.16));
-      color: white;
-      border: 1px solid rgba(140, 72, 255, 0.7);
-      box-shadow: 0 0 18px rgba(124, 57, 255, 0.22);
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      font-size: 20px;
     }
 
-    .admin-box {
-      padding: 16px;
-      border-top: 1px solid rgba(124, 57, 255, 0.22);
+    .nav {
+      display: grid;
+      gap: 7px;
+    }
+
+    .nav a {
+      min-height: 42px;
+      padding: 0 12px;
+      border-radius: 8px;
+      color: #8ea0c8;
       display: flex;
       align-items: center;
       gap: 10px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .nav a:hover,
+    .nav a.active {
+      color: white;
+      background: rgba(124, 58, 237, 0.16);
+      border: 1px solid rgba(124, 58, 237, 0.36);
+    }
+
+    .account {
+      padding: 14px 8px 0;
+      border-top: 1px solid rgba(129, 72, 255, 0.22);
+      display: flex;
+      gap: 10px;
+      align-items: center;
     }
 
     .avatar {
-      width: 35px;
-      height: 35px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, #00d7f4, #7d39ff);
-      color: white;
+      flex: 0 0 auto;
+      overflow: hidden;
       font-weight: 900;
-    }
-
-    .admin-box strong {
-      display: block;
       font-size: 13px;
     }
 
-    .admin-box a {
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .account strong {
+      display: block;
+      max-width: 135px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .account a {
       color: #8293c4;
       text-decoration: none;
       font-size: 12px;
     }
-
-    .admin-box a:hover {
-      color: #8c48ff;
-    }
-
-    /* MAIN */
 
     .main {
       min-width: 0;
     }
 
     .topbar {
-      height: 67px;
-      padding: 0 24px;
+      min-height: 70px;
+      padding: 18px 28px;
+      border-bottom: 1px solid rgba(129, 72, 255, 0.22);
+      background: rgba(5, 7, 13, 0.86);
+      backdrop-filter: blur(14px);
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      background: rgba(7, 9, 18, 0.92);
-      border-bottom: 1px solid rgba(124, 57, 255, 0.28);
+      align-items: center;
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 5;
+    }
+
+    .topbar h1,
+    .welcome h2,
+    .section-title {
+      font-family: "Orbitron", sans-serif;
     }
 
     .topbar h1 {
       font-size: 20px;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.3px;
     }
 
     .top-actions {
       display: flex;
+      gap: 10px;
       align-items: center;
-      gap: 12px;
     }
 
-    .search {
-      width: 255px;
-      height: 38px;
-      border-radius: 14px;
-      border: 1px solid rgba(124, 57, 255, 0.32);
-      background: #111827;
-      color: white;
+    .button {
+      min-height: 40px;
+      border-radius: 7px;
       padding: 0 14px;
-      outline: none;
-    }
-
-    .search:focus {
-      border-color: #8c48ff;
-      box-shadow: 0 0 0 3px rgba(124, 57, 255, 0.18);
-    }
-
-    .icon-btn {
-      width: 38px;
-      height: 38px;
-      border-radius: 12px;
-      border: 1px solid rgba(124, 57, 255, 0.32);
-      background: #111827;
-      color: #8293c4;
-      cursor: pointer;
-    }
-
-    .create-btn {
-      height: 38px;
-      padding: 0 18px;
-      border: none;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #7d39ff, #9747ff);
+      border: 1px solid rgba(129, 72, 255, 0.35);
+      background: #1a1f2d;
       color: white;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      font-size: 14px;
       font-weight: 900;
       cursor: pointer;
-      box-shadow: 0 0 24px rgba(124, 57, 255, 0.28);
+    }
+
+    .button.primary {
+      border: none;
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      box-shadow: 0 0 24px rgba(124, 58, 255, 0.24);
+    }
+
+    .button:hover {
+      border-color: #8c48ff;
+      transform: translateY(-1px);
     }
 
     .content {
-      padding: 24px;
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 28px;
       display: grid;
-      grid-template-columns: 1fr 258px;
-      gap: 24px;
+      gap: 22px;
     }
 
-    .left-content {
-      min-width: 0;
-    }
-
-    /* CARDS */
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .stat-card {
-      min-height: 174px;
-      padding: 22px;
-      border-radius: 16px;
+    .welcome {
+      padding: 28px;
+      border: 1px solid rgba(129, 72, 255, 0.28);
+      border-radius: 8px;
       background:
-        radial-gradient(circle at 85% 20%, rgba(124, 57, 255, 0.18), transparent 35%),
-        #0f1420;
-      border: 1px solid rgba(124, 57, 255, 0.45);
-      box-shadow: 0 0 24px rgba(124, 57, 255, 0.08);
-    }
-
-    .stat-card.cyan {
-      border-color: rgba(0, 215, 244, 0.5);
-      background:
-        radial-gradient(circle at 85% 20%, rgba(0, 215, 244, 0.16), transparent 35%),
-        #0f1420;
-    }
-
-    .stat-card.gold {
-      border-color: rgba(245, 158, 11, 0.5);
-      background:
-        radial-gradient(circle at 85% 20%, rgba(245, 158, 11, 0.16), transparent 35%),
-        #0f1420;
-    }
-
-    .stat-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 13px;
-      display: grid;
-      place-items: center;
-      color: #8c48ff;
-      border: 1px solid rgba(140, 72, 255, 0.55);
-      background: rgba(124, 57, 255, 0.16);
-      margin-bottom: 22px;
-      font-size: 20px;
-    }
-
-    .stat-card.cyan .stat-icon {
-      color: #00d7f4;
-      border-color: rgba(0, 215, 244, 0.55);
-      background: rgba(0, 215, 244, 0.12);
-    }
-
-    .stat-card.gold .stat-icon {
-      color: #f59e0b;
-      border-color: rgba(245, 158, 11, 0.55);
-      background: rgba(245, 158, 11, 0.13);
-    }
-
-    .stat-card h2 {
-      font-size: 27px;
-      margin-bottom: 6px;
-    }
-
-    .stat-card p {
-      color: #8293c4;
-      font-size: 13px;
-    }
-
-    .trend {
-      margin-top: 12px;
-      color: #00e39f;
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    /* PANELS */
-
-    .panel-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .panel {
-      background: #0f1420;
-      border: 1px solid rgba(124, 57, 255, 0.28);
-      border-radius: 16px;
-      padding: 20px;
-    }
-
-    .panel h2 {
-      font-size: 17px;
-      margin-bottom: 18px;
-    }
-
-    .chart-head {
+        radial-gradient(circle at 88% 20%, rgba(6, 182, 212, 0.12), transparent 22%),
+        rgba(15, 20, 32, 0.9);
       display: flex;
       justify-content: space-between;
+      gap: 24px;
       align-items: center;
-      margin-bottom: 8px;
     }
 
-    .legend {
-      display: flex;
-      gap: 14px;
-      color: #8293c4;
-      font-size: 12px;
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 5px;
-    }
-
-    .purple {
-      background: #8c48ff;
-    }
-
-    .cyan-dot {
-      background: #00d7f4;
-    }
-
-    .chart {
-      width: 100%;
-      height: 200px;
-    }
-
-    .event-label {
+    .eyebrow {
       color: #00d7f4;
       font-size: 12px;
       font-weight: 900;
+      letter-spacing: 0.8px;
       text-transform: uppercase;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
-    .event-title {
-      font-family: "Orbitron", sans-serif;
-      font-size: 19px;
-      font-weight: 900;
-      margin-bottom: 5px;
+    .welcome h2 {
+      font-size: clamp(24px, 3vw, 34px);
+      line-height: 1.25;
+      margin-bottom: 10px;
     }
 
-    .event-meta {
+    .welcome p,
+    .muted {
       color: #8293c4;
-      font-size: 12px;
       line-height: 1.6;
     }
 
-    .countdown {
-      margin-top: 22px;
+    .role-pill {
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: #c7b7ff;
+      background: rgba(124, 58, 237, 0.16);
+      border: 1px solid rgba(124, 58, 237, 0.42);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
     }
 
-    .time-box {
-      text-align: center;
+    .card,
+    .panel {
+      border-radius: 8px;
+      border: 1px solid rgba(129, 72, 255, 0.24);
+      background: rgba(15, 20, 32, 0.9);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
     }
 
-    .time-box strong {
-      height: 58px;
-      border-radius: 14px;
-      border: 1px solid rgba(140, 72, 255, 0.7);
-      background: rgba(124, 57, 255, 0.18);
+    .stat-card {
+      padding: 20px;
+      min-height: 130px;
+      display: grid;
+      align-content: space-between;
+    }
+
+    .stat-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      color: #8ea0c8;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .stat-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
       display: grid;
       place-items: center;
-      font-family: "Orbitron", sans-serif;
-      font-size: 22px;
+      background: rgba(124, 58, 237, 0.18);
+      color: #a855f7;
+      border: 1px solid rgba(124, 58, 237, 0.36);
+      font-size: 18px;
     }
 
-    .time-box span {
-      display: block;
-      margin-top: 8px;
-      color: #8293c4;
-      font-size: 10px;
-      letter-spacing: 1px;
-    }
-
-    .participants {
-      margin-top: 18px;
-      height: 38px;
-      border-radius: 12px;
-      background: rgba(0, 215, 244, 0.1);
-      border: 1px solid rgba(0, 215, 244, 0.35);
-      color: #8293c4;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 14px;
-      font-size: 13px;
-    }
-
-    .participants strong {
-      color: #00d7f4;
-      font-family: "Orbitron", sans-serif;
-    }
-
-    /* TABLE */
-
-    .table-panel {
-      background: #0f1420;
-      border: 1px solid rgba(124, 57, 255, 0.28);
-      border-radius: 16px;
-      overflow: hidden;
-    }
-
-    .table-title {
-      height: 54px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
-      border-bottom: 1px solid rgba(124, 57, 255, 0.22);
-    }
-
-    .table-title h2 {
-      font-size: 17px;
-    }
-
-    .table-title a {
-      color: #8c48ff;
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th,
-    td {
-      padding: 18px 20px;
-      text-align: left;
-      border-bottom: 1px solid rgba(124, 57, 255, 0.12);
-      font-size: 14px;
-    }
-
-    th {
-      color: #8fa0cc;
-      font-size: 11px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-
-    td {
-      color: #d8def5;
-    }
-
-    .game-name {
+    .stat-number {
+      margin-top: 22px;
       color: white;
+      font-size: 30px;
       font-weight: 900;
+      letter-spacing: 0;
     }
 
-    .muted {
-      color: #8293c4;
+    .grid-two {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      gap: 18px;
     }
 
-    .category {
-      display: inline-block;
-      padding: 6px 10px;
-      border-radius: 999px;
-      color: #c7b7ff;
-      background: rgba(124, 57, 255, 0.2);
-      border: 1px solid rgba(124, 57, 255, 0.5);
-      font-size: 12px;
-      font-weight: 800;
+    .panel {
+      padding: 22px;
     }
 
-    .votes {
-      color: white;
-      font-weight: 900;
-    }
-
-    .status {
-      display: inline-block;
-      padding: 7px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 900;
-    }
-
-    .approved {
-      color: #00e39f;
-      background: rgba(0, 227, 159, 0.12);
-    }
-
-    .pending {
-      color: #f6b931;
-      background: rgba(246, 185, 49, 0.14);
-    }
-
-    .flagged {
-      color: #ff4b6e;
-      background: rgba(255, 75, 110, 0.13);
-    }
-
-    .action-row {
+    .panel-head {
       display: flex;
-      gap: 7px;
-      flex-wrap: wrap;
-    }
-
-    .action-btn {
-      padding: 7px 11px;
-      border-radius: 9px;
-      text-decoration: none;
-      font-size: 12px;
-      font-weight: 800;
-      border: 1px solid transparent;
-    }
-
-    .view {
-      color: #c7b7ff;
-      background: rgba(124, 57, 255, 0.18);
-      border-color: rgba(124, 57, 255, 0.45);
-    }
-
-    .approve {
-      color: #00e39f;
-      background: rgba(0, 227, 159, 0.12);
-      border-color: rgba(0, 227, 159, 0.35);
-    }
-
-    .reject {
-      color: #ff4b6e;
-      background: rgba(255, 75, 110, 0.11);
-      border-color: rgba(255, 75, 110, 0.35);
-    }
-
-    /* RIGHT SIDE */
-
-    .side-panel {
-      display: flex;
-      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
       gap: 16px;
+      margin-bottom: 18px;
     }
 
-    .side-card {
-      background: #0f1420;
-      border: 1px solid rgba(124, 57, 255, 0.28);
-      border-radius: 16px;
-      padding: 18px 14px;
+    .section-title {
+      font-size: 17px;
+      letter-spacing: 0.2px;
     }
 
-    .side-card h3 {
-      font-size: 14px;
-      margin-bottom: 16px;
-      letter-spacing: 1px;
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
     }
 
-    .alert-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .alert {
-      padding: 13px;
-      border-radius: 14px;
-      font-size: 13px;
-      color: #d8def5;
-      line-height: 1.35;
-    }
-
-    .alert.red {
-      background: rgba(255, 75, 110, 0.13);
-      border: 1px solid rgba(255, 75, 110, 0.28);
-    }
-
-    .alert.blue {
-      background: rgba(0, 215, 244, 0.12);
-      border: 1px solid rgba(0, 215, 244, 0.28);
-    }
-
-    .alert.gold {
-      background: rgba(245, 158, 11, 0.13);
-      border: 1px solid rgba(245, 158, 11, 0.28);
-    }
-
-    .alert.green {
-      background: rgba(0, 227, 159, 0.11);
-      border: 1px solid rgba(0, 227, 159, 0.25);
-    }
-
-    .quick-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .quick-actions a {
-      height: 38px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      padding: 0 14px;
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 900;
-    }
-
-    .qa-primary {
-      color: white;
-      background: linear-gradient(135deg, #7d39ff, #9747ff);
-    }
-
-    .qa-muted {
-      color: #8293c4;
+    .quick-action {
+      min-height: 74px;
+      padding: 14px;
+      border-radius: 8px;
       background: #1a1f2d;
-      border: 1px solid rgba(124, 57, 255, 0.2);
+      border: 1px solid rgba(129, 72, 255, 0.28);
+      text-decoration: none;
+      display: grid;
+      align-content: center;
+      gap: 4px;
     }
 
-    .qa-red {
-      color: #ff4b6e;
-      border: 1px solid rgba(255, 75, 110, 0.45);
-      background: rgba(255, 75, 110, 0.06);
+    .quick-action strong {
+      color: white;
+      font-size: 14px;
     }
 
-    .qa-gold {
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.45);
-      background: rgba(245, 158, 11, 0.06);
-    }
-
-    .health-row {
-      display: flex;
-      justify-content: space-between;
+    .quick-action span {
       color: #8293c4;
-      font-size: 13px;
-      margin-bottom: 14px;
+      font-size: 12px;
     }
 
-    .health-row strong {
-      color: #00d7f4;
+    .quick-action:hover {
+      border-color: #8c48ff;
+      background: rgba(124, 58, 237, 0.12);
     }
 
-    .bar {
-      height: 6px;
+    .activity-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .activity {
+      padding: 14px;
+      border-radius: 8px;
+      background: #1a1f2d;
+      border: 1px solid rgba(129, 72, 255, 0.18);
+      display: grid;
+      gap: 4px;
+    }
+
+    .activity strong {
+      color: white;
+      font-size: 14px;
+    }
+
+    .activity small {
+      color: #7080aa;
+      font-size: 12px;
+    }
+
+    .event-card {
+      min-height: 180px;
+      display: grid;
+      align-content: space-between;
+    }
+
+    .event-title {
+      color: white;
+      font-size: 20px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .progress {
+      height: 8px;
       border-radius: 999px;
+      background: #1a1f2d;
+      overflow: hidden;
+      margin-top: 18px;
+    }
+
+    .progress span {
+      display: block;
+      width: 62%;
+      height: 100%;
+      border-radius: inherit;
       background: linear-gradient(90deg, #7d39ff, #00d7f4);
-      margin-top: 12px;
     }
 
-    /* RESPONSIVE */
-
-    @media (max-width: 1180px) {
-      .content {
-        grid-template-columns: 1fr;
-      }
-
-      .side-panel {
-        grid-template-columns: repeat(3, 1fr);
-        display: grid;
-      }
-    }
-
-    @media (max-width: 950px) {
+    @media (max-width: 980px) {
       .layout {
         grid-template-columns: 1fr;
       }
@@ -690,372 +423,204 @@
       .sidebar {
         position: relative;
         height: auto;
+        gap: 18px;
       }
 
-      .menu {
-        flex-direction: row;
+      .nav {
+        grid-template-columns: repeat(5, max-content);
         overflow-x: auto;
+        padding-bottom: 4px;
       }
 
-      .menu a {
-        min-width: fit-content;
-      }
-
-      .admin-box {
+      .account {
         display: none;
       }
 
       .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .panel-grid,
-      .side-panel {
+      .grid-two {
         grid-template-columns: 1fr;
-      }
-
-      .topbar {
-        flex-direction: column;
-        align-items: flex-start;
-        height: auto;
-        gap: 14px;
-        padding: 18px;
-      }
-
-      .top-actions {
-        width: 100%;
-        flex-wrap: wrap;
-      }
-
-      .search {
-        width: 100%;
       }
     }
 
-    @media (max-width: 650px) {
+    @media (max-width: 640px) {
+      .topbar,
+      .welcome {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .top-actions,
+      .button {
+        width: 100%;
+      }
+
       .content {
-        padding: 16px;
+        padding: 18px;
       }
 
-      .stats-grid {
+      .stats-grid,
+      .quick-grid {
         grid-template-columns: 1fr;
-      }
-
-      th,
-      td {
-        padding: 14px 12px;
-      }
-
-      table {
-        min-width: 820px;
-      }
-
-      .table-panel {
-        overflow-x: auto;
-      }
-
-      .countdown {
-        grid-template-columns: repeat(2, 1fr);
       }
     }
   </style>
 </head>
 
 <body>
-
   <div class="layout">
-
     <aside class="sidebar">
       <div>
-        <div class="logo">
-          <div class="logo-icon">⚡</div>
+        <div class="brand">
+          <div class="brand-icon">P</div>
           <span>PixelHack</span>
         </div>
 
-        <nav class="menu">
-          <a href="#" class="active">▦ Dashboard</a>
-          <a href="#">♙ Users</a>
-          <a href="#">♧ Teams</a>
-          <a href="#">▱ Submissions</a>
-          <a href="#">☷ Events</a>
-          <a href="#">☆ Voting</a>
-          <a href="#">▥ Reports</a>
-          <a href="#">⚙ Settings</a>
+        <nav class="nav" aria-label="Main navigation">
+          <a class="active" href="{{ url_for('dashboard') }}">Dashboard</a>
+          <a href="{{ url_for('profile') }}">Profile</a>
+          <a href="#teams">Teams</a>
+          <a href="#submit">Submissions</a>
+          <a href="{{ url_for('meetings') }}">Events</a>
         </nav>
       </div>
 
-      <div class="admin-box">
-        <div class="avatar">AD</div>
+      <div class="account">
+        <div class="avatar">
+          {% if user.profile_picture %}
+            <img src="{{ user.profile_picture }}" alt="{{ user.full_name or user.username }}">
+          {% else %}
+            {{ (user.full_name or user.username or 'U')[:2].upper() }}
+          {% endif %}
+        </div>
         <div>
-          <strong>Admin User</strong>
-          <a href="/profile">Profile</a>
-          <span class="muted"> | </span>
-          <a href="/logout">Logout</a>
+          <strong>{{ user.full_name or user.username }}</strong>
+          <a href="{{ url_for('logout') }}">Logout</a>
         </div>
       </div>
     </aside>
 
     <main class="main">
-
       <header class="topbar">
-        <h1>Admin Dashboard</h1>
-
+        <h1>Dashboard</h1>
         <div class="top-actions">
-          <input class="search" type="text" placeholder="Search users, teams, games..." />
-          <button class="icon-btn">🔔</button>
-          <div class="avatar">AD</div>
-          <button class="create-btn">＋ Create Event</button>
+          <a class="button" href="{{ url_for('profile') }}">Edit Profile</a>
+          <a class="button primary" href="#submit">Submit Game</a>
         </div>
       </header>
 
       <div class="content">
-
-        <section class="left-content">
-
-          <section class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-icon">♙</div>
-              <h2>12,400+</h2>
-              <p>Total Users</p>
-              <div class="trend">↗ +12% this week</div>
-            </div>
-
-            <div class="stat-card cyan">
-              <div class="stat-icon">♧</div>
-              <h2>284</h2>
-              <p>Active Teams</p>
-              <div class="trend">↗ +8% this week</div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-icon">▱</div>
-              <h2>847</h2>
-              <p>Games Submitted</p>
-              <div class="trend">↗ +23% this week</div>
-            </div>
-
-            <div class="stat-card gold">
-              <div class="stat-icon">🏆</div>
-              <h2>$24,000</h2>
-              <p>Prize Pool</p>
-              <div class="trend">↗ +5% this week</div>
-            </div>
-          </section>
-
-          <section class="panel-grid">
-            <div class="panel">
-              <div class="chart-head">
-                <h2>Submission Activity</h2>
-                <div class="legend">
-                  <span><i class="dot purple"></i>Submissions</span>
-                  <span><i class="dot cyan-dot"></i>Votes</span>
-                </div>
-              </div>
-
-              <svg class="chart" viewBox="0 0 700 220" preserveAspectRatio="none">
-                <line x1="0" y1="190" x2="700" y2="190" stroke="rgba(130,147,196,0.12)" />
-                <line x1="0" y1="145" x2="700" y2="145" stroke="rgba(130,147,196,0.12)" />
-                <line x1="0" y1="100" x2="700" y2="100" stroke="rgba(130,147,196,0.12)" />
-                <line x1="0" y1="55" x2="700" y2="55" stroke="rgba(130,147,196,0.12)" />
-
-                <polyline
-                  points="0,175 100,160 200,170 300,148 400,155 500,130 600,142 700,168"
-                  fill="none"
-                  stroke="#00d7f4"
-                  stroke-width="4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-
-                <polyline
-                  points="0,188 100,170 200,150 300,115 400,125 500,92 600,75 700,105"
-                  fill="none"
-                  stroke="#8c48ff"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  opacity="0.75"
-                />
-              </svg>
-            </div>
-
-            <div class="panel">
-              <p class="event-label">Live Event</p>
-              <div class="event-title">Spring Jam 2026</div>
-              <p class="event-meta">
-                Theme: Parallel Dimensions<br />
-                Deadline: Jun 17, 2026 at 23:59 UTC
-              </p>
-
-              <div class="countdown">
-                <div class="time-box">
-                  <strong>02</strong>
-                  <span>DAYS</span>
-                </div>
-
-                <div class="time-box">
-                  <strong>06</strong>
-                  <span>HOURS</span>
-                </div>
-
-                <div class="time-box">
-                  <strong>50</strong>
-                  <span>MINS</span>
-                </div>
-
-                <div class="time-box">
-                  <strong>37</strong>
-                  <span>SECS</span>
-                </div>
-              </div>
-
-              <div class="participants">
-                <span>Participants</span>
-                <strong>1,204</strong>
-              </div>
-            </div>
-          </section>
-
-          <section class="table-panel">
-            <div class="table-title">
-              <h2>Recent Submissions</h2>
-              <a href="#">View all ›</a>
-            </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Game Name</th>
-                  <th>Team</th>
-                  <th>Category</th>
-                  <th>Votes</th>
-                  <th>Status</th>
-                  <th>Submitted At</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                <tr>
-                  <td class="game-name">Neon Drift</td>
-                  <td class="muted">Team Velocity</td>
-                  <td><span class="category">Racing</span></td>
-                  <td class="votes">⭐ 482</td>
-                  <td><span class="status approved">● Approved</span></td>
-                  <td class="muted">Jun 12, 2026</td>
-                  <td>
-                    <div class="action-row">
-                      <a href="#" class="action-btn view">View</a>
-                      <a href="#" class="action-btn approve">Approve</a>
-                      <a href="#" class="action-btn reject">Reject</a>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td class="game-name">Quantum Break</td>
-                  <td class="muted">Pixel Forge</td>
-                  <td><span class="category">Puzzle</span></td>
-                  <td class="votes">⭐ 371</td>
-                  <td><span class="status pending">● Pending Review</span></td>
-                  <td class="muted">Jun 13, 2026</td>
-                  <td>
-                    <div class="action-row">
-                      <a href="#" class="action-btn view">View</a>
-                      <a href="#" class="action-btn approve">Approve</a>
-                      <a href="#" class="action-btn reject">Reject</a>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td class="game-name">Shadow Protocol</td>
-                  <td class="muted">Dark Matter Dev</td>
-                  <td><span class="category">Stealth</span></td>
-                  <td class="votes">⭐ 318</td>
-                  <td><span class="status flagged">● Flagged</span></td>
-                  <td class="muted">Jun 13, 2026</td>
-                  <td>
-                    <div class="action-row">
-                      <a href="#" class="action-btn view">View</a>
-                      <a href="#" class="action-btn approve">Approve</a>
-                      <a href="#" class="action-btn reject">Reject</a>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td class="game-name">Astro Forge</td>
-                  <td class="muted">Nova Team</td>
-                  <td><span class="category">Adventure</span></td>
-                  <td class="votes">⭐ 224</td>
-                  <td><span class="status approved">● Approved</span></td>
-                  <td class="muted">Jun 14, 2026</td>
-                  <td>
-                    <div class="action-row">
-                      <a href="#" class="action-btn view">View</a>
-                      <a href="#" class="action-btn approve">Approve</a>
-                      <a href="#" class="action-btn reject">Reject</a>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
+        <section class="welcome">
+          <div>
+            <p class="eyebrow">Spring Jam workspace</p>
+            <h2>Welcome back, {{ user.full_name or user.username }}!</h2>
+            <p>Ready for the next Game Jam challenge? Track your team, submissions, votes, and upcoming events from one clean place.</p>
+          </div>
+          <span class="role-pill">{{ user.role or 'Participant' }} · {{ user.team_role or 'Developer' }}</span>
         </section>
 
-        <aside class="side-panel">
+        <section class="stats-grid" aria-label="User statistics">
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span>Teams Joined</span>
+              <span class="stat-icon">T</span>
+            </div>
+            <div class="stat-number">{{ stats.teams_joined }}</div>
+          </article>
 
-          <div class="side-card">
-            <h3>ADMIN ALERTS</h3>
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span>Games Submitted</span>
+              <span class="stat-icon">G</span>
+            </div>
+            <div class="stat-number">{{ stats.games_submitted }}</div>
+          </article>
 
-            <div class="alert-list">
-              <div class="alert red">⚠️ &nbsp; 3 reported submissions need review</div>
-              <div class="alert blue">♙ &nbsp; 12 new users joined today</div>
-              <div class="alert gold">⏱ &nbsp; Voting closes in 3 days</div>
-              <div class="alert green">▭ &nbsp; Server health: Normal</div>
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span>Votes Cast</span>
+              <span class="stat-icon">V</span>
+            </div>
+            <div class="stat-number">{{ stats.votes_cast }}</div>
+          </article>
+
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span>Upcoming Events</span>
+              <span class="stat-icon">E</span>
+            </div>
+            <div class="stat-number">{{ stats.upcoming_events }}</div>
+          </article>
+        </section>
+
+        <section class="grid-two">
+          <div class="panel">
+            <div class="panel-head">
+              <h2 class="section-title">Quick Actions</h2>
+              <p class="muted">Jump into common tasks</p>
+            </div>
+
+            <div class="quick-grid">
+              <a class="quick-action" href="{{ url_for('profile') }}">
+                <strong>Edit Profile</strong>
+                <span>Update your bio, skills, and role.</span>
+              </a>
+              <a class="quick-action" id="teams" href="#">
+                <strong>Create Team</strong>
+                <span>Start a new jam squad.</span>
+              </a>
+              <a class="quick-action" href="#">
+                <strong>Join Team</strong>
+                <span>Find collaborators for the jam.</span>
+              </a>
+              <a class="quick-action" id="submit" href="#">
+                <strong>Submit Game</strong>
+                <span>Add your build, screenshots, and links.</span>
+              </a>
+              <a class="quick-action" href="{{ url_for('meetings') }}">
+                <strong>View Events</strong>
+                <span>See kickoff, check-ins, and deadlines.</span>
+              </a>
+              <a class="quick-action" href="{{ url_for('voting') }}">
+                <strong>Vote</strong>
+                <span>Review submissions by category.</span>
+              </a>
             </div>
           </div>
 
-          <div class="side-card">
-            <h3>QUICK ACTIONS</h3>
-
-            <div class="quick-actions">
-              <a href="#" class="qa-primary">＋ Create New Jam</a>
-              <a href="#" class="qa-muted">⇩ Export Report</a>
-              <a href="#" class="qa-red">⚑ Review Flagged Games</a>
-              <a href="#" class="qa-gold">🎁 Manage Prize Pool</a>
+          <aside class="panel event-card">
+            <div>
+              <p class="eyebrow">Current event</p>
+              <div class="event-title">Spring Jam 2026</div>
+              <p class="muted">Theme: Parallel Dimensions. Keep building, polishing, and preparing your submission.</p>
             </div>
+            <div>
+              <p class="muted">Jam progress</p>
+              <div class="progress" aria-hidden="true"><span></span></div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="section-title">Recent Activity</h2>
+            <p class="muted">Your latest account and event updates</p>
           </div>
 
-          <div class="side-card">
-            <h3>PLATFORM HEALTH</h3>
-
-            <div class="health-row">
-              <span>API Uptime</span>
-              <strong>99.98%</strong>
-            </div>
-
-            <div class="health-row">
-              <span>Avg. Response</span>
-              <strong>42ms</strong>
-            </div>
-
-            <div class="health-row">
-              <span>Active Sessions</span>
-              <strong>3,241</strong>
-            </div>
-
-            <div class="bar"></div>
+          <div class="activity-list">
+            {% for activity in activities %}
+              <article class="activity">
+                <strong>{{ activity.label }}</strong>
+                <span class="muted">{{ activity.detail }}</span>
+                <small>{{ activity.time }}</small>
+              </article>
+            {% endfor %}
           </div>
-
-        </aside>
-
+        </section>
       </div>
     </main>
-
   </div>
-
 </body>
 </html>

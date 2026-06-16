@@ -361,6 +361,7 @@
             <label>Confirm Password</label>
             <input type="password" name="confirm_password" placeholder="••••••••" required />
           </div>
+
           <button class="main-btn" type="submit">Create Account →</button>
         </form>
 
@@ -376,6 +377,11 @@
   <script>
     function togglePassword() {
       const password = document.getElementById("password");
+      password.type = password.type === "password" ? "text" : "password";
+    }
+
+    function toggleConfirmPassword() {
+      const password = document.getElementById("confirm_password");
       password.type = password.type === "password" ? "text" : "password";
     }
   </script>
