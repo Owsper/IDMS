@@ -18,7 +18,7 @@ from itsdangerous import URLSafeTimedSerializer
 import os
 
 app = Flask(__name__, template_folder="frontend/pages")
-app.secret_key = os.environ.get("PIXELHACK_SECRET_KEY", "pixelhack-dev-secret-key")
+app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
 
 init_db()
 
@@ -50,9 +50,9 @@ def current_user():
         return {
             "id": 0,
             "username": admin_name,
-            "email": f"{admin_name}@pixelhack.admin",
+            "email": f"{admin_name}@pexel.admin",
             "full_name": f"{admin_name.title()} Admin",
-            "bio": "PixelHack organizer account.",
+            "bio": "Pexel organizer account.",
             "skills": "Event management, judging, community support",
             "team_role": "Organizer",
             "profile_picture": "",
