@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, abort
 from database import (
     init_db,
     create_user,
@@ -12,13 +12,35 @@ from database import (
     username_exists_for_other_user,
     get_dashboard_stats,
     get_recent_activity,
+    save_upload_metadata,
+    get_approved_uploads,
+    get_upload_by_id,
 )
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
+from werkzeug.utils import secure_filename
+import uuid
+import hashlib
 import os
+import mimetypes
 
 app = Flask(__name__, template_folder="frontend/pages")
 app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
+
+# Upload config: limit to 16MB per request and store files in a restricted folder
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+app.config["UPLOAD_FOLDER"] = os.path.join(os.getcwd(), "secure_uploads")
+app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
+# Allowed extensions for uploaded documents
+app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
+
+# Ensure upload directory exists with restrictive permissions
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+try:
+    os.chmod(app.config["UPLOAD_FOLDER"], 0o700)
+except Exception:
+    # chmod may fail on some filesystems; continue without crashing
+    pass
 
 init_db()
 
@@ -218,6 +240,108 @@ def meetings():
 def voting():
     return render_template("VotingPage.html")
 
+
+@app.route("/import-files", methods=["GET", "POST"])
+@login_required
+def import_files():
+    """Upload page. Only admin users may upload documents; successful uploads are approved.
+
+    Validation rules:
+    - Filename extension must be in ALLOWED_EXTENSIONS.
+    - Each file must be <= PER_FILE_MAX_SIZE.
+    - Request size limited by MAX_CONTENT_LENGTH.
+    """
+    user = current_user()
+
+    # Only admin sessions may POST (upload). Members can GET to view the page but cannot upload.
+    if request.method == "POST":
+        if not session.get("admin_username"):
+            return render_template("ImportFilesPage.html", error="Only admins may upload files.")
+
+        if "files" not in request.files:
+            return render_template("ImportFilesPage.html", error="No files provided.")
+
+        files = request.files.getlist("files")
+        saved_files = []
+
+        for f in files:
+            if not f or f.filename == "":
+                continue
+
+            original_name = secure_filename(f.filename)
+            ext = os.path.splitext(original_name)[1].lower()
+
+            # Validate extension
+            if ext not in app.config["ALLOWED_EXTENSIONS"]:
+                return render_template("ImportFilesPage.html", error=f"Invalid file type: {ext}")
+
+            # Read content and enforce per-file size
+            content = f.read()
+            if len(content) > app.config["PER_FILE_MAX_SIZE"]:
+                return render_template("ImportFilesPage.html", error=f"File too large: {original_name}")
+
+            sha256 = hashlib.sha256(content).hexdigest()
+
+            # Store with randomized name to avoid collisions and leakage
+            stored_name = f"{uuid.uuid4().hex}{ext}"
+            dest_path = os.path.join(app.config["UPLOAD_FOLDER"], stored_name)
+
+            try:
+                with open(dest_path, "wb") as out:
+                    out.write(content)
+                os.chmod(dest_path, 0o600)
+            except Exception:
+                return render_template("ImportFilesPage.html", error="Failed to save file on server.")
+
+            # Persist metadata in the database and mark as approved (uploaded by admin)
+            try:
+                save_upload_metadata(
+                    user_id=None,
+                    original_filename=original_name,
+                    stored_filename=stored_name,
+                    mime_type=f.mimetype or "application/octet-stream",
+                    size=len(content),
+                    sha256=sha256,
+                    approved=1,
+                    approved_by=session.get("admin_username"),
+                )
+            except Exception as e:
+                app.logger.exception("Failed saving upload metadata")
+                try:
+                    os.remove(dest_path)
+                except Exception:
+                    pass
+                return render_template("ImportFilesPage.html", error="Failed to save upload metadata.")
+
+            saved_files.append(original_name)
+
+        return render_template("ImportFilesPage.html", success=f"Uploaded {len(saved_files)} files.")
+
+    # GET: render page
+    stats = get_dashboard_stats(user["id"]) if user else {}
+    return render_template("ImportFilesPage.html", user=user, stats=stats)
+
+
+# Members can view approved files
+@app.route("/files")
+@login_required
+def list_files():
+    user = current_user()
+    files = get_approved_uploads(limit=200)
+    return render_template("DocumentsPage.html", user=user, files=files, stats=get_dashboard_stats(user["id"]))
+
+
+# Secure download endpoint: only serve files that are approved
+@app.route("/files/<int:file_id>/download")
+@login_required
+def download_file(file_id):
+    record = get_upload_by_id(file_id)
+    if not record or int(record.get("approved", 0)) != 1:
+        abort(404)
+
+    stored_name = record["stored_filename"]
+    # send_from_directory validates paths for us
+    return send_from_directory(app.config["UPLOAD_FOLDER"], stored_name, as_attachment=True, mimetype=record.get("mime_type"))
 
 
 if __name__ == "__main__":
