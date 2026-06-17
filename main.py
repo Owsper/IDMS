@@ -143,6 +143,8 @@ def login():
             if not user:
                 error = "Invalid email or password."
             else:
+                # Clear any previous session data (e.g., admin_username) before setting user_id
+                session.clear()
                 session["user_id"] = user["id"]
                 return redirect(url_for("dashboard"))
             
