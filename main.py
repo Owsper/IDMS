@@ -276,16 +276,16 @@ def import_files():
     """
     user = current_user()
 
-    # Only admin sessions may POST (upload). Members can GET to view the page but cannot upload.
+    # Allow authenticated users to POST files. Admin uploads are auto-approved, member uploads are saved for review.
     if request.method == "POST":
-        if not session.get("admin_username"):
-            return render_template("ImportFilesPage.html", error="Only admins may upload files.")
-
         if "files" not in request.files:
             return render_template("ImportFilesPage.html", error="No files provided.")
 
         files = request.files.getlist("files")
         saved_files = []
+
+        # Determine uploader role
+        is_admin = bool(session.get("admin_username"))
 
         for f in files:
             if not f or f.filename == "":
@@ -316,19 +316,19 @@ def import_files():
             except Exception:
                 return render_template("ImportFilesPage.html", error="Failed to save file on server.")
 
-            # Persist metadata in the database and mark as approved (uploaded by admin)
+            # Persist metadata. Admins' uploads are auto-approved; members require approval.
             try:
                 save_upload_metadata(
-                    user_id=None,
+                    user_id=(None if is_admin else (user["id"] if user else None)),
                     original_filename=original_name,
                     stored_filename=stored_name,
                     mime_type=f.mimetype or "application/octet-stream",
                     size=len(content),
                     sha256=sha256,
-                    approved=1,
-                    approved_by=session.get("admin_username"),
+                    approved=(1 if is_admin else 0),
+                    approved_by=(session.get("admin_username") if is_admin else None),
                 )
-            except Exception as e:
+            except Exception:
                 app.logger.exception("Failed saving upload metadata")
                 try:
                     os.remove(dest_path)
@@ -338,7 +338,10 @@ def import_files():
 
             saved_files.append(original_name)
 
-        return render_template("ImportFilesPage.html", success=f"Uploaded {len(saved_files)} files.")
+        if is_admin:
+            return render_template("ImportFilesPage.html", success=f"Uploaded and approved {len(saved_files)} files.")
+        else:
+            return render_template("ImportFilesPage.html", success=f"Uploaded {len(saved_files)} files; pending approval.")
 
     # GET: render page
     stats = get_dashboard_stats(user["id"]) if user else {}
