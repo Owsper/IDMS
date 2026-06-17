@@ -3,10 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="frontend\style.css">
-    <title>Document</title>
+    <title>Documents — Pexel</title>
+    <style>
+      body { font-family:Inter, Arial, sans-serif; background:#05070d; color:#f3f5ff; }
+      .wrap { max-width:980px; margin:28px auto; padding:20px; background:rgba(15,20,32,0.9); border:1px solid rgba(124,58,237,0.12); border-radius:8px; }
+      h1 { font-family:Orbitron, sans-serif; }
+      .muted { color:#8293c4; }
+      .list { margin-top:12px; }
+      .item { padding:10px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(129,72,255,0.04); }
+      .btn { padding:8px 10px; border-radius:6px; background:linear-gradient(135deg,#7d39ff,#8d45ff); color:white; font-weight:800; text-decoration:none; }
+    </style>
 </head>
 <body>
-    
+  <div class="wrap">
+    <h1>Approved Documents</h1>
+    <p class="muted">Files uploaded and approved by admins are listed below.</p>
+
+    {% if files and files|length > 0 %}
+      <div class="list">
+        {% for f in files %}
+          <div class="item">
+            <div>
+              <strong>{{ f.original_filename }}</strong>
+              <div class="muted">Uploaded: {{ f.created_at }} • Size: {{ f.size }} bytes</div>
+            </div>
+            <div>
+              <a class="btn" href="{{ url_for('download_file', file_id=f.id) }}">Download</a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted">No documents available yet.</p>
+    {% endif %}
+
+    <div style="margin-top:18px;"><a href="{{ url_for('dashboard') }}" class="btn" style="background:#1a1f2d;">Back to Dashboard</a></div>
+  </div>
 </body>
 </html>
