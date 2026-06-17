@@ -56,6 +56,31 @@ def init_db():
     add_column_if_missing(cursor, "users_data", "updated_at", "DATETIME")
     add_column_if_missing(cursor, "users_data", "last_login_at", "DATETIME")
 
+    # Table for uploaded documents' metadata
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS uploads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            original_filename TEXT,
+            stored_filename TEXT NOT NULL,
+            mime_type TEXT,
+            size INTEGER,
+            sha256 TEXT,
+            approved INTEGER DEFAULT 0,
+            approved_by TEXT,
+            approved_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_user ON uploads(user_id)")
+    # Ensure 'approved' column exists (migrate older DBs) before creating an index on it
+    add_column_if_missing(cursor, "uploads", "approved", "INTEGER DEFAULT 0")
+    # Migrate older databases: ensure approval metadata columns exist
+    add_column_if_missing(cursor, "uploads", "approved_by", "TEXT")
+    add_column_if_missing(cursor, "uploads", "approved_at", "DATETIME")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_approved ON uploads(approved)")
+
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users_data(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users_data(username)")
 
@@ -292,3 +317,45 @@ def update_user_data(verified_email, first_name, last_name, email, password_hash
     conn.commit()
     conn.close()
 
+
+def save_upload_metadata(user_id, original_filename, stored_filename, mime_type, size, sha256, approved=0, approved_by=None):
+    """Persist metadata for an uploaded file.
+
+    Stores a record in the `uploads` table linking the original name to the
+    randomized stored filename along with integrity (sha256), size, and approval info.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO uploads (user_id, original_filename, stored_filename, mime_type, size, sha256, approved, approved_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, original_filename, stored_filename, mime_type, size, sha256, int(approved), approved_by))
+    conn.commit()
+    conn.close()
+
+
+def get_uploads_for_user(user_id, limit=50):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM uploads WHERE user_id = ? ORDER BY created_at DESC LIMIT ?", (user_id, limit))
+    rows = cursor.fetchall()
+    conn.close()
+    return [row_to_dict(r) for r in rows]
+
+
+def get_approved_uploads(limit=100):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM uploads WHERE approved = 1 ORDER BY created_at DESC LIMIT ?", (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [row_to_dict(r) for r in rows]
+
+
+def get_upload_by_id(upload_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM uploads WHERE id = ?", (upload_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row_to_dict(row)
