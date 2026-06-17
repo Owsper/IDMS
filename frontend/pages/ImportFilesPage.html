@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Import Files — Pexel</title>
+  <style>
+    /* Minimal styles to match dashboard feel */
+    body { font-family: Inter, Arial, sans-serif; background:#05070d; color:#f3f5ff; }
+    .wrap { max-width:880px; margin:28px auto; padding:20px; background:rgba(15,20,32,0.9); border:1px solid rgba(124,58,237,0.12); border-radius:8px; }
+    h1 { font-family:Orbitron, sans-serif; }
+    .muted { color:#8293c4; }
+    .form-row { margin-top:12px; }
+    input[type=file] { background:#0f1622; color:#fff; padding:10px; border-radius:6px; }
+    .button { margin-top:12px; padding:10px 14px; border-radius:6px; background:linear-gradient(135deg,#7d39ff,#8d45ff); border:none; color:white; font-weight:800; cursor:pointer; }
+    .notice { margin-top:10px; padding:10px; border-radius:6px; }
+    .notice.error { background:#3b1e1e; color:#ffb4b4; border:1px solid #6b2b2b; }
+    .notice.success { background:#16321f; color:#b7ffcf; border:1px solid #264b33; }
+    .file-list { margin-top:18px; }
+    .file-item { padding:8px; border-bottom:1px solid rgba(129,72,255,0.06); display:flex; justify-content:space-between; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Import Files</h1>
+    <p class="muted">Admins can upload documents here. Supported: .pdf, .docx, .doc, .txt, .png, .jpg</p>
+
+    {% if error %}
+      <div class="notice error">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+      <div class="notice success">{{ success }}</div>
+    {% endif %}
+
+    <form action="{{ url_for('import_files') }}" method="post" enctype="multipart/form-data">
+      <div class="form-row">
+        <input type="file" name="files" multiple />
+      </div>
+      <div class="form-row">
+        <button class="button" type="submit">Upload</button>
+        <a class="button" href="{{ url_for('list_files') }}" style="background:#1a1f2d; margin-left:12px; text-decoration:none;">View Documents</a>
+      </div>
+    </form>
+
+    <div class="file-list">
+      <h3>Notes</h3>
+      <p class="muted">Files uploaded by admins are automatically approved and will be visible to members on the Documents page.</p>
+    </div>
+  </div>
+</body>
+</html>
