@@ -44,18 +44,31 @@ except Exception:
 
 init_db()
 
-admin_username = "owsper", "christos", "arda", "jira", "salami"
-admin_pass = "owsper", "christos", "arda", "jira", "salami"
+# Admin credentials (kept simple for demo/dev). Use lists for clarity and easier maintenance.
+# IMPORTANT: In production, move admin credentials to a secure store or environment variables.
+ADMIN_USERNAMES = ["owsper", "christos", "arda", "jira", "salami"]
+ADMIN_PASSWORDS = ["owsper", "christos", "arda", "jira", "salami"]
 
 
 def is_admin_login(username, password):
-    username = username.strip().lower()
-    for admin_index, admin_name in enumerate(admin_username):
-        if username == admin_name and password == admin_pass[admin_index]:
+    """Return True if provided credentials match an admin account.
+
+    Notes:
+    - Admin accounts are stored in memory for this demo. In production use a secure store.
+    - Comparison is case-insensitive for username.
+    """
+    if not username or not password:
+        return False
+    username_normalized = username.strip().lower()
+    for idx, admin_name in enumerate(ADMIN_USERNAMES):
+        # compare normalized username and the password at the same index
+        if username_normalized == admin_name and password == ADMIN_PASSWORDS[idx]:
             return True
     return False
 
 
+# Decorator to enforce authentication on routes.
+# Usage: annotate routes with @login_required. It accepts both admin and normal user sessions.
 def login_required(view):
     @wraps(view)
     def wrapped_view(*args, **kwargs):
@@ -67,8 +80,16 @@ def login_required(view):
 
 
 def current_user():
+    """Return the current authenticated user.
+
+    Priority:
+    1. If session contains 'admin_username', return a lightweight admin dict for templates.
+    2. Otherwise, if session contains 'user_id', fetch the user record from the database.
+    Returns None when there is no authenticated identity.
+    """
     if session.get("admin_username"):
         admin_name = session["admin_username"]
+        # Lightweight admin representation used across templates and permission checks
         return {
             "id": 0,
             "username": admin_name,
