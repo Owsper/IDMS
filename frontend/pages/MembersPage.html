@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pexel Admin - Members</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; color: #f3f5ff; font-family: "Inter", Arial, sans-serif; background: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px), #080b13; background-size: 42px 42px; }
+    .layout { min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
+    .sidebar { position: sticky; top: 0; height: 100vh; padding: 22px 14px; background: rgba(8,11,19,.96); border-right: 1px solid rgba(129,72,255,.24); display: flex; flex-direction: column; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 24px; font-size: 20px; font-weight: 900; }
+    .brand-icon, .avatar { display: grid; place-items: center; background: linear-gradient(135deg, #7d39ff, #9a45ff); color: white; font-weight: 900; }
+    .brand-icon { width: 38px; height: 38px; border-radius: 10px; }
+    .nav { display: grid; gap: 7px; }
+    .nav a { min-height: 42px; padding: 0 12px; border-radius: 8px; color: #8ea0c8; display: flex; align-items: center; text-decoration: none; font-size: 14px; font-weight: 800; }
+    .nav a:hover, .nav a.active { color: white; background: rgba(124,58,237,.16); border: 1px solid rgba(124,58,237,.36); }
+    .account { padding: 14px 8px 0; border-top: 1px solid rgba(129,72,255,.22); display: flex; gap: 10px; align-items: center; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; font-size: 12px; }
+    .account strong { display: block; font-size: 13px; }
+    .account a { color: #8293c4; text-decoration: none; font-size: 12px; }
+    .main { min-width: 0; }
+    .topbar { min-height: 70px; padding: 18px 28px; border-bottom: 1px solid rgba(129,72,255,.22); background: rgba(5,7,13,.9); display: flex; align-items: center; }
+    h1, h2 { font-family: "Orbitron", sans-serif; }
+    h1 { font-size: 20px; }
+    .content { width: min(1180px, 100%); margin: 0 auto; padding: 28px; display: grid; gap: 20px; }
+    .heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
+    .heading h2 { margin-bottom: 7px; font-size: 24px; }
+    .muted { color: #8293c4; font-size: 14px; }
+    .panel { border-radius: 8px; border: 1px solid rgba(129,72,255,.24); background: rgba(15,20,32,.92); box-shadow: 0 12px 28px rgba(0,0,0,.16); overflow: hidden; }
+    .search { padding: 18px; display: flex; gap: 10px; border-bottom: 1px solid rgba(129,72,255,.2); }
+    .search input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; color: white; background: #1a1f2d; border: 1px solid #2b3152; border-radius: 8px; outline: none; font-size: 14px; }
+    .search input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.18); }
+    .button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 8px; color: white; background: linear-gradient(135deg, #7d39ff, #8d45ff); font-weight: 900; cursor: pointer; }
+    .clear { display: inline-flex; align-items: center; padding: 0 12px; color: #a99bc9; text-decoration: none; font-size: 13px; font-weight: 800; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 850px; }
+    th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid rgba(129,72,255,.15); }
+    th { color: #8293c4; font-size: 11px; letter-spacing: .7px; text-transform: uppercase; }
+    td { font-size: 13px; color: #dce2fa; }
+    tbody tr:hover { background: rgba(124,58,237,.07); }
+    .member-name { color: white; font-weight: 800; }
+    .member-user { color: #7080aa; font-size: 12px; margin-top: 3px; }
+    .pill { display: inline-flex; padding: 5px 8px; border-radius: 999px; font-size: 11px; font-weight: 900; background: rgba(124,58,237,.16); color: #c7b7ff; border: 1px solid rgba(124,58,237,.35); }
+    .verified { color: #86efac; background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.3); }
+    .pending { color: #fde68a; background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.3); }
+    .empty { padding: 50px 20px; text-align: center; color: #8293c4; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } .sidebar { position: relative; height: auto; gap: 18px; } .nav { grid-template-columns: repeat(4, max-content); overflow-x: auto; } .account { display: none; } .content { padding: 18px; } .heading { align-items: start; flex-direction: column; } }
+    @media (max-width: 520px) { .search { flex-wrap: wrap; } .search input { flex-basis: 100%; } .button { flex: 1; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div>
+      <div class="brand"><div class="brand-icon">P</div><span>Pexel</span></div>
+      <nav class="nav" aria-label="Admin navigation">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="active" href="{{ url_for('admin_members') }}">Members</a>
+        <a href="{{ url_for('meetings') }}">Events</a>
+        <a href="{{ url_for('admin_import_data') }}">Import Data</a>
+      </nav>
+    </div>
+    <div class="account">
+      <div class="avatar">{{ (user.full_name or user.username or 'A')[:2].upper() }}</div>
+      <div><strong>{{ user.full_name or user.username }}</strong><a href="{{ url_for('logout') }}">Logout</a></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><h1>Members</h1></header>
+    <div class="content">
+      <div class="heading">
+        <div><h2>Member Directory</h2><p class="muted">Search by name, username, email, or role.</p></div>
+        <p class="muted">{{ members|length }} result{% if members|length != 1 %}s{% endif %}</p>
+      </div>
+      <section class="panel">
+        <form class="search" method="GET" action="{{ url_for('admin_members') }}" role="search">
+          <input type="search" name="q" value="{{ query }}" placeholder="Search members..." aria-label="Search members" autofocus>
+          <button class="button" type="submit">Search</button>
+          {% if query %}<a class="clear" href="{{ url_for('admin_members') }}">Clear</a>{% endif %}
+        </form>
+        {% if members %}
+        <div class="table-wrap"><table>
+          <thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Team role</th><th>Status</th><th>Last login</th></tr></thead>
+          <tbody>{% for member in members %}<tr>
+            <td><div class="member-name">{{ member.full_name or member.username }}</div><div class="member-user">@{{ member.username }}</div></td>
+            <td>{{ member.email }}</td>
+            <td><span class="pill">{{ member.role or 'Participant' }}</span></td>
+            <td>{{ member.team_role or 'Developer' }}</td>
+            <td>{% if member.is_verified %}<span class="pill verified">Verified</span>{% else %}<span class="pill pending">Pending</span>{% endif %}</td>
+            <td>{{ member.last_login_at or 'Never' }}</td>
+          </tr>{% endfor %}</tbody>
+        </table></div>
+        {% else %}<div class="empty">No members matched “{{ query }}”.</div>{% endif %}
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

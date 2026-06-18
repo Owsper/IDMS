@@ -574,7 +574,7 @@
         <nav class="nav" aria-label="Main navigation">
           <a class="active" href="{{ url_for('dashboard') }}">Dashboard</a>
           {% if user.role == 'Admin' %}
-            <a href="#members">Members</a>
+            <a href="{{ url_for('admin_members') }}">Members</a>
           {% endif %}
           <a href="{{ url_for('profile') }}">Profile</a>
           <a href="#teams">Teams</a>

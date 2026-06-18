@@ -560,6 +560,42 @@ def get_import_dashboard_stats():
     return stats
 
 
+def search_members(query="", limit=100):
+    """Return registered members matching a name, username, email, or role."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = (query or "").strip().lower()
+    params = []
+    where_clause = ""
+
+    if query:
+        value = f"%{query}%"
+        where_clause = """
+            WHERE lower(username) LIKE ?
+               OR lower(email) LIKE ?
+               OR lower(COALESCE(full_name, '')) LIKE ?
+               OR lower(COALESCE(role, '')) LIKE ?
+               OR lower(COALESCE(team_role, '')) LIKE ?
+        """
+        params.extend([value] * 5)
+
+    params.append(max(1, min(int(limit), 250)))
+    cursor.execute(
+        f"""
+        SELECT id, username, email, full_name, role, team_role,
+               is_verified, created_at, last_login_at
+        FROM users_data
+        {where_clause}
+        ORDER BY lower(COALESCE(NULLIF(full_name, ''), username)), id
+        LIMIT ?
+        """,
+        params,
+    )
+    members = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return members
+
+
 def create_import_job(admin_username, original_filename, stored_filename, target_table, file_ext, file_size):
     conn = get_connection()
     cursor = conn.cursor()

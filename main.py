@@ -18,6 +18,7 @@ from database import (
     get_recent_activity,
     get_member_statistics,
     get_member_growth_history,
+    search_members,
     save_upload_metadata,
     get_approved_uploads,
     get_upload_by_id,
@@ -672,6 +673,19 @@ def api_admin_member_stats():
 @admin_required
 def api_admin_member_growth():
     return jsonify({"growth": get_member_growth_history()})
+
+
+@app.route("/admin/members")
+@login_required
+@admin_required
+def admin_members():
+    query = request.args.get("q", "").strip()
+    return render_template(
+        "MembersPage.html",
+        user=current_user(),
+        members=search_members(query),
+        query=query,
+    )
 
 
 @app.route("/admin/import-data")
