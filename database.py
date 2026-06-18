@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import bcrypt
 
@@ -82,6 +83,64 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users_data(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_created_at ON users_data(created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_last_login_at ON users_data(last_login_at)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS import_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_username TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            stored_filename TEXT NOT NULL,
+            target_table TEXT NOT NULL DEFAULT 'users_data',
+            file_ext TEXT NOT NULL,
+            file_size INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'uploaded',
+            field_mapping TEXT DEFAULT '{}',
+            duplicate_key TEXT DEFAULT 'email',
+            conflict_strategy TEXT DEFAULT 'skip',
+            summary TEXT DEFAULT '{}',
+            error_message TEXT DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            merged_at DATETIME,
+            rollback_until DATETIME,
+            rolled_back_at DATETIME
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS import_rows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            row_number INTEGER NOT NULL,
+            source_data TEXT NOT NULL,
+            mapped_data TEXT DEFAULT '{}',
+            status TEXT NOT NULL DEFAULT 'pending',
+            errors TEXT DEFAULT '[]',
+            duplicate_key TEXT DEFAULT '',
+            existing_record TEXT DEFAULT '{}',
+            resolution TEXT DEFAULT '',
+            FOREIGN KEY(job_id) REFERENCES import_jobs(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS import_changes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id INTEGER NOT NULL,
+            table_name TEXT NOT NULL,
+            record_pk TEXT NOT NULL,
+            action TEXT NOT NULL,
+            before_data TEXT DEFAULT '{}',
+            after_data TEXT DEFAULT '{}',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            rolled_back_at DATETIME,
+            FOREIGN KEY(job_id) REFERENCES import_jobs(id)
+        )
+    """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON import_jobs(created_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_import_rows_job ON import_rows(job_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_import_changes_job ON import_changes(job_id)")
 
     conn.commit()
     conn.close()
@@ -437,3 +496,168 @@ def get_upload_by_id(upload_id):
     row = cursor.fetchone()
     conn.close()
     return row_to_dict(row)
+
+
+def get_table_schema(table_name):
+    conn = get_connection()
+    cursor = conn.cursor()
+    if not table_exists(cursor, table_name):
+        conn.close()
+        return []
+
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_import_dashboard_stats():
+    conn = get_connection()
+    cursor = conn.cursor()
+    stats = {
+        "total_records": count_rows(cursor, "users_data"),
+        "last_import_date": None,
+        "pending_validations": 0,
+        "duplicate_alerts": 0,
+    }
+
+    if table_exists(cursor, "import_jobs"):
+        cursor.execute("""
+            SELECT merged_at
+            FROM import_jobs
+            WHERE merged_at IS NOT NULL
+            ORDER BY merged_at DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        stats["last_import_date"] = row["merged_at"] if row else None
+
+    if table_exists(cursor, "import_rows"):
+        stats["pending_validations"] = count_rows(cursor, "import_rows", "status = 'invalid'")
+        stats["duplicate_alerts"] = count_rows(cursor, "import_rows", "status IN ('duplicate', 'conflict')")
+
+    conn.close()
+    return stats
+
+
+def create_import_job(admin_username, original_filename, stored_filename, target_table, file_ext, file_size):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO import_jobs (
+            admin_username, original_filename, stored_filename, target_table, file_ext, file_size
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (admin_username, original_filename, stored_filename, target_table, file_ext, file_size))
+    job_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return job_id
+
+
+def get_import_job(job_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM import_jobs WHERE id = ?", (job_id,))
+    row = row_to_dict(cursor.fetchone())
+    conn.close()
+    return row
+
+
+def update_import_job(job_id, **fields):
+    allowed = {
+        "status", "field_mapping", "duplicate_key", "conflict_strategy",
+        "summary", "error_message", "merged_at", "rollback_until",
+        "rolled_back_at",
+    }
+    updates = []
+    values = []
+    for key, value in fields.items():
+        if key in allowed:
+            updates.append(f"{key} = ?")
+            values.append(value)
+
+    if not updates:
+        return
+
+    updates.append("updated_at = CURRENT_TIMESTAMP")
+    values.append(job_id)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE import_jobs SET {', '.join(updates)} WHERE id = ?", values)
+    conn.commit()
+    conn.close()
+
+
+def replace_import_rows(job_id, rows):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM import_rows WHERE job_id = ?", (job_id,))
+    cursor.executemany("""
+        INSERT INTO import_rows (
+            job_id, row_number, source_data, mapped_data, status, errors,
+            duplicate_key, existing_record, resolution
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [
+        (
+            job_id,
+            row["row_number"],
+            json.dumps(row.get("source_data", {}), default=str),
+            json.dumps(row.get("mapped_data", {}), default=str),
+            row.get("status", "pending"),
+            json.dumps(row.get("errors", []), default=str),
+            row.get("duplicate_key", ""),
+            json.dumps(row.get("existing_record", {}), default=str),
+            row.get("resolution", ""),
+        )
+        for row in rows
+    ])
+    conn.commit()
+    conn.close()
+
+
+def get_import_rows(job_id, statuses=None, limit=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = "SELECT * FROM import_rows WHERE job_id = ?"
+    params = [job_id]
+    if statuses:
+        placeholders = ",".join(["?"] * len(statuses))
+        query += f" AND status IN ({placeholders})"
+        params.extend(statuses)
+    query += " ORDER BY row_number ASC"
+    if limit:
+        query += " LIMIT ?"
+        params.append(limit)
+    cursor.execute(query, params)
+    rows = []
+    for row in cursor.fetchall():
+        item = row_to_dict(row)
+        item["source_data"] = json.loads(item.get("source_data") or "{}")
+        item["mapped_data"] = json.loads(item.get("mapped_data") or "{}")
+        item["errors"] = json.loads(item.get("errors") or "[]")
+        item["existing_record"] = json.loads(item.get("existing_record") or "{}")
+        rows.append(item)
+    conn.close()
+    return rows
+
+
+def get_import_history(limit=50):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT *
+        FROM import_jobs
+        ORDER BY created_at DESC
+        LIMIT ?
+    """, (limit,))
+    rows = []
+    for row in cursor.fetchall():
+        item = row_to_dict(row)
+        item["summary"] = json.loads(item.get("summary") or "{}")
+        item["field_mapping"] = json.loads(item.get("field_mapping") or "{}")
+        rows.append(item)
+    conn.close()
+    return rows

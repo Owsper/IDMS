@@ -580,7 +580,11 @@
           <a href="#teams">Teams</a>
           <a href="#submit">Submissions</a>
           <a href="{{ url_for('meetings') }}">Events</a>
-          <a href="{{ url_for('import_files') }}">Import Files</a>
+          {% if user.role == 'Admin' %}
+            <a href="{{ url_for('admin_import_data') }}">Import Data</a>
+          {% else %}
+            <a href="{{ url_for('list_files') }}">Documents</a>
+          {% endif %}
         </nav>
       </div>
 
@@ -642,6 +646,40 @@
                 <span class="stat-icon">A</span>
               </div>
               <div class="stat-number" data-member-stat="active_members">{{ member_stats.active_members }}</div>
+            </article>
+          </section>
+
+          <section class="stats-grid" aria-label="Import statistics">
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Total Records</span>
+                <span class="stat-icon">R</span>
+              </div>
+              <div class="stat-number">{{ import_stats.total_records }}</div>
+            </article>
+
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Last Import</span>
+                <span class="stat-icon">I</span>
+              </div>
+              <div class="stat-number" style="font-size:18px;">{{ import_stats.last_import_date or 'None' }}</div>
+            </article>
+
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Pending Validations</span>
+                <span class="stat-icon">P</span>
+              </div>
+              <div class="stat-number">{{ import_stats.pending_validations }}</div>
+            </article>
+
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Duplicate Alerts</span>
+                <span class="stat-icon">D</span>
+              </div>
+              <div class="stat-number">{{ import_stats.duplicate_alerts }}</div>
             </article>
           </section>
 
@@ -723,6 +761,12 @@
                 <strong>Vote</strong>
                 <span>Review submissions by category.</span>
               </a>
+              {% if user.role == 'Admin' %}
+                <a class="quick-action" href="{{ url_for('admin_import_data') }}">
+                  <strong>Import Data</strong>
+                  <span>Review and merge external records.</span>
+                </a>
+              {% endif %}
             </div>
           </div>
 

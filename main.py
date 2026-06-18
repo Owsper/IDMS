@@ -22,11 +22,24 @@ from database import (
     get_approved_uploads,
     get_upload_by_id,
     mark_user_verified,
+    get_connection,
+    get_table_schema,
+    get_import_dashboard_stats,
+    create_import_job,
+    get_import_job,
+    update_import_job,
+    replace_import_rows,
+    get_import_rows,
+    get_import_history,
 )
 import uuid
 import hashlib
 import os
 import mimetypes
+import csv
+import json
+import sqlite3
+from datetime import datetime, timedelta
 
 app = Flask(__name__, template_folder="frontend/pages")
 app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
@@ -36,6 +49,11 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 app.config["UPLOAD_FOLDER"] = os.path.join(os.getcwd(), "secure_uploads")
 app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
 app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
+app.config["IMPORT_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "imports")
+app.config["IMPORT_ALLOWED_EXTENSIONS"] = {".csv", ".xlsx", ".json", ".sql", ".db", ".sqlite"}
+app.config["IMPORT_MAX_SIZE"] = 10 * 1024 * 1024
+app.config["IMPORT_ROLLBACK_MINUTES"] = 60
+app.config["IMPORT_BATCH_SIZE"] = 250
 
 # Flask-Mail configuration
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
@@ -53,6 +71,7 @@ serializer = URLSafeTimedSerializer(app.secret_key)
 
 # Ensure upload directory exists
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs(app.config["IMPORT_FOLDER"], exist_ok=True)
 try:
     os.chmod(app.config["UPLOAD_FOLDER"], 0o700)
 except Exception:
@@ -119,6 +138,286 @@ def current_user():
 
     user_id = session.get("user_id")
     return get_user_by_id(user_id) if user_id else None
+
+
+IMPORT_TARGET_TABLES = {"users_data"}
+IMPORT_SYSTEM_COLUMNS = {"created_at", "updated_at", "last_login_at"}
+
+
+def json_response_error(message, status=400, **extra):
+    payload = {"error": message}
+    payload.update(extra)
+    return jsonify(payload), status
+
+
+def require_import_job(job_id):
+    job = get_import_job(job_id)
+    if not job:
+        abort(404)
+    return job
+
+
+def safe_target_table(table_name):
+    table_name = (table_name or "users_data").strip()
+    if table_name not in IMPORT_TARGET_TABLES:
+        abort(400, description="Unsupported import target.")
+    return table_name
+
+
+def import_file_path(stored_filename):
+    return os.path.join(app.config["IMPORT_FOLDER"], stored_filename)
+
+
+def parse_csv_file(path):
+    with open(path, newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        return [{key: value for key, value in row.items()} for row in reader]
+
+
+def parse_json_file(path):
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    if isinstance(data, list):
+        rows = data
+    elif isinstance(data, dict):
+        rows = next((value for value in data.values() if isinstance(value, list)), [])
+    else:
+        rows = []
+
+    normalized = []
+    for row in rows:
+        if isinstance(row, dict):
+            normalized.append(row)
+    return normalized
+
+
+def parse_xlsx_file(path):
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("XLSX imports require the openpyxl package.") from exc
+
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    sheet = workbook.active
+    rows_iter = sheet.iter_rows(values_only=True)
+    headers = next(rows_iter, None)
+    if not headers:
+        return []
+
+    header_values = [str(value).strip() if value is not None else "" for value in headers]
+    records = []
+    for values in rows_iter:
+        records.append({
+            header_values[index]: json_safe_value(value)
+            for index, value in enumerate(values)
+            if index < len(header_values) and header_values[index]
+        })
+    return records
+
+
+def json_safe_value(value):
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def first_user_table(cursor):
+    cursor.execute("""
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+        ORDER BY name
+        LIMIT 1
+    """)
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def rows_from_sqlite_connection(conn):
+    cursor = conn.cursor()
+    table_name = first_user_table(cursor)
+    if not table_name:
+        return []
+    cursor.execute(f'SELECT * FROM "{table_name}"')
+    columns = [description[0] for description in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+def parse_sqlite_file(path):
+    conn = sqlite3.connect(path)
+    try:
+        return rows_from_sqlite_connection(conn)
+    finally:
+        conn.close()
+
+
+def parse_sql_file(path):
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        script = handle.read()
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.executescript(script)
+        return rows_from_sqlite_connection(conn)
+    finally:
+        conn.close()
+
+
+def parse_import_file(path, ext):
+    if ext == ".csv":
+        return parse_csv_file(path)
+    if ext == ".json":
+        return parse_json_file(path)
+    if ext == ".xlsx":
+        return parse_xlsx_file(path)
+    if ext in {".db", ".sqlite"}:
+        return parse_sqlite_file(path)
+    if ext == ".sql":
+        return parse_sql_file(path)
+    raise ValueError("Unsupported import file type.")
+
+
+def schema_payload(table_name):
+    columns = get_table_schema(table_name)
+    return [{
+        "name": column["name"],
+        "type": column["type"],
+        "required": bool(column["notnull"]) and column["dflt_value"] is None and not column["pk"],
+        "primary_key": bool(column["pk"]),
+        "editable": column["name"] not in IMPORT_SYSTEM_COLUMNS,
+    } for column in columns]
+
+
+def guess_field_mapping(headers, schema):
+    normalized_headers = {str(header).strip().lower(): header for header in headers}
+    mapping = {}
+    for column in schema:
+        column_name = column["name"]
+        if not column["editable"]:
+            continue
+        source = normalized_headers.get(column_name.lower())
+        if source:
+            mapping[source] = column_name
+    return mapping
+
+
+def normalize_import_value(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        return value if value != "" else None
+    return value
+
+
+def validate_type(value, column_type):
+    if value is None:
+        return True
+    column_type = (column_type or "").upper()
+    if "INT" in column_type:
+        try:
+            int(value)
+            return True
+        except (TypeError, ValueError):
+            return False
+    if any(token in column_type for token in ["REAL", "FLOA", "DOUB"]):
+        try:
+            float(value)
+            return True
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
+def coerce_value(value, column_type):
+    value = normalize_import_value(value)
+    if value is None:
+        return None
+    column_type = (column_type or "").upper()
+    if "INT" in column_type:
+        return int(value)
+    if any(token in column_type for token in ["REAL", "FLOA", "DOUB"]):
+        return float(value)
+    return str(value)
+
+
+def existing_record_for(cursor, table_name, duplicate_key, mapped_data):
+    value = mapped_data.get(duplicate_key)
+    if value in (None, ""):
+        return None
+    cursor.execute(f"SELECT * FROM {table_name} WHERE {duplicate_key} = ? LIMIT 1", (value,))
+    row = cursor.fetchone()
+    return dict(row) if row else None
+
+
+def validate_import_rows(job, mapping, duplicate_key):
+    target_table = safe_target_table(job["target_table"])
+    schema = schema_payload(target_table)
+    editable_columns = {column["name"]: column for column in schema if column["editable"]}
+    rows = parse_import_file(import_file_path(job["stored_filename"]), job["file_ext"])
+    prepared = []
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        for index, source_row in enumerate(rows, start=1):
+            mapped_data = {}
+            errors = []
+            for source_field, target_field in mapping.items():
+                if target_field not in editable_columns:
+                    continue
+                column = editable_columns[target_field]
+                value = normalize_import_value(source_row.get(source_field))
+                if not validate_type(value, column["type"]):
+                    errors.append(f"{target_field} must match {column['type'] or 'TEXT'}")
+                    continue
+                try:
+                    mapped_data[target_field] = coerce_value(value, column["type"])
+                except (TypeError, ValueError):
+                    errors.append(f"{target_field} has an invalid value")
+
+            for column in editable_columns.values():
+                if column["required"] and mapped_data.get(column["name"]) in (None, ""):
+                    errors.append(f"{column['name']} is required")
+
+            email = mapped_data.get("email")
+            if email and ("@" not in str(email) or "." not in str(email)):
+                errors.append("email must be a valid address")
+
+            if "password" in mapped_data and "password_hash" not in mapped_data:
+                errors.append("map passwords to password_hash before import")
+
+            existing = existing_record_for(cursor, target_table, duplicate_key, mapped_data)
+            duplicate_value = str(mapped_data.get(duplicate_key) or "")
+            status = "invalid" if errors else "valid"
+
+            if not errors and existing:
+                comparable_existing = {key: existing.get(key) for key in mapped_data.keys()}
+                status = "duplicate" if comparable_existing == mapped_data else "conflict"
+
+            prepared.append({
+                "row_number": index,
+                "source_data": source_row,
+                "mapped_data": mapped_data,
+                "status": status,
+                "errors": errors,
+                "duplicate_key": duplicate_value,
+                "existing_record": existing or {},
+            })
+    finally:
+        conn.close()
+
+    return prepared
+
+
+def row_counts(rows):
+    counts = {"total": len(rows), "valid": 0, "invalid": 0, "duplicate": 0, "conflict": 0}
+    for row in rows:
+        status = row.get("status", "pending")
+        counts[status] = counts.get(status, 0) + 1
+    return counts
 
 
 def generate_verification_token(email):
@@ -245,6 +544,7 @@ def dashboard():
     activities = get_recent_activity(user["id"])
     member_stats = get_member_statistics() if session.get("admin_username") else None
     member_growth = get_member_growth_history() if session.get("admin_username") else []
+    import_stats = get_import_dashboard_stats() if session.get("admin_username") else None
     return render_template(
         "DashboardPage.html",
         user=user,
@@ -252,6 +552,7 @@ def dashboard():
         activities=activities,
         member_stats=member_stats,
         member_growth=member_growth,
+        import_stats=import_stats,
     )
 
 
@@ -267,6 +568,311 @@ def api_admin_member_stats():
 @admin_required
 def api_admin_member_growth():
     return jsonify({"growth": get_member_growth_history()})
+
+
+@app.route("/admin/import-data")
+@login_required
+@admin_required
+def admin_import_data():
+    user = current_user()
+    return render_template(
+        "AdminImportDataPage.html",
+        user=user,
+        import_stats=get_import_dashboard_stats(),
+        history=get_import_history(limit=20),
+    )
+
+
+@app.route("/api/admin/import/upload", methods=["POST"])
+@login_required
+@admin_required
+def api_admin_import_upload():
+    target_table = safe_target_table(request.form.get("target_table", "users_data"))
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        return json_response_error("Choose a database file to import.")
+
+    original_name = secure_filename(uploaded.filename)
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in app.config["IMPORT_ALLOWED_EXTENSIONS"]:
+        return json_response_error("Unsupported file type.", allowed=sorted(app.config["IMPORT_ALLOWED_EXTENSIONS"]))
+
+    content = uploaded.read()
+    if len(content) > app.config["IMPORT_MAX_SIZE"]:
+        return json_response_error("File is too large.", max_size=app.config["IMPORT_MAX_SIZE"])
+
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = import_file_path(stored_name)
+    with open(dest_path, "wb") as out:
+        out.write(content)
+
+    try:
+        os.chmod(dest_path, 0o600)
+    except Exception:
+        pass
+
+    try:
+        rows = parse_import_file(dest_path, ext)
+    except Exception as exc:
+        try:
+            os.remove(dest_path)
+        except Exception:
+            pass
+        return json_response_error(str(exc))
+
+    headers = list(rows[0].keys()) if rows else []
+    schema = schema_payload(target_table)
+    mapping = guess_field_mapping(headers, schema)
+    job_id = create_import_job(
+        admin_username=session["admin_username"],
+        original_filename=original_name,
+        stored_filename=stored_name,
+        target_table=target_table,
+        file_ext=ext,
+        file_size=len(content),
+    )
+    update_import_job(job_id, field_mapping=json.dumps(mapping))
+
+    return jsonify({
+        "job_id": job_id,
+        "file_name": original_name,
+        "row_count": len(rows),
+        "headers": headers,
+        "schema": schema,
+        "suggested_mapping": mapping,
+        "duplicate_keys": [column["name"] for column in schema if column["name"] in {"id", "email", "username"}],
+        "preview": rows[:20],
+    })
+
+
+@app.route("/api/admin/import/validate", methods=["POST"])
+@login_required
+@admin_required
+def api_admin_import_validate():
+    payload = request.get_json(silent=True) or {}
+    job = require_import_job(payload.get("job_id"))
+    target_table = safe_target_table(job["target_table"])
+    schema_names = {column["name"] for column in schema_payload(target_table)}
+    duplicate_key = payload.get("duplicate_key") or "email"
+    if duplicate_key not in schema_names or duplicate_key not in {"id", "email", "username"}:
+        return json_response_error("Duplicate key must be id, email, or username.")
+
+    mapping = payload.get("mapping") or {}
+    if not isinstance(mapping, dict) or not mapping:
+        return json_response_error("Map at least one uploaded field to the target schema.")
+
+    rows = validate_import_rows(job, mapping, duplicate_key)
+    replace_import_rows(job["id"], rows)
+    persisted_rows = get_import_rows(job["id"])
+    counts = row_counts(rows)
+    update_import_job(
+        job["id"],
+        status="validated",
+        field_mapping=json.dumps(mapping),
+        duplicate_key=duplicate_key,
+        summary=json.dumps(counts),
+    )
+
+    return jsonify({
+        "job_id": job["id"],
+        "counts": counts,
+        "invalid_rows": [row for row in persisted_rows if row["status"] == "invalid"][:25],
+        "conflicts": [row for row in persisted_rows if row["status"] in {"duplicate", "conflict"}][:25],
+        "valid_preview": [row for row in persisted_rows if row["status"] == "valid"][:20],
+    })
+
+
+@app.route("/api/admin/import/merge", methods=["POST"])
+@login_required
+@admin_required
+def api_admin_import_merge():
+    payload = request.get_json(silent=True) or {}
+    job = require_import_job(payload.get("job_id"))
+    strategy = payload.get("conflict_strategy", "skip")
+    resolutions = payload.get("resolutions") or {}
+    if strategy not in {"skip", "overwrite", "manual"}:
+        return json_response_error("Conflict strategy must be skip, overwrite, or manual.")
+
+    rows = get_import_rows(job["id"], statuses=["valid", "duplicate", "conflict"])
+    if not rows:
+        return json_response_error("Validate the import before merging.")
+
+    target_table = safe_target_table(job["target_table"])
+    schema = schema_payload(target_table)
+    editable_columns = [column["name"] for column in schema if column["editable"]]
+    insertable_columns = [name for name in editable_columns if name != "id"]
+    duplicate_key = job.get("duplicate_key") or "email"
+    now = datetime.utcnow()
+    rollback_until = now + timedelta(minutes=app.config["IMPORT_ROLLBACK_MINUTES"])
+    summary = {"added": 0, "updated": 0, "skipped": 0, "failed": 0, "manual": 0}
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("BEGIN")
+        for row in rows:
+            mapped_data = {
+                key: value
+                for key, value in row["mapped_data"].items()
+                if key in editable_columns and value is not None
+            }
+            if not mapped_data:
+                summary["failed"] += 1
+                continue
+
+            existing = existing_record_for(cursor, target_table, duplicate_key, mapped_data)
+            decision = strategy
+            if strategy == "manual":
+                decision = resolutions.get(str(row["id"]), "")
+                if decision not in {"skip", "overwrite"}:
+                    summary["manual"] += 1
+                    continue
+
+            if existing:
+                if decision == "skip":
+                    summary["skipped"] += 1
+                    continue
+
+                update_columns = [key for key in mapped_data.keys() if key in editable_columns and key != "id"]
+                if not update_columns:
+                    summary["skipped"] += 1
+                    continue
+                set_clause = ", ".join([f"{column} = ?" for column in update_columns])
+                values = [mapped_data[column] for column in update_columns]
+                values.append(existing["id"])
+                cursor.execute(f"UPDATE {target_table} SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", values)
+                cursor.execute("""
+                    INSERT INTO import_changes (job_id, table_name, record_pk, action, before_data, after_data)
+                    VALUES (?, ?, ?, 'update', ?, ?)
+                """, (
+                    job["id"],
+                    target_table,
+                    str(existing["id"]),
+                    json.dumps(dict(existing)),
+                    json.dumps(mapped_data),
+                ))
+                summary["updated"] += 1
+                continue
+
+            columns = [column for column in insertable_columns if column in mapped_data]
+            if "full_name" not in columns and mapped_data.get("username"):
+                mapped_data["full_name"] = mapped_data["username"]
+                columns.append("full_name")
+            if "is_verified" not in columns:
+                mapped_data["is_verified"] = 1
+                columns.append("is_verified")
+            if not columns:
+                summary["failed"] += 1
+                continue
+
+            placeholders = ", ".join(["?"] * len(columns))
+            cursor.execute(
+                f"INSERT INTO {target_table} ({', '.join(columns)}) VALUES ({placeholders})",
+                [mapped_data[column] for column in columns],
+            )
+            record_id = cursor.lastrowid
+            cursor.execute(f"SELECT * FROM {target_table} WHERE id = ?", (record_id,))
+            inserted = dict(cursor.fetchone())
+            cursor.execute("""
+                INSERT INTO import_changes (job_id, table_name, record_pk, action, before_data, after_data)
+                VALUES (?, ?, ?, 'insert', '{}', ?)
+            """, (job["id"], target_table, str(record_id), json.dumps(inserted)))
+            summary["added"] += 1
+
+        cursor.execute("""
+            UPDATE import_jobs
+            SET status = ?,
+                conflict_strategy = ?,
+                summary = ?,
+                merged_at = CURRENT_TIMESTAMP,
+                rollback_until = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (
+            "needs_manual_resolution" if summary["manual"] else "merged",
+            strategy,
+            json.dumps(summary),
+            rollback_until.isoformat(timespec="seconds"),
+            job["id"],
+        ))
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        update_import_job(job["id"], status="failed", error_message=str(exc))
+        return json_response_error("Import merge failed and was rolled back.", details=str(exc), status=500)
+    finally:
+        conn.close()
+
+    return jsonify({"job_id": job["id"], "summary": summary, "rollback_until": rollback_until.isoformat(timespec="seconds")})
+
+
+@app.route("/api/admin/import/history")
+@login_required
+@admin_required
+def api_admin_import_history():
+    return jsonify({"history": get_import_history(limit=50), "stats": get_import_dashboard_stats()})
+
+
+@app.route("/api/admin/import/<int:job_id>/rollback", methods=["POST"])
+@login_required
+@admin_required
+def api_admin_import_rollback(job_id):
+    job = require_import_job(job_id)
+    if job.get("rolled_back_at"):
+        return json_response_error("This import has already been rolled back.")
+    if not job.get("rollback_until"):
+        return json_response_error("This import does not have a rollback window.")
+
+    try:
+        rollback_until = datetime.fromisoformat(job["rollback_until"])
+    except ValueError:
+        return json_response_error("Rollback window is invalid.")
+    if datetime.utcnow() > rollback_until:
+        return json_response_error("Rollback window has expired.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("BEGIN")
+        cursor.execute("""
+            SELECT *
+            FROM import_changes
+            WHERE job_id = ? AND rolled_back_at IS NULL
+            ORDER BY id DESC
+        """, (job_id,))
+        changes = [dict(row) for row in cursor.fetchall()]
+        for change in changes:
+            table_name = safe_target_table(change["table_name"])
+            if change["action"] == "insert":
+                cursor.execute(f"DELETE FROM {table_name} WHERE id = ?", (change["record_pk"],))
+            elif change["action"] == "update":
+                before = json.loads(change["before_data"] or "{}")
+                columns = [key for key in before.keys() if key not in {"id"}]
+                set_clause = ", ".join([f"{column} = ?" for column in columns])
+                cursor.execute(
+                    f"UPDATE {table_name} SET {set_clause} WHERE id = ?",
+                    [before[column] for column in columns] + [change["record_pk"]],
+                )
+            cursor.execute(
+                "UPDATE import_changes SET rolled_back_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (change["id"],),
+            )
+
+        cursor.execute("""
+            UPDATE import_jobs
+            SET status = 'rolled_back',
+                rolled_back_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (job_id,))
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        return json_response_error("Rollback failed.", details=str(exc), status=500)
+    finally:
+        conn.close()
+
+    return jsonify({"job_id": job_id, "rolled_back": True})
 
 
 @app.route("/profile", methods=["GET", "POST"])

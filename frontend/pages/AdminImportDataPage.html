@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Import Data - Pexel Admin</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        #05070d;
+      background-size: 42px 42px;
+      color: #f3f5ff;
+      font-family: Inter, Arial, sans-serif;
+    }
+    a { color: inherit; }
+    .shell { width: min(1180px, 100%); margin: 0 auto; padding: 26px; display: grid; gap: 18px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    h1, h2 { margin: 0; font-family: Orbitron, sans-serif; letter-spacing: 0; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 17px; }
+    .muted { color: #8293c4; line-height: 1.55; }
+    .button {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 7px;
+      border: 1px solid rgba(129, 72, 255, 0.35);
+      background: #1a1f2d;
+      color: #fff;
+      font-weight: 900;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .button.primary { border: 0; background: linear-gradient(135deg, #7d39ff, #8d45ff); }
+    .button.danger { border-color: rgba(255, 94, 94, 0.46); color: #ffc5c5; }
+    .button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .panel, .card {
+      border: 1px solid rgba(129, 72, 255, 0.24);
+      border-radius: 8px;
+      background: rgba(15, 20, 32, 0.92);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+    }
+    .panel { padding: 20px; display: grid; gap: 16px; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .card { padding: 16px; min-height: 112px; display: grid; align-content: space-between; }
+    .card span { color: #8ea0c8; font-size: 13px; font-weight: 800; }
+    .card strong { font-size: 25px; }
+    .upload {
+      min-height: 150px;
+      border: 1px dashed rgba(0, 215, 244, 0.45);
+      border-radius: 8px;
+      background: rgba(0, 215, 244, 0.045);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 18px;
+    }
+    .upload input { max-width: 100%; }
+    .grid-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 16px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    select, input[type="text"] {
+      min-height: 38px;
+      border-radius: 7px;
+      border: 1px solid rgba(129, 72, 255, 0.28);
+      background: #0b101b;
+      color: #fff;
+      padding: 0 10px;
+    }
+    .mapping { display: grid; gap: 8px; }
+    .mapping-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); gap: 8px; align-items: center; }
+    .mapping-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d9e2ff; font-size: 13px; }
+    .table-wrap { overflow: auto; border-radius: 8px; border: 1px solid rgba(129, 72, 255, 0.18); }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th, td { padding: 10px; border-bottom: 1px solid rgba(129, 72, 255, 0.14); text-align: left; font-size: 13px; vertical-align: top; }
+    th { color: #00d7f4; background: #0b101b; position: sticky; top: 0; }
+    td { color: #d9e2ff; }
+    .notice { padding: 12px; border-radius: 7px; border: 1px solid transparent; display: none; }
+    .notice.show { display: block; }
+    .notice.error { background: #351b22; color: #ffc5c5; border-color: rgba(255, 94, 94, 0.28); }
+    .notice.success { background: #143020; color: #b7ffcf; border-color: rgba(71, 204, 128, 0.28); }
+    .progress { height: 8px; border-radius: 999px; background: #1a1f2d; overflow: hidden; }
+    .progress span { display: block; width: 0%; height: 100%; background: linear-gradient(90deg, #00d7f4, #7d39ff); transition: width 0.2s ease; }
+    .history-list { display: grid; gap: 10px; }
+    .history-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 12px; background: #111827; border-radius: 8px; border: 1px solid rgba(129, 72, 255, 0.16); }
+    .history-item strong { display: block; margin-bottom: 4px; }
+    @media (max-width: 860px) {
+      .stats, .grid-two { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Import Data</h1>
+        <p class="muted">Admin-only database import, validation, conflict review, and rollback.</p>
+      </div>
+      <div class="controls">
+        <a class="button" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="button" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </header>
+
+    <section class="stats" aria-label="Import dashboard stats">
+      <article class="card"><span>Total Records</span><strong id="statTotal">{{ import_stats.total_records }}</strong></article>
+      <article class="card"><span>Last Import Date</span><strong id="statLast" style="font-size:16px;">{{ import_stats.last_import_date or 'None' }}</strong></article>
+      <article class="card"><span>Pending Validations</span><strong id="statPending">{{ import_stats.pending_validations }}</strong></article>
+      <article class="card"><span>Duplicate Alerts</span><strong id="statDuplicates">{{ import_stats.duplicate_alerts }}</strong></article>
+    </section>
+
+    <div class="notice error" id="errorBox"></div>
+    <div class="notice success" id="successBox"></div>
+
+    <section class="grid-two">
+      <div class="panel">
+        <h2>Upload</h2>
+        <form id="uploadForm" class="upload">
+          <div>
+            <input id="importFile" name="file" type="file" accept=".csv,.xlsx,.json,.sql,.db,.sqlite" required />
+            <p class="muted">Supported: .csv, .xlsx, .json, .sql, .db, .sqlite. Maximum size: 10 MB.</p>
+            <button class="button primary" type="submit">Upload and Preview</button>
+          </div>
+        </form>
+        <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+      </div>
+
+      <aside class="panel">
+        <h2>Merge Options</h2>
+        <label class="muted" for="duplicateKey">Duplicate key</label>
+        <select id="duplicateKey"></select>
+        <label class="muted" for="conflictStrategy">Conflict resolution</label>
+        <select id="conflictStrategy">
+          <option value="skip">Keep existing record</option>
+          <option value="overwrite">Overwrite with imported record</option>
+          <option value="manual">Manual review for conflicts</option>
+        </select>
+        <div class="controls">
+          <button class="button" id="validateBtn" type="button" disabled>Validate</button>
+          <button class="button primary" id="mergeBtn" type="button" disabled>Merge</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel" id="previewPanel" style="display:none;">
+      <h2>Data Preview</h2>
+      <div class="table-wrap" id="previewTable"></div>
+    </section>
+
+    <section class="panel" id="mappingPanel" style="display:none;">
+      <h2>Field Mapping</h2>
+      <div class="mapping" id="mappingRows"></div>
+    </section>
+
+    <section class="panel" id="validationPanel" style="display:none;">
+      <h2>Validation Report</h2>
+      <div id="validationSummary" class="muted"></div>
+      <div class="table-wrap" id="validationTable"></div>
+    </section>
+
+    <section class="panel" id="manualPanel" style="display:none;">
+      <h2>Manual Conflict Review</h2>
+      <div class="table-wrap" id="manualTable"></div>
+    </section>
+
+    <section class="panel" id="summaryPanel" style="display:none;">
+      <h2>Summary Report</h2>
+      <div id="summaryReport" class="muted"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Import History</h2>
+      <div class="history-list" id="historyList">
+        {% for item in history %}
+          <article class="history-item">
+            <div>
+              <strong>{{ item.original_filename }}</strong>
+              <span class="muted">{{ item.status }} by {{ item.admin_username }} on {{ item.created_at }}</span>
+            </div>
+            {% if item.status == 'merged' and item.rollback_until and not item.rolled_back_at %}
+              <button class="button danger" data-rollback="{{ item.id }}">Rollback</button>
+            {% endif %}
+          </article>
+        {% else %}
+          <p class="muted">No imports yet.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let currentJobId = null;
+    let currentHeaders = [];
+    let currentSchema = [];
+    let currentConflicts = [];
+
+    const errorBox = document.getElementById("errorBox");
+    const successBox = document.getElementById("successBox");
+    const progressBar = document.getElementById("progressBar");
+
+    function setProgress(value) {
+      progressBar.style.width = `${value}%`;
+    }
+
+    function showMessage(kind, message) {
+      errorBox.classList.remove("show");
+      successBox.classList.remove("show");
+      const box = kind === "error" ? errorBox : successBox;
+      box.textContent = message;
+      box.classList.add("show");
+    }
+
+    async function apiFetch(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Request failed.");
+      }
+      return data;
+    }
+
+    function renderCell(value) {
+      if (value && typeof value === "object") {
+        return `<pre style="margin:0; white-space:pre-wrap;">${JSON.stringify(value, null, 2)}</pre>`;
+      }
+      return value ?? "";
+    }
+
+    function renderTable(target, rows) {
+      if (!rows || rows.length === 0) {
+        target.innerHTML = '<p class="muted">No rows found.</p>';
+        return;
+      }
+      const columns = Object.keys(rows[0]);
+      target.innerHTML = `
+        <table>
+          <thead><tr>${columns.map((column) => `<th>${column}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>${columns.map((column) => `<td>${renderCell(row[column])}</td>`).join("")}</tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderMapping(suggested) {
+      const editable = currentSchema.filter((column) => column.editable);
+      document.getElementById("mappingRows").innerHTML = currentHeaders.map((header) => `
+        <div class="mapping-row">
+          <span title="${header}">${header}</span>
+          <span>-></span>
+          <select data-source="${header}">
+            <option value="">Exclude</option>
+            ${editable.map((column) => `
+              <option value="${column.name}" ${suggested[header] === column.name ? "selected" : ""}>${column.name} ${column.required ? "*" : ""}</option>
+            `).join("")}
+          </select>
+        </div>
+      `).join("");
+    }
+
+    function selectedMapping() {
+      const mapping = {};
+      document.querySelectorAll("#mappingRows select").forEach((select) => {
+        if (select.value) {
+          mapping[select.dataset.source] = select.value;
+        }
+      });
+      return mapping;
+    }
+
+    function selectedResolutions() {
+      const resolutions = {};
+      document.querySelectorAll("[data-resolution-row]").forEach((select) => {
+        if (select.value) {
+          resolutions[select.dataset.resolutionRow] = select.value;
+        }
+      });
+      return resolutions;
+    }
+
+    function renderManualReview(rows) {
+      const panel = document.getElementById("manualPanel");
+      if (!rows || rows.length === 0) {
+        panel.style.display = "none";
+        return;
+      }
+      document.getElementById("manualTable").innerHTML = `
+        <table>
+          <thead><tr><th>Row</th><th>Imported</th><th>Existing</th><th>Decision</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${row.row_number}</td>
+                <td>${renderCell(row.mapped_data)}</td>
+                <td>${renderCell(row.existing_record)}</td>
+                <td>
+                  <select data-resolution-row="${row.id}">
+                    <option value="">Review later</option>
+                    <option value="skip">Keep existing</option>
+                    <option value="overwrite">Overwrite</option>
+                  </select>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+      panel.style.display = "grid";
+    }
+
+    function renderDuplicateKeys(keys) {
+      document.getElementById("duplicateKey").innerHTML = keys.map((key) => `<option value="${key}">${key}</option>`).join("");
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setProgress(20);
+      try {
+        const formData = new FormData(event.currentTarget);
+        formData.append("target_table", "users_data");
+        const data = await apiFetch("{{ url_for('api_admin_import_upload') }}", { method: "POST", body: formData });
+        currentJobId = data.job_id;
+        currentHeaders = data.headers;
+        currentSchema = data.schema;
+        renderTable(document.getElementById("previewTable"), data.preview);
+        renderMapping(data.suggested_mapping || {});
+        renderDuplicateKeys(data.duplicate_keys);
+        document.getElementById("previewPanel").style.display = "grid";
+        document.getElementById("mappingPanel").style.display = "grid";
+        document.getElementById("validateBtn").disabled = false;
+        document.getElementById("mergeBtn").disabled = true;
+        document.getElementById("manualPanel").style.display = "none";
+        setProgress(45);
+        showMessage("success", `Loaded ${data.row_count} rows from ${data.file_name}.`);
+      } catch (error) {
+        setProgress(0);
+        showMessage("error", error.message);
+      }
+    });
+
+    document.getElementById("validateBtn").addEventListener("click", async () => {
+      setProgress(65);
+      try {
+        const data = await apiFetch("{{ url_for('api_admin_import_validate') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_id: currentJobId,
+            mapping: selectedMapping(),
+            duplicate_key: document.getElementById("duplicateKey").value
+          })
+        });
+        const counts = data.counts;
+        currentConflicts = data.conflicts || [];
+        document.getElementById("validationSummary").textContent =
+          `${counts.total} rows checked. ${counts.valid} valid, ${counts.conflict} conflicts, ${counts.duplicate} duplicates, ${counts.invalid} invalid.`;
+        renderTable(document.getElementById("validationTable"), [...data.invalid_rows, ...data.conflicts, ...data.valid_preview]);
+        renderManualReview(currentConflicts);
+        document.getElementById("validationPanel").style.display = "grid";
+        document.getElementById("mergeBtn").disabled = counts.valid + counts.conflict + counts.duplicate === 0;
+        setProgress(80);
+        showMessage("success", "Validation complete. Invalid rows will be excluded from the merge.");
+      } catch (error) {
+        showMessage("error", error.message);
+      }
+    });
+
+    document.getElementById("mergeBtn").addEventListener("click", async () => {
+      setProgress(90);
+      try {
+        const data = await apiFetch("{{ url_for('api_admin_import_merge') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            job_id: currentJobId,
+            conflict_strategy: document.getElementById("conflictStrategy").value,
+            resolutions: selectedResolutions()
+          })
+        });
+        const s = data.summary;
+        document.getElementById("summaryReport").textContent =
+          `Added ${s.added}, updated ${s.updated}, skipped ${s.skipped}, failed ${s.failed}, awaiting manual review ${s.manual}. Rollback available until ${data.rollback_until}.`;
+        document.getElementById("summaryPanel").style.display = "grid";
+        setProgress(100);
+        showMessage("success", "Import merge completed.");
+        await refreshHistory();
+      } catch (error) {
+        showMessage("error", error.message);
+      }
+    });
+
+    async function refreshHistory() {
+      const data = await apiFetch("{{ url_for('api_admin_import_history') }}");
+      document.getElementById("statTotal").textContent = data.stats.total_records;
+      document.getElementById("statLast").textContent = data.stats.last_import_date || "None";
+      document.getElementById("statPending").textContent = data.stats.pending_validations;
+      document.getElementById("statDuplicates").textContent = data.stats.duplicate_alerts;
+      document.getElementById("historyList").innerHTML = data.history.map((item) => `
+        <article class="history-item">
+          <div>
+            <strong>${item.original_filename}</strong>
+            <span class="muted">${item.status} by ${item.admin_username} on ${item.created_at}</span>
+          </div>
+          ${item.status === "merged" && item.rollback_until && !item.rolled_back_at ? `<button class="button danger" data-rollback="${item.id}">Rollback</button>` : ""}
+        </article>
+      `).join("") || '<p class="muted">No imports yet.</p>';
+    }
+
+    document.getElementById("historyList").addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-rollback]");
+      if (!button) {
+        return;
+      }
+      try {
+        await apiFetch(`/api/admin/import/${button.dataset.rollback}/rollback`, { method: "POST" });
+        showMessage("success", "Import rolled back.");
+        await refreshHistory();
+      } catch (error) {
+        showMessage("error", error.message);
+      }
+    });
+  </script>
+</body>
+</html>
