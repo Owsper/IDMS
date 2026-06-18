@@ -1,5 +1,8 @@
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, abort
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from werkzeug.utils import secure_filename
 from database import (
     init_db,
     create_user,
@@ -7,6 +10,7 @@ from database import (
     fetch_unique_email,
     fetch_unique_username,
     get_user_by_id,
+    get_user_by_email,
     update_user_profile,
     email_exists_for_other_user,
     username_exists_for_other_user,
@@ -15,10 +19,8 @@ from database import (
     save_upload_metadata,
     get_approved_uploads,
     get_upload_by_id,
+    mark_user_verified,
 )
-from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer
-from werkzeug.utils import secure_filename
 import uuid
 import hashlib
 import os
@@ -27,69 +29,67 @@ import mimetypes
 app = Flask(__name__, template_folder="frontend/pages")
 app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
 
-# Upload config: limit to 16MB per request and store files in a restricted folder
+# Upload configuration
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 app.config["UPLOAD_FOLDER"] = os.path.join(os.getcwd(), "secure_uploads")
 app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
-# Allowed extensions for uploaded documents
 app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
 
-# Ensure upload directory exists with restrictive permissions
+# Flask-Mail configuration
+app.config["MAIL_SERVER"] = "smtp.gmail.com"
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USE_SSL"] = False
+mail_username = "rohanftw2466@gmail.com"
+mail_password = "pais dskg fwik ftyi"
+app.config["MAIL_USERNAME"] = mail_username
+app.config["MAIL_PASSWORD"] = mail_password
+app.config["MAIL_DEFAULT_SENDER"] = "rohanftw2466@gmail.com"
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.secret_key)
+
+# Ensure upload directory exists
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 try:
     os.chmod(app.config["UPLOAD_FOLDER"], 0o700)
 except Exception:
-    # chmod may fail on some filesystems; continue without crashing
     pass
 
 init_db()
 
-# Admin credentials (kept simple for demo/dev). Use lists for clarity and easier maintenance.
-# IMPORTANT: In production, move admin credentials to a secure store or environment variables.
+# Admin credentials (demo only)
 ADMIN_USERNAMES = ["owsper", "christos", "arda", "jira", "salami"]
 ADMIN_PASSWORDS = ["owsper", "christos", "arda", "jira", "salami"]
 
 
-def is_admin_login(username, password):
-    """Return True if provided credentials match an admin account.
-
-    Notes:
-    - Admin accounts are stored in memory for this demo. In production use a secure store.
-    - Comparison is case-insensitive for username.
+def is_admin_login(email_input, password):
+    """Check if credentials match an admin account.
+    
+    Note: Admin login uses email field but compares against username list.
+    This works if admin types their username into the email field.
     """
-    if not username or not password:
+    if not email_input or not password:
         return False
-    username_normalized = username.strip().lower()
+    username_normalized = email_input.strip().lower()
     for idx, admin_name in enumerate(ADMIN_USERNAMES):
-        # compare normalized username and the password at the same index
         if username_normalized == admin_name and password == ADMIN_PASSWORDS[idx]:
             return True
     return False
 
 
-# Decorator to enforce authentication on routes.
-# Usage: annotate routes with @login_required. It accepts both admin and normal user sessions.
 def login_required(view):
     @wraps(view)
     def wrapped_view(*args, **kwargs):
         if not session.get("user_id") and not session.get("admin_username"):
             return redirect(url_for("login"))
         return view(*args, **kwargs)
-
     return wrapped_view
 
 
 def current_user():
-    """Return the current authenticated user.
-
-    Priority:
-    1. If session contains 'admin_username', return a lightweight admin dict for templates.
-    2. Otherwise, if session contains 'user_id', fetch the user record from the database.
-    Returns None when there is no authenticated identity.
-    """
     if session.get("admin_username"):
         admin_name = session["admin_username"]
-        # Lightweight admin representation used across templates and permission checks
         return {
             "id": 0,
             "username": admin_name,
@@ -103,55 +103,108 @@ def current_user():
             "created_at": "Admin account",
             "updated_at": None,
             "last_login_at": "Current session",
+            "is_verified": 1,
         }
 
     user_id = session.get("user_id")
     return get_user_by_id(user_id) if user_id else None
 
+
+def generate_verification_token(email):
+    return serializer.dumps(email, salt="email-verify")
+
+
+def confirm_verification_token(token, expiration=3600):
+    return serializer.loads(token, salt="email-verify", max_age=expiration)
+
+
+def send_verification_email(email, username):
+    token = generate_verification_token(email)
+    verify_url = url_for("verify_email", token=token, _external=True)
+
+    msg = Message(
+        subject="Verify your Pexel account",
+        recipients=[email],
+        sender=app.config["MAIL_DEFAULT_SENDER"],
+        body=(
+            f"Hi {username},\n\n"
+            f"Please verify your Pexel account by clicking this link:\n"
+            f"{verify_url}\n\n"
+            f"This link expires in 1 hour."
+        ),
+    )
+
+    try:
+        mail.send(msg)
+        return True
+    except Exception as e:
+        app.logger.exception("Verification email failed")
+        return False
+
+
 @app.route("/")
 def home():
     return render_template("HomePage.html")
 
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     error = None
+    success = None
 
     if request.method == "POST":
-        username = request.form.get("username")
-        email = request.form.get("email")
-        password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
-
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
 
         if not username or not email or not password or not confirm_password:
             error = "All fields are required."
-        
         elif password != confirm_password:
             error = "Passwords do not match."
-        
-        
-        else: 
+        else:
             if fetch_unique_username(username):
                 error = "Username already exists."
             elif fetch_unique_email(email):
                 error = "Email already exists."
             else:
                 create_user(username, email, password)
-                return redirect(url_for("login"))
-    
+                sent = send_verification_email(email, username)
+                if sent:
+                    success = "Account created. Please check your email to verify your account."
+                else:
+                    success = "Account created, but verification email could not be sent right now."
+
+    return render_template("RegisterPage.html", error=error, success=success)
 
 
-    return render_template("RegisterPage.html", error=error)
+@app.route("/verify-email/<token>")
+def verify_email(token):
+    try:
+        email = confirm_verification_token(token)
+    except SignatureExpired:
+        return render_template("VerifyPage.html", error="Your verification link has expired.")
+    except BadSignature:
+        return render_template("VerifyPage.html", error="Invalid verification link.")
+
+    user = get_user_by_email(email)
+    if not user:
+        return render_template("VerifyPage.html", error="User not found.")
+
+    if int(user.get("is_verified", 0)) == 1:
+        return render_template("VerifyPage.html", success="Your account is already verified.")
+
+    mark_user_verified(user["id"])
+    return render_template("VerifyPage.html", success="Email verified successfully. You can now log in.")
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-
     error = None
 
     if request.method == "POST":
-        email = request.form.get("email")
-        password = request.form.get("password")
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
 
         if not email or not password:
             error = "All fields are required."
@@ -163,12 +216,12 @@ def login():
             user = user_login(email, password)
             if not user:
                 error = "Invalid email or password."
+            elif int(user.get("is_verified", 0)) != 1:
+                error = "Please verify your email before logging in."
             else:
-                # Clear any previous session data (e.g., admin_username) before setting user_id
                 session.clear()
                 session["user_id"] = user["id"]
                 return redirect(url_for("dashboard"))
-            
 
     return render_template("LoginPage.html", error=error)
 
@@ -267,24 +320,14 @@ def voting():
 @app.route("/import-files", methods=["GET", "POST"])
 @login_required
 def import_files():
-    """Upload page. Only admin users may upload documents; successful uploads are approved.
-
-    Validation rules:
-    - Filename extension must be in ALLOWED_EXTENSIONS.
-    - Each file must be <= PER_FILE_MAX_SIZE.
-    - Request size limited by MAX_CONTENT_LENGTH.
-    """
     user = current_user()
 
-    # Allow authenticated users to POST files. Admin uploads are auto-approved, member uploads are saved for review.
     if request.method == "POST":
         if "files" not in request.files:
             return render_template("ImportFilesPage.html", error="No files provided.")
 
         files = request.files.getlist("files")
         saved_files = []
-
-        # Determine uploader role
         is_admin = bool(session.get("admin_username"))
 
         for f in files:
@@ -294,18 +337,14 @@ def import_files():
             original_name = secure_filename(f.filename)
             ext = os.path.splitext(original_name)[1].lower()
 
-            # Validate extension
             if ext not in app.config["ALLOWED_EXTENSIONS"]:
                 return render_template("ImportFilesPage.html", error=f"Invalid file type: {ext}")
 
-            # Read content and enforce per-file size
             content = f.read()
             if len(content) > app.config["PER_FILE_MAX_SIZE"]:
                 return render_template("ImportFilesPage.html", error=f"File too large: {original_name}")
 
             sha256 = hashlib.sha256(content).hexdigest()
-
-            # Store with randomized name to avoid collisions and leakage
             stored_name = f"{uuid.uuid4().hex}{ext}"
             dest_path = os.path.join(app.config["UPLOAD_FOLDER"], stored_name)
 
@@ -316,7 +355,6 @@ def import_files():
             except Exception:
                 return render_template("ImportFilesPage.html", error="Failed to save file on server.")
 
-            # Persist metadata. Admins' uploads are auto-approved; members require approval.
             try:
                 save_upload_metadata(
                     user_id=(None if is_admin else (user["id"] if user else None)),
@@ -343,12 +381,10 @@ def import_files():
         else:
             return render_template("ImportFilesPage.html", success=f"Uploaded {len(saved_files)} files; pending approval.")
 
-    # GET: render page
     stats = get_dashboard_stats(user["id"]) if user else {}
     return render_template("ImportFilesPage.html", user=user, stats=stats)
 
 
-# Members can view approved files
 @app.route("/files")
 @login_required
 def list_files():
@@ -357,7 +393,6 @@ def list_files():
     return render_template("DocumentsPage.html", user=user, files=files, stats=get_dashboard_stats(user["id"]))
 
 
-# Secure download endpoint: only serve files that are approved
 @app.route("/files/<int:file_id>/download")
 @login_required
 def download_file(file_id):
@@ -366,7 +401,6 @@ def download_file(file_id):
         abort(404)
 
     stored_name = record["stored_filename"]
-    # send_from_directory validates paths for us
     return send_from_directory(app.config["UPLOAD_FOLDER"], stored_name, as_attachment=True, mimetype=record.get("mime_type"))
 
 
