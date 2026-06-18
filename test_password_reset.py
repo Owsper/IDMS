@@ -44,12 +44,12 @@ class PasswordResetFlowTest(unittest.TestCase):
 
         response = self.client.post(
             reset_path,
-            data={"password": "new-password", "confirm_password": "new-password"},
+            data={"password": "NewPassword1", "confirm_password": "NewPassword1"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Your password has been reset", response.data)
         self.assertIsNone(database.user_login("reset@example.com", "old-password"))
-        self.assertIsNotNone(database.user_login("reset@example.com", "new-password"))
+        self.assertIsNotNone(database.user_login("reset@example.com", "NewPassword1"))
 
         # Changing the password invalidates the signed link after its first use.
         self.assertEqual(self.client.get(reset_path).status_code, 400)

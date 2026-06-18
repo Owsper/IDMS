@@ -102,6 +102,21 @@ def is_admin_login(email_input, password):
     return False
 
 
+def password_policy_error(password):
+    """Return a user-facing policy error, or None when the password is valid."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters."
+    if len(password.encode("utf-8")) > 72:
+        return "Password is too long. Please use 72 characters or fewer."
+    if not any(character.islower() for character in password):
+        return "Password must include a lowercase letter."
+    if not any(character.isupper() for character in password):
+        return "Password must include an uppercase letter."
+    if not any(character.isdigit() for character in password):
+        return "Password must include a number."
+    return None
+
+
 def login_required(view):
     @wraps(view)
     def wrapped_view(*args, **kwargs):
@@ -522,6 +537,8 @@ def register():
             error = "All fields are required."
         elif password != confirm_password:
             error = "Passwords do not match."
+        elif password_policy_error(password):
+            error = password_policy_error(password)
         else:
             if fetch_unique_username(username):
                 error = "Username already exists."
@@ -625,10 +642,10 @@ def reset_password(token):
         confirm_password = request.form.get("confirm_password", "")
         if not password or not confirm_password:
             error = "Both password fields are required."
-        elif len(password) < 8:
-            error = "Password must be at least 8 characters."
         elif password != confirm_password:
             error = "Passwords do not match."
+        elif password_policy_error(password):
+            error = password_policy_error(password)
         else:
             update_user_password(user["id"], password)
             session.clear()

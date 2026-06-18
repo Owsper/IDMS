@@ -194,6 +194,13 @@
       margin-bottom: 18px;
     }
 
+    .password-policy {
+      color: #8190b8;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: -8px 0 18px;
+    }
+
     label {
       display: block;
       color: #8ea0c8;
@@ -379,15 +386,17 @@
           <div class="form-group">
             <label>Password</label>
             <div class="input-wrap">
-              <input id="password" type="password" name="password" placeholder="••••••••" required />
+              <input id="password" type="password" name="password" placeholder="••••••••" minlength="8" maxlength="72" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}" title="Use at least 8 characters, including uppercase, lowercase, and a number." autocomplete="new-password" required />
               <span class="eye" onclick="togglePassword()">◉</span>
             </div>
           </div>
 
+          <p class="password-policy">Use 8 or more characters with uppercase, lowercase, and a number.</p>
+
           <div class="form-group">
             <label>Confirm Password</label>
             <div class="input-wrap">
-              <input id="confirm_password" type="password" name="confirm_password" placeholder="••••••••" required />
+              <input id="confirm_password" type="password" name="confirm_password" placeholder="••••••••" minlength="8" maxlength="72" autocomplete="new-password" required />
               <span class="eye" onclick="toggleConfirmPassword()">◉</span>
             </div>
           </div>
