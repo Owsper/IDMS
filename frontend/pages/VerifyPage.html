@@ -281,10 +281,6 @@
           <h2>Email verified</h2>
           <p class="message">{{ success }}</p>
 
-          <div class="actions">
-            <a class="btn btn-primary" href="{{ url_for('login') }}">Sign in</a>
-            <a class="btn btn-secondary" href="{{ url_for('home') }}">Go home</a>
-          </div>
         {% else %}
           <div class="status-icon error">!</div>
           <h2>Verification failed</h2>
@@ -294,7 +290,6 @@
 
           <div class="actions">
             <a class="btn btn-primary" href="{{ url_for('register') }}">Create account</a>
-            <a class="btn btn-secondary" href="{{ url_for('login') }}">Sign in</a>
           </div>
         {% endif %}
       </div>
