@@ -32,7 +32,6 @@ def add_column_if_missing(cursor, table_name, column_name, definition):
         cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
 
-# Initialize and migrate the database without breaking existing registered users.
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
@@ -55,8 +54,8 @@ def init_db():
     add_column_if_missing(cursor, "users_data", "role", "TEXT DEFAULT 'Participant'")
     add_column_if_missing(cursor, "users_data", "updated_at", "DATETIME")
     add_column_if_missing(cursor, "users_data", "last_login_at", "DATETIME")
+    add_column_if_missing(cursor, "users_data", "is_verified", "INTEGER DEFAULT 0")
 
-    # Table for uploaded documents' metadata
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS uploads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,9 +73,7 @@ def init_db():
     """)
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_user ON uploads(user_id)")
-    # Ensure 'approved' column exists (migrate older DBs) before creating an index on it
     add_column_if_missing(cursor, "uploads", "approved", "INTEGER DEFAULT 0")
-    # Migrate older databases: ensure approval metadata columns exist
     add_column_if_missing(cursor, "uploads", "approved_by", "TEXT")
     add_column_if_missing(cursor, "uploads", "approved_at", "DATETIME")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_approved ON uploads(approved)")
@@ -88,7 +85,6 @@ def init_db():
     conn.close()
 
 
-# Insert user data into the database.
 def create_user(username, email, password):
     conn = get_connection()
     cursor = conn.cursor()
@@ -96,8 +92,8 @@ def create_user(username, email, password):
     password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
     cursor.execute("""
-        INSERT INTO users_data (username, email, password_hash, full_name)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO users_data (username, email, password_hash, full_name, is_verified)
+        VALUES (?, ?, ?, ?, 0)
     """, (username.strip(), email.strip().lower(), password_hash, username.strip()))
 
     conn.commit()
@@ -153,6 +149,26 @@ def get_user_by_id(user_id):
     user = row_to_dict(cursor.fetchone())
     conn.close()
     return user
+
+
+def get_user_by_email(email):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users_data WHERE lower(email) = lower(?)", (email.strip(),))
+    user = row_to_dict(cursor.fetchone())
+    conn.close()
+    return user
+
+
+def mark_user_verified(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users_data SET is_verified = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (user_id,),
+    )
+    conn.commit()
+    conn.close()
 
 
 def user_login(email, password):
@@ -304,7 +320,6 @@ def get_recent_activity(user_id):
     return activities[:5]
 
 
-# Backward-compatible wrapper kept for older code paths.
 def update_user_data(verified_email, first_name, last_name, email, password_hash, phone, member_type=None, address=None):
     conn = get_connection()
     cursor = conn.cursor()
@@ -319,11 +334,6 @@ def update_user_data(verified_email, first_name, last_name, email, password_hash
 
 
 def save_upload_metadata(user_id, original_filename, stored_filename, mime_type, size, sha256, approved=0, approved_by=None):
-    """Persist metadata for an uploaded file.
-
-    Stores a record in the `uploads` table linking the original name to the
-    randomized stored filename along with integrity (sha256), size, and approval info.
-    """
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
