@@ -80,6 +80,8 @@ def init_db():
 
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users_data(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users_data(username)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_created_at ON users_data(created_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_last_login_at ON users_data(last_login_at)")
 
     conn.commit()
     conn.close()
@@ -272,6 +274,72 @@ def get_dashboard_stats(user_id):
 
     conn.close()
     return stats
+
+
+def get_member_statistics():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    stats = {
+        "total_members": count_rows(cursor, "users_data"),
+        "new_members_this_month": 0,
+        "active_members": 0,
+    }
+
+    if table_exists(cursor, "users_data"):
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM users_data
+            WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+        """)
+        stats["new_members_this_month"] = cursor.fetchone()["total"]
+
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM users_data
+            WHERE last_login_at IS NOT NULL
+              AND last_login_at >= datetime('now', '-30 days')
+        """)
+        stats["active_members"] = cursor.fetchone()["total"]
+
+    conn.close()
+    return stats
+
+
+def get_member_growth_history(limit=30):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    if not table_exists(cursor, "users_data"):
+        conn.close()
+        return []
+
+    cursor.execute("""
+        WITH daily_signups AS (
+            SELECT date(created_at) AS signup_date, COUNT(*) AS members_added
+            FROM users_data
+            GROUP BY date(created_at)
+            ORDER BY signup_date DESC
+            LIMIT ?
+        ),
+        ordered_signups AS (
+            SELECT signup_date, members_added
+            FROM daily_signups
+            ORDER BY signup_date ASC
+        )
+        SELECT
+            signup_date AS date,
+            (
+                SELECT COUNT(*)
+                FROM users_data
+                WHERE date(created_at) <= ordered_signups.signup_date
+            ) AS total_members
+        FROM ordered_signups
+    """, (limit,))
+
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
 
 
 def get_recent_activity(user_id):

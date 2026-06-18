@@ -261,6 +261,10 @@
       gap: 14px;
     }
 
+    .stats-grid.admin-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .card,
     .panel {
       border-radius: 8px;
@@ -415,6 +419,90 @@
       background: linear-gradient(90deg, #7d39ff, #00d7f4);
     }
 
+    .members-growth {
+      display: grid;
+      gap: 18px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      min-height: 280px;
+      border-radius: 8px;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        #0b101b;
+      background-size: 48px 48px;
+      border: 1px solid rgba(129, 72, 255, 0.18);
+      overflow: hidden;
+    }
+
+    .chart-state {
+      min-height: 280px;
+      display: grid;
+      place-items: center;
+      color: #8293c4;
+      font-size: 14px;
+      font-weight: 800;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 280px;
+      display: block;
+    }
+
+    .chart-line {
+      fill: none;
+      stroke: #00d7f4;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 0 10px rgba(0, 215, 244, 0.35));
+    }
+
+    .chart-area {
+      fill: rgba(124, 58, 237, 0.18);
+    }
+
+    .chart-point {
+      fill: #f3f5ff;
+      stroke: #00d7f4;
+      stroke-width: 3;
+      cursor: pointer;
+    }
+
+    .chart-axis,
+    .chart-label {
+      color: #7080aa;
+      fill: currentColor;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      transform: translate(-50%, calc(-100% - 12px));
+      padding: 8px 10px;
+      border-radius: 7px;
+      background: #111827;
+      border: 1px solid rgba(0, 215, 244, 0.38);
+      color: white;
+      font-size: 12px;
+      font-weight: 900;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .chart-tooltip.visible {
+      opacity: 1;
+    }
+
     @media (max-width: 980px) {
       .layout {
         grid-template-columns: 1fr;
@@ -440,6 +528,10 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .stats-grid.admin-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
       .grid-two {
         grid-template-columns: 1fr;
       }
@@ -462,6 +554,7 @@
       }
 
       .stats-grid,
+      .stats-grid.admin-stats,
       .quick-grid {
         grid-template-columns: 1fr;
       }
@@ -480,6 +573,9 @@
 
         <nav class="nav" aria-label="Main navigation">
           <a class="active" href="{{ url_for('dashboard') }}">Dashboard</a>
+          {% if user.role == 'Admin' %}
+            <a href="#members">Members</a>
+          {% endif %}
           <a href="{{ url_for('profile') }}">Profile</a>
           <a href="#teams">Teams</a>
           <a href="#submit">Submissions</a>
@@ -522,39 +618,78 @@
           <span class="role-pill">{{ user.role or 'Participant' }} · {{ user.team_role or 'Developer' }}</span>
         </section>
 
-        <section class="stats-grid" aria-label="User statistics">
-          <article class="card stat-card">
-            <div class="stat-top">
-              <span>Teams Joined</span>
-              <span class="stat-icon">T</span>
-            </div>
-            <div class="stat-number">{{ stats.teams_joined }}</div>
-          </article>
+        {% if user.role == 'Admin' %}
+          <section id="members" class="stats-grid admin-stats" aria-label="Member statistics">
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Total Members</span>
+                <span class="stat-icon">M</span>
+              </div>
+              <div class="stat-number" data-member-stat="total_members">{{ member_stats.total_members }}</div>
+            </article>
 
-          <article class="card stat-card">
-            <div class="stat-top">
-              <span>Games Submitted</span>
-              <span class="stat-icon">G</span>
-            </div>
-            <div class="stat-number">{{ stats.games_submitted }}</div>
-          </article>
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>New Members This Month</span>
+                <span class="stat-icon">N</span>
+              </div>
+              <div class="stat-number" data-member-stat="new_members_this_month">{{ member_stats.new_members_this_month }}</div>
+            </article>
 
-          <article class="card stat-card">
-            <div class="stat-top">
-              <span>Votes Cast</span>
-              <span class="stat-icon">V</span>
-            </div>
-            <div class="stat-number">{{ stats.votes_cast }}</div>
-          </article>
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Active Members</span>
+                <span class="stat-icon">A</span>
+              </div>
+              <div class="stat-number" data-member-stat="active_members">{{ member_stats.active_members }}</div>
+            </article>
+          </section>
 
-          <article class="card stat-card">
-            <div class="stat-top">
-              <span>Upcoming Events</span>
-              <span class="stat-icon">E</span>
+          <section class="panel members-growth" aria-label="Members growth graph">
+            <div class="panel-head">
+              <h2 class="section-title">Members Growth</h2>
+              <p class="muted">Registered members over time</p>
             </div>
-            <div class="stat-number">{{ stats.upcoming_events }}</div>
-          </article>
-        </section>
+            <div class="chart-wrap" id="membersGrowthChart">
+              <div class="chart-state">Loading member growth...</div>
+              <div class="chart-tooltip" id="membersGrowthTooltip"></div>
+            </div>
+          </section>
+        {% else %}
+          <section class="stats-grid" aria-label="User statistics">
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Teams Joined</span>
+                <span class="stat-icon">T</span>
+              </div>
+              <div class="stat-number">{{ stats.teams_joined }}</div>
+            </article>
+
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Games Submitted</span>
+                <span class="stat-icon">G</span>
+              </div>
+              <div class="stat-number">{{ stats.games_submitted }}</div>
+            </article>
+
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Votes Cast</span>
+                <span class="stat-icon">V</span>
+              </div>
+              <div class="stat-number">{{ stats.votes_cast }}</div>
+            </article>
+
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Upcoming Events</span>
+                <span class="stat-icon">E</span>
+              </div>
+              <div class="stat-number">{{ stats.upcoming_events }}</div>
+            </article>
+          </section>
+        {% endif %}
 
         <section class="grid-two">
           <div class="panel">
@@ -623,5 +758,110 @@
       </div>
     </main>
   </div>
+
+  {% if user.role == 'Admin' %}
+    <script>
+      const initialMemberGrowth = {{ member_growth|tojson }};
+      const chartWrap = document.getElementById("membersGrowthChart");
+      const tooltip = document.getElementById("membersGrowthTooltip");
+
+      function updateMemberStats(stats) {
+        document.querySelectorAll("[data-member-stat]").forEach((node) => {
+          const key = node.dataset.memberStat;
+          node.textContent = Number(stats[key] || 0).toLocaleString();
+        });
+      }
+
+      function formatDate(value) {
+        const date = new Date(`${value}T00:00:00`);
+        return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      }
+
+      function renderMembersGrowth(rows) {
+        if (!chartWrap) {
+          return;
+        }
+
+        if (!rows || rows.length === 0) {
+          chartWrap.innerHTML = '<div class="chart-state">No member growth data yet.</div><div class="chart-tooltip" id="membersGrowthTooltip"></div>';
+          return;
+        }
+
+        const width = 640;
+        const height = 280;
+        const padding = { top: 28, right: 24, bottom: 46, left: 52 };
+        const maxMembers = Math.max(...rows.map((row) => Number(row.total_members || 0)), 1);
+        const xSpan = Math.max(rows.length - 1, 1);
+
+        const points = rows.map((row, index) => {
+          const x = padding.left + (index / xSpan) * (width - padding.left - padding.right);
+          const y = height - padding.bottom - (Number(row.total_members || 0) / maxMembers) * (height - padding.top - padding.bottom);
+          return { ...row, x, y };
+        });
+
+        const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+        const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${height - padding.bottom} L ${points[0].x.toFixed(1)} ${height - padding.bottom} Z`;
+        const first = points[0];
+        const last = points[points.length - 1];
+
+        chartWrap.innerHTML = `
+          <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Members growth line chart">
+            <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}" stroke="currentColor" stroke-width="1" />
+            <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}" stroke="currentColor" stroke-width="1" />
+            <text class="chart-label" x="${padding.left}" y="${height - 18}">${formatDate(first.date)}</text>
+            <text class="chart-label" x="${width - padding.right}" y="${height - 18}" text-anchor="end">${formatDate(last.date)}</text>
+            <text class="chart-label" x="${padding.left - 12}" y="${padding.top + 4}" text-anchor="end">${maxMembers.toLocaleString()}</text>
+            <text class="chart-label" x="${padding.left - 12}" y="${height - padding.bottom + 4}" text-anchor="end">0</text>
+            <path class="chart-area" d="${areaPath}"></path>
+            <path class="chart-line" d="${linePath}"></path>
+            ${points.map((point) => `
+              <circle class="chart-point" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="5"
+                data-date="${point.date}" data-total="${point.total_members}"></circle>
+            `).join("")}
+          </svg>
+          <div class="chart-tooltip" id="membersGrowthTooltip"></div>
+        `;
+
+        const currentTooltip = document.getElementById("membersGrowthTooltip");
+        chartWrap.querySelectorAll(".chart-point").forEach((point) => {
+          point.addEventListener("mouseenter", () => {
+            currentTooltip.textContent = `${formatDate(point.dataset.date)}: ${Number(point.dataset.total).toLocaleString()} members`;
+            currentTooltip.style.left = `${(Number(point.getAttribute("cx")) / width) * 100}%`;
+            currentTooltip.style.top = `${(Number(point.getAttribute("cy")) / height) * 100}%`;
+            currentTooltip.classList.add("visible");
+          });
+
+          point.addEventListener("mouseleave", () => {
+            currentTooltip.classList.remove("visible");
+          });
+        });
+      }
+
+      async function refreshAdminMembers() {
+        try {
+          const [statsResponse, growthResponse] = await Promise.all([
+            fetch("{{ url_for('api_admin_member_stats') }}"),
+            fetch("{{ url_for('api_admin_member_growth') }}"),
+          ]);
+
+          if (!statsResponse.ok || !growthResponse.ok) {
+            throw new Error("Member dashboard request failed.");
+          }
+
+          updateMemberStats(await statsResponse.json());
+          const growthData = await growthResponse.json();
+          renderMembersGrowth(growthData.growth);
+        } catch (error) {
+          if (chartWrap) {
+            chartWrap.innerHTML = '<div class="chart-state">Member statistics are unavailable right now.</div>';
+          }
+        }
+      }
+
+      renderMembersGrowth(initialMemberGrowth);
+      refreshAdminMembers();
+      setInterval(refreshAdminMembers, 15000);
+    </script>
+  {% endif %}
 </body>
 </html>

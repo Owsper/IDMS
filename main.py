@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, abort
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, abort, jsonify
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from werkzeug.utils import secure_filename
@@ -16,6 +16,8 @@ from database import (
     username_exists_for_other_user,
     get_dashboard_stats,
     get_recent_activity,
+    get_member_statistics,
+    get_member_growth_history,
     save_upload_metadata,
     get_approved_uploads,
     get_upload_by_id,
@@ -83,6 +85,15 @@ def login_required(view):
     def wrapped_view(*args, **kwargs):
         if not session.get("user_id") and not session.get("admin_username"):
             return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped_view
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if not session.get("admin_username"):
+            abort(403)
         return view(*args, **kwargs)
     return wrapped_view
 
@@ -232,12 +243,30 @@ def dashboard():
     user = current_user()
     stats = get_dashboard_stats(user["id"])
     activities = get_recent_activity(user["id"])
+    member_stats = get_member_statistics() if session.get("admin_username") else None
+    member_growth = get_member_growth_history() if session.get("admin_username") else []
     return render_template(
         "DashboardPage.html",
         user=user,
         stats=stats,
         activities=activities,
+        member_stats=member_stats,
+        member_growth=member_growth,
     )
+
+
+@app.route("/api/admin/member-stats")
+@login_required
+@admin_required
+def api_admin_member_stats():
+    return jsonify(get_member_statistics())
+
+
+@app.route("/api/admin/member-growth")
+@login_required
+@admin_required
+def api_admin_member_growth():
+    return jsonify({"growth": get_member_growth_history()})
 
 
 @app.route("/profile", methods=["GET", "POST"])
