@@ -232,6 +232,26 @@ def mark_user_verified(user_id):
     conn.close()
 
 
+def update_user_password(user_id, password):
+    """Replace a user's password with a newly generated bcrypt hash."""
+    password_hash = bcrypt.hashpw(
+        password.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """UPDATE users_data
+        SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?""",
+        (password_hash, user_id),
+    )
+    conn.commit()
+    updated = cursor.rowcount == 1
+    conn.close()
+    return updated
+
+
 def user_login(email, password):
     conn = get_connection()
     cursor = conn.cursor()

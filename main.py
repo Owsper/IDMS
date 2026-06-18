@@ -22,6 +22,7 @@ from database import (
     get_approved_uploads,
     get_upload_by_id,
     mark_user_verified,
+    update_user_password,
     get_connection,
     get_table_schema,
     get_import_dashboard_stats,
@@ -54,6 +55,7 @@ app.config["IMPORT_ALLOWED_EXTENSIONS"] = {".csv", ".xlsx", ".json", ".sql", ".d
 app.config["IMPORT_MAX_SIZE"] = 10 * 1024 * 1024
 app.config["IMPORT_ROLLBACK_MINUTES"] = 60
 app.config["IMPORT_BATCH_SIZE"] = 250
+app.config["PASSWORD_RESET_MAX_AGE"] = 3600
 
 # Flask-Mail configuration
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
@@ -452,6 +454,53 @@ def send_verification_email(email, username):
         return False
 
 
+def password_reset_fingerprint(user):
+    """Tie a reset link to the current password so it can only be used once."""
+    return hashlib.sha256(user["password_hash"].encode("utf-8")).hexdigest()[:16]
+
+
+def generate_password_reset_token(user):
+    return serializer.dumps(
+        {"user_id": user["id"], "fingerprint": password_reset_fingerprint(user)},
+        salt="password-reset",
+    )
+
+
+def confirm_password_reset_token(token):
+    payload = serializer.loads(
+        token,
+        salt="password-reset",
+        max_age=app.config["PASSWORD_RESET_MAX_AGE"],
+    )
+    user = get_user_by_id(payload.get("user_id"))
+    if not user or payload.get("fingerprint") != password_reset_fingerprint(user):
+        raise BadSignature("Password reset link is no longer valid.")
+    return user
+
+
+def send_password_reset_email(user):
+    token = generate_password_reset_token(user)
+    reset_url = url_for("reset_password", token=token, _external=True)
+    msg = Message(
+        subject="Reset your Pexel password",
+        recipients=[user["email"]],
+        sender=app.config["MAIL_DEFAULT_SENDER"],
+        body=(
+            f"Hi {user['username']},\n\n"
+            "Use the link below to choose a new password:\n"
+            f"{reset_url}\n\n"
+            "This link expires in 1 hour and can only be used once. "
+            "If you did not request this, you can ignore this email."
+        ),
+    )
+    try:
+        mail.send(msg)
+        return True
+    except Exception:
+        app.logger.exception("Password reset email failed")
+        return False
+
+
 @app.route("/")
 def home():
     return render_template("HomePage.html")
@@ -534,6 +583,61 @@ def login():
                 return redirect(url_for("dashboard"))
 
     return render_template("LoginPage.html", error=error)
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    success = None
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        if email:
+            user = get_user_by_email(email)
+            if user:
+                send_password_reset_email(user)
+
+        # Do not reveal whether an email address is registered.
+        success = "If an account exists for that email, a password reset link has been sent."
+
+    return render_template("PasswordResetPage.html", mode="request", success=success)
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    try:
+        user = confirm_password_reset_token(token)
+    except SignatureExpired:
+        return render_template(
+            "PasswordResetPage.html",
+            mode="invalid",
+            error="This password reset link has expired. Please request a new one.",
+        ), 400
+    except BadSignature:
+        return render_template(
+            "PasswordResetPage.html",
+            mode="invalid",
+            error="This password reset link is invalid or has already been used.",
+        ), 400
+
+    error = None
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        if not password or not confirm_password:
+            error = "Both password fields are required."
+        elif len(password) < 8:
+            error = "Password must be at least 8 characters."
+        elif password != confirm_password:
+            error = "Passwords do not match."
+        else:
+            update_user_password(user["id"], password)
+            session.clear()
+            return render_template(
+                "PasswordResetPage.html",
+                mode="complete",
+                success="Your password has been reset. You can now sign in.",
+            )
+
+    return render_template("PasswordResetPage.html", mode="reset", error=error)
 
 
 @app.route("/dashboard")
