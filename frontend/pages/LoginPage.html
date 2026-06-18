@@ -155,22 +155,6 @@
       margin-bottom: 28px;
     }
 
-    .social-btn {
-      height: 42px;
-      border: 1px solid rgba(129, 72, 255, 0.35);
-      background: #1a1f2d;
-      color: white;
-      border-radius: 7px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: 0.2s ease;
-    }
-
-    .social-btn:hover {
-      border-color: #8c48ff;
-      background: rgba(124, 57, 255, 0.14);
-    }
-
     .divider {
       display: flex;
       align-items: center;
@@ -301,9 +285,6 @@
         bottom: 28px;
       }
 
-      .social-row {
-        grid-template-columns: 1fr;
-      }
     }
   </style>
 </head>
@@ -345,14 +326,7 @@
       <div class="form-box">
         <h2>Welcome back</h2>
         <p class="subtitle">Sign in to your Pexel account</p>
-
-        <div class="social-row">
-          <button class="social-btn" type="button">◎ &nbsp; Google</button>
-          <button class="social-btn" type="button">⌘ &nbsp; GitHub</button>
-        </div>
-
-        <div class="divider">or continue with email</div>
-
+      
         <form method="POST" novalidate>
 
           {% if error %}
