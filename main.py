@@ -16,13 +16,10 @@ from database import (
     get_approved_uploads,
     get_upload_by_id,
 )
-from flask_mail import Mail, Message
-from itsdangerous import URLSafeTimedSerializer
 from werkzeug.utils import secure_filename
 import uuid
 import hashlib
 import os
-import mimetypes
 
 app = Flask(__name__, template_folder="frontend/pages")
 app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
