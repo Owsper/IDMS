@@ -29,9 +29,10 @@
     .heading h2 { margin-bottom: 7px; font-size: 24px; }
     .muted { color: #8293c4; font-size: 14px; }
     .panel { border-radius: 8px; border: 1px solid rgba(129,72,255,.24); background: rgba(15,20,32,.92); box-shadow: 0 12px 28px rgba(0,0,0,.16); overflow: hidden; }
-    .search { padding: 18px; display: flex; gap: 10px; border-bottom: 1px solid rgba(129,72,255,.2); }
-    .search input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; color: white; background: #1a1f2d; border: 1px solid #2b3152; border-radius: 8px; outline: none; font-size: 14px; }
-    .search input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.18); }
+    .search { padding: 18px; display: flex; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid rgba(129,72,255,.2); }
+    .search input, .search select { min-width: 0; height: 44px; padding: 0 14px; color: white; background: #1a1f2d; border: 1px solid #2b3152; border-radius: 8px; outline: none; font-size: 14px; }
+    .search input { flex: 1; min-width: 190px; }
+    .search input:focus, .search select:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.18); }
     .button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 8px; color: white; background: linear-gradient(135deg, #7d39ff, #8d45ff); font-weight: 900; cursor: pointer; }
     .clear { display: inline-flex; align-items: center; padding: 0 12px; color: #a99bc9; text-decoration: none; font-size: 13px; font-weight: 800; }
     .table-wrap { overflow-x: auto; }
@@ -46,6 +47,9 @@
     .verified { color: #86efac; background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.3); }
     .pending { color: #fde68a; background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.3); }
     .empty { padding: 50px 20px; text-align: center; color: #8293c4; }
+    .pagination { padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(129,72,255,.15); }
+    .page-links { display: flex; gap: 8px; }
+    .page-link { padding: 8px 12px; border-radius: 7px; color: white; background: #1a1f2d; border: 1px solid rgba(129,72,255,.28); text-decoration: none; font-size: 12px; font-weight: 800; }
     @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } .sidebar { position: relative; height: auto; gap: 18px; } .nav { grid-template-columns: repeat(4, max-content); overflow-x: auto; } .account { display: none; } .content { padding: 18px; } .heading { align-items: start; flex-direction: column; } }
     @media (max-width: 520px) { .search { flex-wrap: wrap; } .search input { flex-basis: 100%; } .button { flex: 1; } }
   </style>
@@ -72,18 +76,32 @@
     <div class="content">
       <div class="heading">
         <div><h2>Member Directory</h2><p class="muted">Search by name, username, email, or role.</p></div>
-        <p class="muted">{{ members|length }} result{% if members|length != 1 %}s{% endif %}</p>
+        <p class="muted">{{ total }} result{% if total != 1 %}s{% endif %}</p>
       </div>
       <section class="panel">
         <form class="search" method="GET" action="{{ url_for('admin_members') }}" role="search">
-          <input type="search" name="q" value="{{ query }}" placeholder="Search members..." aria-label="Search members" autofocus>
+          <input type="search" name="q" value="{{ query }}" placeholder="Search by name, username, email, or ID..." aria-label="Search members" autofocus>
+          <select name="role" aria-label="Filter by role">
+            <option value="">All roles</option>
+            {% for option in filter_options.roles %}<option value="{{ option }}" {% if role == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+          </select>
+          <select name="team_role" aria-label="Filter by team role">
+            <option value="">All team roles</option>
+            {% for option in filter_options.team_roles %}<option value="{{ option }}" {% if team_role == option %}selected{% endif %}>{{ option }}</option>{% endfor %}
+          </select>
+          <select name="verified" aria-label="Filter by verification status">
+            <option value="">All statuses</option>
+            <option value="verified" {% if verified == 'verified' %}selected{% endif %}>Verified</option>
+            <option value="pending" {% if verified == 'pending' %}selected{% endif %}>Pending</option>
+          </select>
           <button class="button" type="submit">Search</button>
-          {% if query %}<a class="clear" href="{{ url_for('admin_members') }}">Clear</a>{% endif %}
+          {% if query or role or team_role or verified %}<a class="clear" href="{{ url_for('admin_members') }}">Clear</a>{% endif %}
         </form>
         {% if members %}
         <div class="table-wrap"><table>
-          <thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Team role</th><th>Status</th><th>Last login</th></tr></thead>
+          <thead><tr><th>ID</th><th>Member</th><th>Email</th><th>Role</th><th>Team role</th><th>Status</th><th>Last login</th></tr></thead>
           <tbody>{% for member in members %}<tr>
+            <td>#{{ member.id }}</td>
             <td><div class="member-name">{{ member.full_name or member.username }}</div><div class="member-user">@{{ member.username }}</div></td>
             <td>{{ member.email }}</td>
             <td><span class="pill">{{ member.role or 'Participant' }}</span></td>
@@ -92,7 +110,16 @@
             <td>{{ member.last_login_at or 'Never' }}</td>
           </tr>{% endfor %}</tbody>
         </table></div>
-        {% else %}<div class="empty">No members matched “{{ query }}”.</div>{% endif %}
+        {% else %}<div class="empty">No members matched the selected search and filters.</div>{% endif %}
+        {% if total > per_page %}
+        <nav class="pagination" aria-label="Member results pages">
+          <span class="muted">Page {{ page }} of {{ ((total - 1) // per_page) + 1 }}</span>
+          <div class="page-links">
+            {% if page > 1 %}<a class="page-link" href="{{ url_for('admin_members', q=query, role=role, team_role=team_role, verified=verified, page=page-1) }}">Previous</a>{% endif %}
+            {% if page * per_page < total %}<a class="page-link" href="{{ url_for('admin_members', q=query, role=role, team_role=team_role, verified=verified, page=page+1) }}">Next</a>{% endif %}
+          </div>
+        </nav>
+        {% endif %}
       </section>
     </div>
   </main>

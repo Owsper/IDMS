@@ -19,6 +19,7 @@ from database import (
     get_member_statistics,
     get_member_growth_history,
     search_members,
+    get_member_filter_options,
     save_upload_metadata,
     get_approved_uploads,
     get_upload_by_id,
@@ -697,12 +698,64 @@ def api_admin_member_growth():
 @admin_required
 def admin_members():
     query = request.args.get("q", "").strip()
+    role = request.args.get("role", "").strip()
+    team_role = request.args.get("team_role", "").strip()
+    verified = request.args.get("verified", "").strip().lower()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    per_page = 25
+    results = search_members(
+        query=query,
+        role=role,
+        team_role=team_role,
+        verified=verified,
+        limit=per_page,
+        offset=(page - 1) * per_page,
+    )
     return render_template(
         "MembersPage.html",
         user=current_user(),
-        members=search_members(query),
+        members=results["members"],
+        total=results["total"],
         query=query,
+        role=role,
+        team_role=team_role,
+        verified=verified,
+        page=page,
+        per_page=per_page,
+        filter_options=get_member_filter_options(),
     )
+
+
+@app.route("/api/admin/members")
+@login_required
+@admin_required
+def api_admin_members():
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(1, min(int(request.args.get("per_page", 25)), 100))
+    except (TypeError, ValueError):
+        return json_response_error("page and per_page must be valid numbers.")
+
+    results = search_members(
+        query=request.args.get("q", ""),
+        role=request.args.get("role", ""),
+        team_role=request.args.get("team_role", ""),
+        verified=request.args.get("verified", ""),
+        limit=per_page,
+        offset=(page - 1) * per_page,
+    )
+    return jsonify({
+        "members": results["members"],
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": results["total"],
+            "pages": (results["total"] + per_page - 1) // per_page,
+        },
+    })
 
 
 @app.route("/admin/import-data")

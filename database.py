@@ -83,6 +83,11 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users_data(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_created_at ON users_data(created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_last_login_at ON users_data(last_login_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username_nocase ON users_data(username COLLATE NOCASE)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_full_name_nocase ON users_data(full_name COLLATE NOCASE)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users_data(role)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_team_role ON users_data(team_role)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_verified ON users_data(is_verified)")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS import_jobs (
@@ -560,26 +565,47 @@ def get_import_dashboard_stats():
     return stats
 
 
-def search_members(query="", limit=100):
-    """Return registered members matching a name, username, email, or role."""
+def search_members(query="", role="", team_role="", verified="", limit=25, offset=0):
+    """Search imported/registered members with filters and bounded pagination."""
     conn = get_connection()
     cursor = conn.cursor()
-    query = (query or "").strip().lower()
+    query = (query or "").strip()
+    role = (role or "").strip()
+    team_role = (team_role or "").strip()
+    verified = (verified or "").strip().lower()
+    limit = max(1, min(int(limit), 100))
+    offset = max(0, int(offset))
+    clauses = []
     params = []
-    where_clause = ""
 
     if query:
         value = f"%{query}%"
-        where_clause = """
-            WHERE lower(username) LIKE ?
-               OR lower(email) LIKE ?
-               OR lower(COALESCE(full_name, '')) LIKE ?
-               OR lower(COALESCE(role, '')) LIKE ?
-               OR lower(COALESCE(team_role, '')) LIKE ?
-        """
-        params.extend([value] * 5)
+        text_search = """(
+            username LIKE ? COLLATE NOCASE
+            OR email LIKE ? COLLATE NOCASE
+            OR COALESCE(full_name, '') LIKE ? COLLATE NOCASE
+        )"""
+        if query.isdigit():
+            clauses.append(f"(id = ? OR {text_search})")
+            params.append(int(query))
+        else:
+            clauses.append(text_search)
+        params.extend([value] * 3)
 
-    params.append(max(1, min(int(limit), 250)))
+    if role:
+        clauses.append("role = ? COLLATE NOCASE")
+        params.append(role)
+    if team_role:
+        clauses.append("team_role = ? COLLATE NOCASE")
+        params.append(team_role)
+    if verified in {"verified", "pending"}:
+        clauses.append("is_verified = ?")
+        params.append(1 if verified == "verified" else 0)
+
+    where_clause = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    cursor.execute(f"SELECT COUNT(*) AS total FROM users_data {where_clause}", params)
+    total = cursor.fetchone()["total"]
+
     cursor.execute(
         f"""
         SELECT id, username, email, full_name, role, team_role,
@@ -587,13 +613,24 @@ def search_members(query="", limit=100):
         FROM users_data
         {where_clause}
         ORDER BY lower(COALESCE(NULLIF(full_name, ''), username)), id
-        LIMIT ?
+        LIMIT ? OFFSET ?
         """,
-        params,
+        (*params, limit, offset),
     )
     members = [dict(row) for row in cursor.fetchall()]
     conn.close()
-    return members
+    return {"members": members, "total": total, "limit": limit, "offset": offset}
+
+
+def get_member_filter_options():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT role FROM users_data WHERE role IS NOT NULL AND role != '' ORDER BY role")
+    roles = [row["role"] for row in cursor.fetchall()]
+    cursor.execute("SELECT DISTINCT team_role FROM users_data WHERE team_role IS NOT NULL AND team_role != '' ORDER BY team_role")
+    team_roles = [row["team_role"] for row in cursor.fetchall()]
+    conn.close()
+    return {"roles": roles, "team_roles": team_roles}
 
 
 def create_import_job(admin_username, original_filename, stored_filename, target_table, file_ext, file_size):
