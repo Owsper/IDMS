@@ -54,7 +54,7 @@ def init_db():
     add_column_if_missing(cursor, "users_data", "role", "TEXT DEFAULT 'Participant'")
     add_column_if_missing(cursor, "users_data", "updated_at", "DATETIME")
     add_column_if_missing(cursor, "users_data", "last_login_at", "DATETIME")
-    add_column_if_missing(cursor, "users_data", "is_verified", "INTEGER DEFAULT 0")
+    add_column_if_missing(cursor, "users_data", "is_verified", "BOOLEAN DEFAULT 0")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS uploads (
