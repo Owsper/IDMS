@@ -25,7 +25,6 @@
       grid-template-columns: 1fr 1fr;
     }
 
-    /* LEFT SIDE */
     .left {
       position: relative;
       padding: 48px;
@@ -103,7 +102,6 @@
       font-size: 12.5px;
     }
 
-    /* RIGHT SIDE */
     .right {
       background: #0d1017;
       display: flex;
@@ -182,6 +180,12 @@
 
     .error {
       color: #ef4444;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+
+    .success {
+      color: #22c55e;
       font-size: 14px;
       margin-bottom: 16px;
     }
@@ -286,12 +290,29 @@
         min-height: 620px;
       }
     }
+
+    @media (max-width: 520px) {
+      .left,
+      .right {
+        padding: 24px;
+      }
+
+      .hero h1 {
+        font-size: 34px;
+      }
+
+      .social-row {
+        grid-template-columns: 1fr;
+      }
+
+      .footer {
+        left: 24px;
+      }
+    }
   </style>
 </head>
-
 <body>
   <div class="page">
-
     <section class="left">
       <div class="brand">
         <div class="brand-icon">↯</div>
@@ -340,6 +361,10 @@
           <p class="error">{{ error }}</p>
         {% endif %}
 
+        {% if success %}
+          <p class="success">{{ success }}</p>
+        {% endif %}
+
         <form method="POST" novalidate>
           <div class="form-group">
             <label>Username</label>
@@ -353,13 +378,18 @@
 
           <div class="form-group">
             <label>Password</label>
+            <div class="input-wrap">
               <input id="password" type="password" name="password" placeholder="••••••••" required />
               <span class="eye" onclick="togglePassword()">◉</span>
+            </div>
           </div>
 
           <div class="form-group">
             <label>Confirm Password</label>
-            <input type="password" name="confirm_password" placeholder="••••••••" required />
+            <div class="input-wrap">
+              <input id="confirm_password" type="password" name="confirm_password" placeholder="••••••••" required />
+              <span class="eye" onclick="toggleConfirmPassword()">◉</span>
+            </div>
           </div>
 
           <button class="main-btn" type="submit">Create Account →</button>
@@ -371,7 +401,6 @@
         </div>
       </div>
     </section>
-
   </div>
 
   <script>
