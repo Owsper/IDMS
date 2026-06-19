@@ -531,6 +531,37 @@ def get_approved_uploads(limit=100):
     return [row_to_dict(r) for r in rows]
 
 
+def search_approved_documents(query="", limit=25, offset=0):
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = (query or "").strip()
+    limit = max(1, min(int(limit), 100))
+    offset = max(0, int(offset))
+    clauses = ["approved = 1"]
+    params = []
+
+    if query:
+        clauses.append("instr(lower(COALESCE(original_filename, '')), lower(?)) > 0")
+        params.append(query)
+
+    where_clause = f"WHERE {' AND '.join(clauses)}"
+    cursor.execute(f"SELECT COUNT(*) AS total FROM uploads {where_clause}", params)
+    total = cursor.fetchone()["total"]
+    cursor.execute(
+        f"""
+        SELECT id, original_filename, mime_type, size, created_at, approved_at
+        FROM uploads
+        {where_clause}
+        ORDER BY lower(COALESCE(original_filename, '')), id
+        LIMIT ? OFFSET ?
+        """,
+        (*params, limit, offset),
+    )
+    documents = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return {"documents": documents, "total": total, "limit": limit, "offset": offset}
+
+
 def get_upload_by_id(upload_id):
     conn = get_connection()
     cursor = conn.cursor()

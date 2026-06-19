@@ -22,6 +22,7 @@ from database import (
     get_member_filter_options,
     save_upload_metadata,
     get_approved_uploads,
+    search_approved_documents,
     get_upload_by_id,
     log_document_download,
     mark_user_verified,
@@ -1308,6 +1309,44 @@ def list_files():
     user = current_user()
     files = get_approved_uploads(limit=200)
     return render_template("DocumentsPage.html", user=user, files=files, stats=get_dashboard_stats(user["id"]))
+
+
+@app.route("/api/documents")
+@login_required
+def api_documents():
+    query = request.args.get("q", "").strip()
+    if len(query) > 150:
+        return json_response_error("Search query must be 150 characters or fewer.")
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+        per_page = max(1, min(int(request.args.get("per_page", 25)), 100))
+    except (TypeError, ValueError):
+        return json_response_error("page and per_page must be valid numbers.")
+
+    results = search_approved_documents(
+        query=query,
+        limit=per_page,
+        offset=(page - 1) * per_page,
+    )
+    documents = []
+    for document in results["documents"]:
+        title = document.pop("original_filename")
+        documents.append({
+            **document,
+            "title": title,
+            "download_url": url_for("download_file", file_id=document["id"]),
+        })
+
+    return jsonify({
+        "documents": documents,
+        "query": query,
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": results["total"],
+            "pages": (results["total"] + per_page - 1) // per_page,
+        },
+    })
 
 
 @app.route("/files/<int:file_id>/download")
