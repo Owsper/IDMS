@@ -127,6 +127,10 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_approved ON uploads(approved)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_category_id ON uploads(category_id)")
     cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_uploads_approved_category_id_title
+        ON uploads(approved, category_id, lower(original_filename), id)
+    """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_uploads_approved_title
         ON uploads(approved, lower(original_filename), id)
     """)
@@ -752,7 +756,7 @@ def search_approved_documents(query="", category="", limit=25, offset=0):
     offset = max(0, int(offset))
     clauses = ["u.approved = 1"]
     params = []
-    from_clause = "uploads AS u"
+    from_clause = "uploads AS u LEFT JOIN document_categories AS c ON c.id = u.category_id"
     order_clause = "lower(COALESCE(u.original_filename, '')), u.id"
 
     if query:
@@ -767,7 +771,10 @@ def search_approved_documents(query="", category="", limit=25, offset=0):
             clauses.append("instr(COALESCE(u.original_filename, ''), ?) > 0")
             params.append(query)
     if category:
-        clauses.append("u.category = ? COLLATE NOCASE")
+        clauses.append("""u.category_id = (
+            SELECT id FROM document_categories
+            WHERE name = ? COLLATE NOCASE AND is_active = 1
+        )""")
         params.append(category)
 
     where_clause = f"WHERE {' AND '.join(clauses)}"
@@ -775,8 +782,9 @@ def search_approved_documents(query="", category="", limit=25, offset=0):
     total = cursor.fetchone()["total"]
     cursor.execute(
         f"""
-        SELECT u.id, u.original_filename, u.category, u.mime_type, u.size,
-               u.created_at, u.approved_at
+        SELECT u.id, u.original_filename, u.category_id,
+               COALESCE(c.name, u.category) AS category,
+               u.mime_type, u.size, u.created_at, u.approved_at
         FROM {from_clause}
         {where_clause}
         ORDER BY {order_clause}

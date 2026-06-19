@@ -1399,11 +1399,15 @@ def list_files():
 @login_required
 def api_documents():
     query = request.args.get("q", "").strip()
-    category = request.args.get("category", "").strip()
+    requested_category = request.args.get("category", "").strip()
     categories = active_document_category_names()
+    category = next(
+        (name for name in categories if name.casefold() == requested_category.casefold()),
+        "",
+    )
     if len(query) > 150:
         return json_response_error("Search query must be 150 characters or fewer.")
-    if category and category not in categories:
+    if requested_category and not category:
         return json_response_error("Select a valid document category.")
     try:
         page = max(1, int(request.args.get("page", 1)))
