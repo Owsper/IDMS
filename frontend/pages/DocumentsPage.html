@@ -1,43 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documents — Pexel</title>
-    <style>
-      body { font-family:Inter, Arial, sans-serif; background:#05070d; color:#f3f5ff; }
-      .wrap { max-width:980px; margin:28px auto; padding:20px; background:rgba(15,20,32,0.9); border:1px solid rgba(124,58,237,0.12); border-radius:8px; }
-      h1 { font-family:Orbitron, sans-serif; }
-      .muted { color:#8293c4; }
-      .list { margin-top:12px; }
-      .item { padding:10px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(129,72,255,0.04); }
-      .btn { padding:8px 10px; border-radius:6px; background:linear-gradient(135deg,#7d39ff,#8d45ff); color:white; font-weight:800; text-decoration:none; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search Documents — Pexel</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Arial, sans-serif;
+      background: #05070d;
+      color: #f3f5ff;
+    }
+    .wrap {
+      width: min(980px, calc(100% - 32px));
+      margin: 28px auto;
+      padding: 24px;
+      background: rgba(15, 20, 32, 0.94);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      border-radius: 10px;
+    }
+    h1 { margin: 0; font-family: Orbitron, sans-serif; }
+    .muted { color: #8293c4; }
+    .search-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      margin: 24px 0 10px;
+    }
+    .search-label {
+      grid-column: 1 / -1;
+      color: #d9e2ff;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .search-input {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid rgba(129, 72, 255, 0.36);
+      border-radius: 7px;
+      outline: none;
+      background: #0b101b;
+      color: #fff;
+      font: inherit;
+    }
+    .search-input:focus {
+      border-color: #00d7f4;
+      box-shadow: 0 0 0 3px rgba(0, 215, 244, 0.12);
+    }
+    .btn {
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn.secondary { background: #1a1f2d; }
+    .results-summary { min-height: 24px; margin: 0; }
+    .list { margin-top: 12px; border-top: 1px solid rgba(129, 72, 255, 0.12); }
+    .item {
+      padding: 14px 4px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      border-bottom: 1px solid rgba(129, 72, 255, 0.1);
+    }
+    .item[hidden] { display: none; }
+    .item strong { overflow-wrap: anywhere; }
+    .empty-state { padding: 24px 0; text-align: center; }
+    .footer-actions { margin-top: 20px; }
+    @media (max-width: 600px) {
+      .search-form { grid-template-columns: 1fr; }
+      .item { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Approved Documents</h1>
-    <p class="muted">Files uploaded and approved by admins are listed below.</p>
+  <main class="wrap">
+    <h1>Search Documents</h1>
+    <p class="muted">Find and download documents approved by administrators.</p>
+
+    <form class="search-form" id="documentSearchForm" role="search">
+      <label class="search-label" for="documentSearch">Search by document title</label>
+      <input
+        class="search-input"
+        id="documentSearch"
+        name="q"
+        type="search"
+        maxlength="150"
+        placeholder="Enter a title, such as member guide"
+        autocomplete="off"
+      />
+      <button class="btn" type="submit">Search</button>
+    </form>
 
     {% if files and files|length > 0 %}
-      <div class="list">
+      <p class="muted results-summary" id="resultsSummary" aria-live="polite"></p>
+      <div class="list" id="documentList">
         {% for f in files %}
-          <div class="item">
+          <article class="item" data-document data-title="{{ f.original_filename|lower }}">
             <div>
               <strong>{{ f.original_filename }}</strong>
               <div class="muted">Uploaded: {{ f.created_at }} • Size: {{ f.size }} bytes</div>
             </div>
-            <div>
-              <a class="btn" href="{{ url_for('download_file', file_id=f.id) }}">Download</a>
-            </div>
-          </div>
+            <a class="btn" href="{{ url_for('download_file', file_id=f.id) }}">Download</a>
+          </article>
         {% endfor %}
       </div>
+      <p class="muted empty-state" id="noSearchResults" hidden>No approved documents match that title.</p>
     {% else %}
-      <p class="muted">No documents available yet.</p>
+      <p class="muted empty-state">No approved documents are available yet.</p>
     {% endif %}
 
-    <div style="margin-top:18px;"><a href="{{ url_for('dashboard') }}" class="btn" style="background:#1a1f2d;">Back to Dashboard</a></div>
-  </div>
+    <div class="footer-actions">
+      <a href="{{ url_for('dashboard') }}" class="btn secondary">Back to Dashboard</a>
+    </div>
+  </main>
+
+  {% if files and files|length > 0 %}
+    <script>
+      const searchForm = document.getElementById("documentSearchForm");
+      const searchInput = document.getElementById("documentSearch");
+      const documents = [...document.querySelectorAll("[data-document]")];
+      const resultsSummary = document.getElementById("resultsSummary");
+      const noSearchResults = document.getElementById("noSearchResults");
+
+      function applyTitleSearch() {
+        const query = searchInput.value.trim().toLocaleLowerCase();
+        let visibleCount = 0;
+        documents.forEach((documentRow) => {
+          const matches = !query || documentRow.dataset.title.includes(query);
+          documentRow.hidden = !matches;
+          if (matches) visibleCount += 1;
+        });
+
+        resultsSummary.textContent = query
+          ? `${visibleCount} document${visibleCount === 1 ? "" : "s"} found`
+          : `${documents.length} approved document${documents.length === 1 ? "" : "s"}`;
+        noSearchResults.hidden = visibleCount !== 0;
+
+        const url = new URL(window.location.href);
+        if (query) url.searchParams.set("q", searchInput.value.trim());
+        else url.searchParams.delete("q");
+        window.history.replaceState({}, "", url);
+      }
+
+      searchForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        applyTitleSearch();
+      });
+      searchInput.addEventListener("input", applyTitleSearch);
+      searchInput.value = new URL(window.location.href).searchParams.get("q") || "";
+      applyTitleSearch();
+    </script>
+  {% endif %}
 </body>
 </html>
