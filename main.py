@@ -61,6 +61,7 @@ app.config["IMPORT_MAX_SIZE"] = 10 * 1024 * 1024
 app.config["IMPORT_ROLLBACK_MINUTES"] = 60
 app.config["IMPORT_BATCH_SIZE"] = 250
 app.config["PASSWORD_RESET_MAX_AGE"] = 3600
+app.config["DOCUMENT_DOWNLOAD_CACHE_SECONDS"] = 3600
 
 # Flask-Mail configuration
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
@@ -1323,14 +1324,22 @@ def download_file(file_id):
         as_attachment=True,
         mimetype=record.get("mime_type"),
         download_name=record.get("original_filename") or stored_name,
+        conditional=True,
+        etag=True,
+        max_age=app.config["DOCUMENT_DOWNLOAD_CACHE_SECONDS"],
     )
-    log_document_download(
-        upload_id=record["id"],
-        user_id=session.get("user_id"),
-        admin_username=session.get("admin_username"),
-        ip_address=request.remote_addr or "",
-        user_agent=str(request.user_agent)[:500],
-    )
+    response.cache_control.public = False
+    response.cache_control.private = True
+    response.vary.add("Cookie")
+
+    if request.method == "GET" and response.status_code in {200, 206}:
+        log_document_download(
+            upload_id=record["id"],
+            user_id=session.get("user_id"),
+            admin_username=session.get("admin_username"),
+            ip_address=request.remote_addr or "",
+            user_agent=str(request.user_agent)[:500],
+        )
     return response
 
 

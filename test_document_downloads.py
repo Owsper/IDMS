@@ -132,6 +132,33 @@ class DocumentDownloadTest(unittest.TestCase):
         self.assertEqual(len(self.download_logs()), 1)
         response.close()
 
+    def test_conditional_and_head_requests_reuse_file_without_extra_download_logs(self):
+        document = self.create_document("cached.txt", "cached.txt", b"cache me")
+        self.login_member()
+
+        first = self.client.get(f"/files/{document['id']}/download")
+        etag = first.headers["ETag"]
+
+        self.assertEqual(first.status_code, 200)
+        self.assertIn("private", first.headers["Cache-Control"])
+        self.assertIn("max-age=3600", first.headers["Cache-Control"])
+        self.assertIn("Cookie", first.headers["Vary"])
+        first.close()
+
+        cached = self.client.get(
+            f"/files/{document['id']}/download",
+            headers={"If-None-Match": etag},
+        )
+        head = self.client.head(f"/files/{document['id']}/download")
+
+        self.assertEqual(cached.status_code, 304)
+        self.assertEqual(cached.data, b"")
+        self.assertEqual(head.status_code, 200)
+        self.assertEqual(head.data, b"")
+        self.assertEqual(len(self.download_logs()), 1)
+        cached.close()
+        head.close()
+
 
 if __name__ == "__main__":
     unittest.main()
