@@ -4,6 +4,13 @@ import sqlite3
 import bcrypt
 
 DB_NAME = "main_db.db"
+DEFAULT_DOCUMENT_CATEGORIES = (
+    ("General", "General organization documents"),
+    ("Policies", "Policies, rules, and governance documents"),
+    ("Guides", "Guides, manuals, and instructional resources"),
+    ("Forms", "Forms and reusable templates"),
+    ("Reports", "Reports, summaries, and analysis"),
+)
 
 
 def get_connection():
@@ -59,6 +66,25 @@ def init_db():
     add_column_if_missing(cursor, "users_data", "is_verified", "BOOLEAN DEFAULT 0")
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS document_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            description TEXT NOT NULL DEFAULT '',
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.executemany("""
+        INSERT OR IGNORE INTO document_categories (name, description)
+        VALUES (?, ?)
+    """, DEFAULT_DOCUMENT_CATEGORIES)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_document_categories_active_name
+        ON document_categories(is_active, name COLLATE NOCASE)
+    """)
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS uploads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
@@ -70,7 +96,10 @@ def init_db():
             approved INTEGER DEFAULT 0,
             approved_by TEXT,
             approved_at DATETIME,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            category TEXT NOT NULL DEFAULT 'General',
+            category_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(category_id) REFERENCES document_categories(id)
         )
     """)
 
@@ -79,7 +108,18 @@ def init_db():
     add_column_if_missing(cursor, "uploads", "approved_by", "TEXT")
     add_column_if_missing(cursor, "uploads", "approved_at", "DATETIME")
     add_column_if_missing(cursor, "uploads", "category", "TEXT NOT NULL DEFAULT 'General'")
+    add_column_if_missing(cursor, "uploads", "category_id", "INTEGER")
+    cursor.execute("""
+        UPDATE uploads
+        SET category_id = COALESCE(
+            (SELECT id FROM document_categories
+             WHERE name = uploads.category COLLATE NOCASE),
+            (SELECT id FROM document_categories WHERE name = 'General')
+        )
+        WHERE category_id IS NULL
+    """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_approved ON uploads(approved)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_category_id ON uploads(category_id)")
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_uploads_approved_title
         ON uploads(approved, lower(original_filename), id)
@@ -551,15 +591,23 @@ def save_upload_metadata(
 ):
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name FROM document_categories WHERE name = ? COLLATE NOCASE AND is_active = 1",
+        (category,),
+    )
+    category_row = cursor.fetchone()
+    if not category_row:
+        conn.close()
+        raise ValueError("Select an active document category.")
     cursor.execute("""
         INSERT INTO uploads (
             user_id, original_filename, stored_filename, mime_type, size, sha256,
-            approved, approved_by, category
+            approved, approved_by, category, category_id
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         user_id, original_filename, stored_filename, mime_type, size, sha256,
-        int(approved), approved_by, category
+        int(approved), approved_by, category_row["name"], category_row["id"]
     ))
     conn.commit()
     conn.close()
