@@ -39,16 +39,17 @@
       <div class="form-row">
         <label for="documentCategory">Category</label>
         <select id="documentCategory" name="category">
-          <option value="General">General</option>
-          <option value="Policies">Policies</option>
-          <option value="Guides">Guides</option>
-          <option value="Forms">Forms</option>
-          <option value="Reports">Reports</option>
+          {% for category in categories %}
+            <option value="{{ category }}">{{ category }}</option>
+          {% endfor %}
         </select>
       </div>
       <div class="form-row">
         <button class="button" type="submit">Upload</button>
         <a class="button" href="{{ url_for('list_files') }}" style="background:#1a1f2d; margin-left:12px; text-decoration:none;">View Documents</a>
+        {% if session.get('admin_username') %}
+          <a class="button" href="{{ url_for('admin_document_categories') }}" style="background:#1a1f2d; margin-left:12px; text-decoration:none;">Manage Categories</a>
+        {% endif %}
       </div>
     </form>
 

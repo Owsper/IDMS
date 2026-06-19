@@ -71,14 +71,20 @@ def init_db():
             name TEXT NOT NULL COLLATE NOCASE UNIQUE,
             description TEXT NOT NULL DEFAULT '',
             is_active INTEGER NOT NULL DEFAULT 1,
+            is_system INTEGER NOT NULL DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    add_column_if_missing(cursor, "document_categories", "is_system", "INTEGER NOT NULL DEFAULT 0")
     cursor.executemany("""
-        INSERT OR IGNORE INTO document_categories (name, description)
-        VALUES (?, ?)
+        INSERT OR IGNORE INTO document_categories (name, description, is_system)
+        VALUES (?, ?, 1)
     """, DEFAULT_DOCUMENT_CATEGORIES)
+    cursor.executemany(
+        "UPDATE document_categories SET is_system = 1 WHERE name = ? COLLATE NOCASE",
+        [(name,) for name, _ in DEFAULT_DOCUMENT_CATEGORIES],
+    )
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_document_categories_active_name
         ON document_categories(is_active, name COLLATE NOCASE)
@@ -629,6 +635,69 @@ def get_approved_uploads(limit=100):
     rows = cursor.fetchall()
     conn.close()
     return [row_to_dict(r) for r in rows]
+
+
+def get_document_categories(include_inactive=False):
+    conn = get_connection()
+    cursor = conn.cursor()
+    where_clause = "" if include_inactive else "WHERE c.is_active = 1"
+    cursor.execute(f"""
+        SELECT c.id, c.name, c.description, c.is_active, c.is_system,
+               c.created_at, c.updated_at, COUNT(u.id) AS document_count
+        FROM document_categories AS c
+        LEFT JOIN uploads AS u ON u.category_id = c.id
+        {where_clause}
+        GROUP BY c.id
+        ORDER BY c.is_active DESC, lower(c.name), c.id
+    """)
+    categories = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return categories
+
+
+def create_document_category(name, description=""):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO document_categories (name, description)
+            VALUES (?, ?)
+        """, (name, description))
+        category_id = cursor.lastrowid
+        conn.commit()
+        return category_id
+    finally:
+        conn.close()
+
+
+def update_document_category(category_id, name, description="", is_active=True):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM document_categories WHERE id = ?", (category_id,))
+        category = row_to_dict(cursor.fetchone())
+        if not category:
+            raise ValueError("Category not found.")
+
+        cursor.execute("SELECT COUNT(*) AS total FROM uploads WHERE category_id = ?", (category_id,))
+        document_count = cursor.fetchone()["total"]
+        if not is_active and (document_count > 0 or category["name"].lower() == "general"):
+            raise ValueError("Categories in use and the General category must remain active.")
+        if category["is_system"] and name.lower() != category["name"].lower():
+            raise ValueError("Built-in category names cannot be changed.")
+
+        cursor.execute("""
+            UPDATE document_categories
+            SET name = ?, description = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (name, description, int(is_active), category_id))
+        cursor.execute(
+            "UPDATE uploads SET category = ? WHERE category_id = ?",
+            (name, category_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def search_approved_documents(query="", category="", limit=25, offset=0):

@@ -108,7 +108,7 @@ class DocumentSearchTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(payload["query"], "member")
         self.assertEqual(payload["category"], "Policies")
-        self.assertEqual(payload["categories"], list(main.DOCUMENT_CATEGORIES))
+        self.assertEqual(payload["categories"], main.active_document_category_names())
         self.assertEqual(payload["pagination"]["total"], 1)
         self.assertEqual(payload["documents"][0]["id"], policy["id"])
         response.close()

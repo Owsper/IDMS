@@ -22,6 +22,9 @@ from database import (
     get_member_filter_options,
     save_upload_metadata,
     get_approved_uploads,
+    get_document_categories,
+    create_document_category,
+    update_document_category,
     search_approved_documents,
     get_upload_by_id,
     log_document_download,
@@ -166,7 +169,10 @@ def current_user():
 
 IMPORT_TARGET_TABLES = {"users_data"}
 IMPORT_SYSTEM_COLUMNS = {"created_at", "updated_at", "last_login_at"}
-DOCUMENT_CATEGORIES = ("General", "Policies", "Guides", "Forms", "Reports")
+
+
+def active_document_category_names():
+    return [category["name"] for category in get_document_categories()]
 
 
 def json_response_error(message, status=400, **extra):
@@ -743,6 +749,48 @@ def api_admin_member_growth():
     return jsonify({"growth": get_member_growth_history()})
 
 
+@app.route("/admin/document-categories", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_document_categories():
+    error = None
+    success = None
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        name = request.form.get("name", "").strip()
+        description = request.form.get("description", "").strip()
+        if not 2 <= len(name) <= 50:
+            error = "Category names must be between 2 and 50 characters."
+        elif len(description) > 250:
+            error = "Category descriptions must be 250 characters or fewer."
+        else:
+            try:
+                if action == "create":
+                    create_document_category(name, description)
+                    success = f"Created category {name}."
+                elif action == "update":
+                    category_id = int(request.form.get("category_id", ""))
+                    update_document_category(
+                        category_id,
+                        name,
+                        description,
+                        request.form.get("is_active") == "1",
+                    )
+                    success = f"Updated category {name}."
+                else:
+                    error = "Unsupported category action."
+            except (ValueError, sqlite3.IntegrityError) as exc:
+                error = str(exc) if isinstance(exc, ValueError) else "A category with that name already exists."
+
+    return render_template(
+        "AdminDocumentCategoriesPage.html",
+        user=current_user(),
+        categories=get_document_categories(include_inactive=True),
+        error=error,
+        success=success,
+    )
+
+
 @app.route("/admin/members")
 @login_required
 @admin_required
@@ -1240,13 +1288,24 @@ def voting():
 @login_required
 def import_files():
     user = current_user()
+    categories = active_document_category_names()
+
+    def render_page(**context):
+        stats = get_dashboard_stats(user["id"]) if user else {}
+        return render_template(
+            "ImportFilesPage.html",
+            user=user,
+            stats=stats,
+            categories=categories,
+            **context,
+        )
 
     if request.method == "POST":
         category = request.form.get("category", "General").strip()
-        if category not in DOCUMENT_CATEGORIES:
-            return render_template("ImportFilesPage.html", error="Select a valid document category.")
+        if category not in categories:
+            return render_page(error="Select a valid document category.")
         if "files" not in request.files:
-            return render_template("ImportFilesPage.html", error="No files provided.")
+            return render_page(error="No files provided.")
 
         files = request.files.getlist("files")
         saved_files = []
@@ -1260,11 +1319,11 @@ def import_files():
             ext = os.path.splitext(original_name)[1].lower()
 
             if ext not in app.config["ALLOWED_EXTENSIONS"]:
-                return render_template("ImportFilesPage.html", error=f"Invalid file type: {ext}")
+                return render_page(error=f"Invalid file type: {ext}")
 
             content = f.read()
             if len(content) > app.config["PER_FILE_MAX_SIZE"]:
-                return render_template("ImportFilesPage.html", error=f"File too large: {original_name}")
+                return render_page(error=f"File too large: {original_name}")
 
             sha256 = hashlib.sha256(content).hexdigest()
             stored_name = f"{uuid.uuid4().hex}{ext}"
@@ -1275,7 +1334,7 @@ def import_files():
                     out.write(content)
                 os.chmod(dest_path, 0o600)
             except Exception:
-                return render_template("ImportFilesPage.html", error="Failed to save file on server.")
+                return render_page(error="Failed to save file on server.")
 
             try:
                 save_upload_metadata(
@@ -1295,17 +1354,16 @@ def import_files():
                     os.remove(dest_path)
                 except Exception:
                     pass
-                return render_template("ImportFilesPage.html", error="Failed to save upload metadata.")
+                return render_page(error="Failed to save upload metadata.")
 
             saved_files.append(original_name)
 
         if is_admin:
-            return render_template("ImportFilesPage.html", success=f"Uploaded and approved {len(saved_files)} files.")
+            return render_page(success=f"Uploaded and approved {len(saved_files)} files.")
         else:
-            return render_template("ImportFilesPage.html", success=f"Uploaded {len(saved_files)} files; pending approval.")
+            return render_page(success=f"Uploaded {len(saved_files)} files; pending approval.")
 
-    stats = get_dashboard_stats(user["id"]) if user else {}
-    return render_template("ImportFilesPage.html", user=user, stats=stats)
+    return render_page()
 
 
 @app.route("/files")
@@ -1313,11 +1371,12 @@ def import_files():
 def list_files():
     user = current_user()
     files = get_approved_uploads(limit=200)
+    categories = active_document_category_names()
     return render_template(
         "DocumentsPage.html",
         user=user,
         files=files,
-        categories=DOCUMENT_CATEGORIES,
+        categories=categories,
         stats=get_dashboard_stats(user["id"]),
     )
 
@@ -1327,9 +1386,10 @@ def list_files():
 def api_documents():
     query = request.args.get("q", "").strip()
     category = request.args.get("category", "").strip()
+    categories = active_document_category_names()
     if len(query) > 150:
         return json_response_error("Search query must be 150 characters or fewer.")
-    if category and category not in DOCUMENT_CATEGORIES:
+    if category and category not in categories:
         return json_response_error("Select a valid document category.")
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -1356,7 +1416,7 @@ def api_documents():
         "documents": documents,
         "query": query,
         "category": category,
-        "categories": list(DOCUMENT_CATEGORIES),
+        "categories": categories,
         "pagination": {
             "page": page,
             "per_page": per_page,

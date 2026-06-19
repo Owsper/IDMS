@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Document Categories — Pexel</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; background:#05070d; color:#f3f5ff; font-family:Inter,Arial,sans-serif; }
+    .shell { width:min(1100px,calc(100% - 32px)); margin:28px auto; display:grid; gap:18px; }
+    .topbar { display:flex; justify-content:space-between; gap:16px; align-items:center; }
+    h1,h2 { margin:0; font-family:Orbitron,sans-serif; }
+    h1 { font-size:25px; } h2 { font-size:17px; }
+    .muted { color:#8293c4; line-height:1.5; }
+    .panel { padding:20px; border:1px solid rgba(129,72,255,.24); border-radius:9px; background:rgba(15,20,32,.94); display:grid; gap:16px; }
+    .grid { display:grid; grid-template-columns:minmax(180px,1fr) minmax(260px,2fr) auto; gap:10px; align-items:end; }
+    label { display:grid; gap:7px; color:#d9e2ff; font-size:13px; font-weight:800; }
+    input[type="text"] { min-height:40px; width:100%; padding:0 11px; border:1px solid rgba(129,72,255,.32); border-radius:7px; background:#0b101b; color:#fff; }
+    input:focus { outline:none; border-color:#00d7f4; box-shadow:0 0 0 3px rgba(0,215,244,.1); }
+    input:read-only { color:#8293c4; }
+    .button { min-height:40px; padding:8px 13px; border:1px solid rgba(129,72,255,.35); border-radius:7px; background:#1a1f2d; color:#fff; font-weight:800; text-decoration:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+    .button.primary { border:0; background:linear-gradient(135deg,#7d39ff,#8d45ff); }
+    .notice { padding:12px; border-radius:7px; }
+    .notice.error { background:#351b22; color:#ffc5c5; }
+    .notice.success { background:#143020; color:#b7ffcf; }
+    .categories { display:grid; gap:10px; }
+    .category-form { padding:14px; border:1px solid rgba(129,72,255,.16); border-radius:8px; background:#101624; }
+    .category-meta { margin-top:9px; display:flex; flex-wrap:wrap; gap:14px; align-items:center; font-size:13px; }
+    .status { padding:4px 8px; border-radius:999px; background:#263249; color:#d9e2ff; }
+    .status.inactive { background:#3b2428; color:#ffc5c5; }
+    @media (max-width:760px) { .topbar{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr}.button{width:100%} }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Document Categories</h1>
+        <p class="muted">Create categories and control which categories are available for document organization.</p>
+      </div>
+      <a class="button" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
+    </header>
+
+    {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+    {% if success %}<div class="notice success">{{ success }}</div>{% endif %}
+
+    <section class="panel">
+      <h2>Create Category</h2>
+      <form class="grid" method="post">
+        <input type="hidden" name="action" value="create" />
+        <label>Name<input type="text" name="name" minlength="2" maxlength="50" required /></label>
+        <label>Description<input type="text" name="description" maxlength="250" /></label>
+        <button class="button primary" type="submit">Create</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Manage Categories</h2>
+      <div class="categories">
+        {% for category in categories %}
+          <form class="category-form" method="post">
+            <input type="hidden" name="action" value="update" />
+            <input type="hidden" name="category_id" value="{{ category.id }}" />
+            <div class="grid">
+              <label>
+                Name
+                <input type="text" name="name" value="{{ category.name }}" minlength="2" maxlength="50" required {% if category.is_system %}readonly{% endif %} />
+              </label>
+              <label>Description<input type="text" name="description" value="{{ category.description }}" maxlength="250" /></label>
+              <button class="button" type="submit">Save</button>
+            </div>
+            <div class="category-meta">
+              <span>{{ category.document_count }} document{{ '' if category.document_count == 1 else 's' }}</span>
+              {% if category.document_count or category.name|lower == 'general' %}
+                <input type="hidden" name="is_active" value="1" />
+                <span class="status">Active{% if category.document_count %} · in use{% endif %}</span>
+              {% else %}
+                <label style="display:flex;align-items:center;gap:7px;">
+                  <input type="checkbox" name="is_active" value="1" {% if category.is_active %}checked{% endif %} /> Active
+                </label>
+                <span class="status {{ '' if category.is_active else 'inactive' }}">{{ 'Available' if category.is_active else 'Inactive' }}</span>
+              {% endif %}
+              {% if category.is_system %}<span class="muted">Built-in category</span>{% endif %}
+            </div>
+          </form>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+</body>
+</html>
