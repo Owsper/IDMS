@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 import bcrypt
 
@@ -79,6 +80,47 @@ def init_db():
     add_column_if_missing(cursor, "uploads", "approved_at", "DATETIME")
     add_column_if_missing(cursor, "uploads", "category", "TEXT NOT NULL DEFAULT 'General'")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_approved ON uploads(approved)")
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_uploads_approved_title
+        ON uploads(approved, lower(original_filename), id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_uploads_approved_category_title
+        ON uploads(approved, category COLLATE NOCASE, lower(original_filename), id)
+    """)
+
+    cursor.execute("""
+        CREATE VIRTUAL TABLE IF NOT EXISTS document_title_search USING fts5(
+            original_filename,
+            content='uploads',
+            content_rowid='id',
+            tokenize='unicode61 remove_diacritics 2'
+        )
+    """)
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS uploads_title_search_insert
+        AFTER INSERT ON uploads BEGIN
+            INSERT INTO document_title_search(rowid, original_filename)
+            VALUES (new.id, new.original_filename);
+        END
+    """)
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS uploads_title_search_delete
+        AFTER DELETE ON uploads BEGIN
+            INSERT INTO document_title_search(document_title_search, rowid, original_filename)
+            VALUES ('delete', old.id, old.original_filename);
+        END
+    """)
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS uploads_title_search_update
+        AFTER UPDATE OF original_filename ON uploads BEGIN
+            INSERT INTO document_title_search(document_title_search, rowid, original_filename)
+            VALUES ('delete', old.id, old.original_filename);
+            INSERT INTO document_title_search(rowid, original_filename)
+            VALUES (new.id, new.original_filename);
+        END
+    """)
+    cursor.execute("INSERT INTO document_title_search(document_title_search) VALUES ('rebuild')")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS document_downloads (
@@ -548,25 +590,36 @@ def search_approved_documents(query="", category="", limit=25, offset=0):
     category = (category or "").strip()
     limit = max(1, min(int(limit), 100))
     offset = max(0, int(offset))
-    clauses = ["approved = 1"]
+    clauses = ["u.approved = 1"]
     params = []
+    from_clause = "uploads AS u"
+    order_clause = "lower(COALESCE(u.original_filename, '')), u.id"
 
     if query:
-        clauses.append("instr(lower(COALESCE(original_filename, '')), lower(?)) > 0")
-        params.append(query)
+        tokens = re.findall(r"\w+", query, flags=re.UNICODE)
+        if tokens:
+            fts_query = " AND ".join(f'"{token}"*' for token in tokens)
+            from_clause += " JOIN document_title_search ON document_title_search.rowid = u.id"
+            clauses.append("document_title_search MATCH ?")
+            params.append(fts_query)
+            order_clause = "bm25(document_title_search), lower(COALESCE(u.original_filename, '')), u.id"
+        else:
+            clauses.append("instr(COALESCE(u.original_filename, ''), ?) > 0")
+            params.append(query)
     if category:
-        clauses.append("category = ? COLLATE NOCASE")
+        clauses.append("u.category = ? COLLATE NOCASE")
         params.append(category)
 
     where_clause = f"WHERE {' AND '.join(clauses)}"
-    cursor.execute(f"SELECT COUNT(*) AS total FROM uploads {where_clause}", params)
+    cursor.execute(f"SELECT COUNT(*) AS total FROM {from_clause} {where_clause}", params)
     total = cursor.fetchone()["total"]
     cursor.execute(
         f"""
-        SELECT id, original_filename, category, mime_type, size, created_at, approved_at
-        FROM uploads
+        SELECT u.id, u.original_filename, u.category, u.mime_type, u.size,
+               u.created_at, u.approved_at
+        FROM {from_clause}
         {where_clause}
-        ORDER BY lower(COALESCE(original_filename, '')), id
+        ORDER BY {order_clause}
         LIMIT ? OFFSET ?
         """,
         (*params, limit, offset),
