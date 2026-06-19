@@ -25,6 +25,8 @@ from database import (
     get_document_categories,
     create_document_category,
     update_document_category,
+    get_documents_for_categorization,
+    assign_document_category,
     search_approved_documents,
     get_upload_by_id,
     log_document_download,
@@ -757,18 +759,18 @@ def admin_document_categories():
     success = None
     if request.method == "POST":
         action = request.form.get("action", "").strip()
-        name = request.form.get("name", "").strip()
-        description = request.form.get("description", "").strip()
-        if not 2 <= len(name) <= 50:
-            error = "Category names must be between 2 and 50 characters."
-        elif len(description) > 250:
-            error = "Category descriptions must be 250 characters or fewer."
-        else:
-            try:
+        try:
+            if action in {"create", "update"}:
+                name = request.form.get("name", "").strip()
+                description = request.form.get("description", "").strip()
+                if not 2 <= len(name) <= 50:
+                    raise ValueError("Category names must be between 2 and 50 characters.")
+                if len(description) > 250:
+                    raise ValueError("Category descriptions must be 250 characters or fewer.")
                 if action == "create":
                     create_document_category(name, description)
                     success = f"Created category {name}."
-                elif action == "update":
+                else:
                     category_id = int(request.form.get("category_id", ""))
                     update_document_category(
                         category_id,
@@ -777,15 +779,27 @@ def admin_document_categories():
                         request.form.get("is_active") == "1",
                     )
                     success = f"Updated category {name}."
-                else:
-                    error = "Unsupported category action."
-            except (ValueError, sqlite3.IntegrityError) as exc:
-                error = str(exc) if isinstance(exc, ValueError) else "A category with that name already exists."
+            elif action == "assign":
+                assignment = assign_document_category(
+                    int(request.form.get("upload_id", "")),
+                    int(request.form.get("category_id", "")),
+                )
+                success = (
+                    f"Assigned {assignment['document']['original_filename']} "
+                    f"to {assignment['category']['name']}."
+                )
+            else:
+                error = "Unsupported category action."
+        except (ValueError, sqlite3.IntegrityError) as exc:
+            error = str(exc) if isinstance(exc, ValueError) else "A category with that name already exists."
 
+    all_categories = get_document_categories(include_inactive=True)
     return render_template(
         "AdminDocumentCategoriesPage.html",
         user=current_user(),
-        categories=get_document_categories(include_inactive=True),
+        categories=all_categories,
+        active_categories=[category for category in all_categories if category["is_active"]],
+        documents=get_documents_for_categorization(),
         error=error,
         success=success,
     )

@@ -700,6 +700,49 @@ def update_document_category(category_id, name, description="", is_active=True):
         conn.close()
 
 
+def get_documents_for_categorization(limit=200):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.original_filename, u.category_id, u.category,
+               u.approved, u.created_at, c.name AS category_name
+        FROM uploads AS u
+        LEFT JOIN document_categories AS c ON c.id = u.category_id
+        ORDER BY u.created_at DESC, u.id DESC
+        LIMIT ?
+    """, (max(1, min(int(limit), 500)),))
+    documents = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return documents
+
+
+def assign_document_category(upload_id, category_id):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, original_filename FROM uploads WHERE id = ?", (upload_id,))
+        document = row_to_dict(cursor.fetchone())
+        if not document:
+            raise ValueError("Document not found.")
+        cursor.execute(
+            "SELECT id, name FROM document_categories WHERE id = ? AND is_active = 1",
+            (category_id,),
+        )
+        category = row_to_dict(cursor.fetchone())
+        if not category:
+            raise ValueError("Select an active document category.")
+
+        cursor.execute("""
+            UPDATE uploads
+            SET category_id = ?, category = ?
+            WHERE id = ?
+        """, (category["id"], category["name"], document["id"]))
+        conn.commit()
+        return {"document": document, "category": category}
+    finally:
+        conn.close()
+
+
 def search_approved_documents(query="", category="", limit=25, offset=0):
     conn = get_connection()
     cursor = conn.cursor()

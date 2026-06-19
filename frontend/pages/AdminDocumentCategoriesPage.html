@@ -28,6 +28,12 @@
     .category-meta { margin-top:9px; display:flex; flex-wrap:wrap; gap:14px; align-items:center; font-size:13px; }
     .status { padding:4px 8px; border-radius:999px; background:#263249; color:#d9e2ff; }
     .status.inactive { background:#3b2428; color:#ffc5c5; }
+    .table-wrap { overflow:auto; border:1px solid rgba(129,72,255,.16); border-radius:8px; }
+    table { width:100%; min-width:720px; border-collapse:collapse; }
+    th,td { padding:11px; border-bottom:1px solid rgba(129,72,255,.12); text-align:left; font-size:13px; }
+    th { color:#00d7f4; background:#0b101b; }
+    td select { min-height:38px; min-width:160px; padding:0 9px; border:1px solid rgba(129,72,255,.3); border-radius:7px; background:#0b101b; color:#fff; }
+    .assign-form { display:flex; gap:8px; align-items:center; }
     @media (max-width:760px) { .topbar{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr}.button{width:100%} }
   </style>
 </head>
@@ -85,6 +91,43 @@
           </form>
         {% endfor %}
       </div>
+    </section>
+
+    <section class="panel">
+      <div>
+        <h2>Assign Documents</h2>
+        <p class="muted">Move uploaded documents into an active category. Changes are reflected in document search immediately.</p>
+      </div>
+      {% if documents %}
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Document</th><th>Status</th><th>Current Category</th><th>Assign Category</th></tr></thead>
+            <tbody>
+              {% for document in documents %}
+                <tr>
+                  <td>{{ document.original_filename }}</td>
+                  <td>{{ 'Approved' if document.approved else 'Pending' }}</td>
+                  <td>{{ document.category_name or document.category or 'General' }}</td>
+                  <td>
+                    <form class="assign-form" method="post">
+                      <input type="hidden" name="action" value="assign" />
+                      <input type="hidden" name="upload_id" value="{{ document.id }}" />
+                      <select name="category_id" aria-label="Category for {{ document.original_filename }}">
+                        {% for category in active_categories %}
+                          <option value="{{ category.id }}" {% if category.id == document.category_id %}selected{% endif %}>{{ category.name }}</option>
+                        {% endfor %}
+                      </select>
+                      <button class="button" type="submit">Assign</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted">No uploaded documents are available to categorize.</p>
+      {% endif %}
     </section>
   </main>
 </body>
