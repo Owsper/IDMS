@@ -79,6 +79,23 @@ def init_db():
     add_column_if_missing(cursor, "uploads", "approved_at", "DATETIME")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_approved ON uploads(approved)")
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS document_downloads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            upload_id INTEGER NOT NULL,
+            user_id INTEGER,
+            admin_username TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            downloaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(upload_id) REFERENCES uploads(id),
+            FOREIGN KEY(user_id) REFERENCES users_data(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_document_downloads_upload ON document_downloads(upload_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_document_downloads_user ON document_downloads(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_document_downloads_date ON document_downloads(downloaded_at)")
+
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users_data(email)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users_data(username)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_created_at ON users_data(created_at)")
@@ -521,6 +538,21 @@ def get_upload_by_id(upload_id):
     row = cursor.fetchone()
     conn.close()
     return row_to_dict(row)
+
+
+def log_document_download(upload_id, user_id=None, admin_username=None, ip_address="", user_agent=""):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO document_downloads (
+            upload_id, user_id, admin_username, ip_address, user_agent
+        )
+        VALUES (?, ?, ?, ?, ?)
+    """, (upload_id, user_id, admin_username, ip_address, user_agent))
+    download_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return download_id
 
 
 def get_table_schema(table_name):

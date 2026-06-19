@@ -23,6 +23,7 @@ from database import (
     save_upload_metadata,
     get_approved_uploads,
     get_upload_by_id,
+    log_document_download,
     mark_user_verified,
     update_user_password,
     get_connection,
@@ -1316,7 +1317,21 @@ def download_file(file_id):
         abort(404)
 
     stored_name = record["stored_filename"]
-    return send_from_directory(app.config["UPLOAD_FOLDER"], stored_name, as_attachment=True, mimetype=record.get("mime_type"))
+    response = send_from_directory(
+        app.config["UPLOAD_FOLDER"],
+        stored_name,
+        as_attachment=True,
+        mimetype=record.get("mime_type"),
+        download_name=record.get("original_filename") or stored_name,
+    )
+    log_document_download(
+        upload_id=record["id"],
+        user_id=session.get("user_id"),
+        admin_username=session.get("admin_username"),
+        ip_address=request.remote_addr or "",
+        user_agent=str(request.user_agent)[:500],
+    )
+    return response
 
 
 if __name__ == "__main__":
