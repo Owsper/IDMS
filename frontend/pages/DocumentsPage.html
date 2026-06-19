@@ -25,17 +25,18 @@
     .muted { color: #8293c4; }
     .search-form {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto;
       gap: 10px;
+      align-items: end;
       margin: 24px 0 10px;
     }
+    .search-control { display: grid; gap: 7px; }
     .search-label {
-      grid-column: 1 / -1;
       color: #d9e2ff;
       font-size: 14px;
       font-weight: 800;
     }
-    .search-input {
+    .search-input, .search-select {
       width: 100%;
       min-height: 44px;
       padding: 0 14px;
@@ -46,7 +47,7 @@
       color: #fff;
       font: inherit;
     }
-    .search-input:focus {
+    .search-input:focus, .search-select:focus {
       border-color: #00d7f4;
       box-shadow: 0 0 0 3px rgba(0, 215, 244, 0.12);
     }
@@ -91,16 +92,27 @@
     <p class="muted">Find and download documents approved by administrators.</p>
 
     <form class="search-form" id="documentSearchForm" role="search">
-      <label class="search-label" for="documentSearch">Search by document title</label>
-      <input
-        class="search-input"
-        id="documentSearch"
-        name="q"
-        type="search"
-        maxlength="150"
-        placeholder="Enter a title, such as member guide"
-        autocomplete="off"
-      />
+      <div class="search-control">
+        <label class="search-label" for="documentSearch">Search by document title</label>
+        <input
+          class="search-input"
+          id="documentSearch"
+          name="q"
+          type="search"
+          maxlength="150"
+          placeholder="Enter a title, such as member guide"
+          autocomplete="off"
+        />
+      </div>
+      <div class="search-control">
+        <label class="search-label" for="categoryFilter">Category</label>
+        <select class="search-select" id="categoryFilter" name="category">
+          <option value="">All categories</option>
+          {% for category in categories %}
+            <option value="{{ category }}">{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <button class="btn" type="submit">Search</button>
     </form>
 
@@ -108,10 +120,10 @@
       <p class="muted results-summary" id="resultsSummary" aria-live="polite"></p>
       <div class="list" id="documentList">
         {% for f in files %}
-          <article class="item" data-document data-title="{{ f.original_filename|lower }}">
+          <article class="item" data-document data-title="{{ f.original_filename|lower }}" data-category="{{ f.category|lower }}">
             <div>
               <strong>{{ f.original_filename }}</strong>
-              <div class="muted">Uploaded: {{ f.created_at }} • Size: {{ f.size }} bytes</div>
+              <div class="muted">{{ f.category }} • Uploaded: {{ f.created_at }} • Size: {{ f.size }} bytes</div>
             </div>
             <a class="btn" href="{{ url_for('download_file', file_id=f.id) }}">Download</a>
           </article>
@@ -131,20 +143,24 @@
     <script>
       const searchForm = document.getElementById("documentSearchForm");
       const searchInput = document.getElementById("documentSearch");
+      const categoryFilter = document.getElementById("categoryFilter");
       const documents = [...document.querySelectorAll("[data-document]")];
       const resultsSummary = document.getElementById("resultsSummary");
       const noSearchResults = document.getElementById("noSearchResults");
 
       function applyTitleSearch() {
         const query = searchInput.value.trim().toLocaleLowerCase();
+        const category = categoryFilter.value.toLocaleLowerCase();
         let visibleCount = 0;
         documents.forEach((documentRow) => {
-          const matches = !query || documentRow.dataset.title.includes(query);
+          const matchesTitle = !query || documentRow.dataset.title.includes(query);
+          const matchesCategory = !category || documentRow.dataset.category === category;
+          const matches = matchesTitle && matchesCategory;
           documentRow.hidden = !matches;
           if (matches) visibleCount += 1;
         });
 
-        resultsSummary.textContent = query
+        resultsSummary.textContent = query || category
           ? `${visibleCount} document${visibleCount === 1 ? "" : "s"} found`
           : `${documents.length} approved document${documents.length === 1 ? "" : "s"}`;
         noSearchResults.hidden = visibleCount !== 0;
@@ -152,6 +168,8 @@
         const url = new URL(window.location.href);
         if (query) url.searchParams.set("q", searchInput.value.trim());
         else url.searchParams.delete("q");
+        if (category) url.searchParams.set("category", categoryFilter.value);
+        else url.searchParams.delete("category");
         window.history.replaceState({}, "", url);
       }
 
@@ -160,7 +178,13 @@
         applyTitleSearch();
       });
       searchInput.addEventListener("input", applyTitleSearch);
-      searchInput.value = new URL(window.location.href).searchParams.get("q") || "";
+      categoryFilter.addEventListener("change", applyTitleSearch);
+      const initialParams = new URL(window.location.href).searchParams;
+      searchInput.value = initialParams.get("q") || "";
+      const initialCategory = initialParams.get("category") || "";
+      if ([...categoryFilter.options].some((option) => option.value === initialCategory)) {
+        categoryFilter.value = initialCategory;
+      }
       applyTitleSearch();
     </script>
   {% endif %}

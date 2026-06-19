@@ -77,6 +77,7 @@ def init_db():
     add_column_if_missing(cursor, "uploads", "approved", "INTEGER DEFAULT 0")
     add_column_if_missing(cursor, "uploads", "approved_by", "TEXT")
     add_column_if_missing(cursor, "uploads", "approved_at", "DATETIME")
+    add_column_if_missing(cursor, "uploads", "category", "TEXT NOT NULL DEFAULT 'General'")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_uploads_approved ON uploads(approved)")
 
     cursor.execute("""
@@ -502,13 +503,22 @@ def update_user_data(verified_email, first_name, last_name, email, password_hash
     conn.close()
 
 
-def save_upload_metadata(user_id, original_filename, stored_filename, mime_type, size, sha256, approved=0, approved_by=None):
+def save_upload_metadata(
+    user_id, original_filename, stored_filename, mime_type, size, sha256,
+    approved=0, approved_by=None, category="General"
+):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO uploads (user_id, original_filename, stored_filename, mime_type, size, sha256, approved, approved_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (user_id, original_filename, stored_filename, mime_type, size, sha256, int(approved), approved_by))
+        INSERT INTO uploads (
+            user_id, original_filename, stored_filename, mime_type, size, sha256,
+            approved, approved_by, category
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        user_id, original_filename, stored_filename, mime_type, size, sha256,
+        int(approved), approved_by, category
+    ))
     conn.commit()
     conn.close()
 
@@ -531,10 +541,11 @@ def get_approved_uploads(limit=100):
     return [row_to_dict(r) for r in rows]
 
 
-def search_approved_documents(query="", limit=25, offset=0):
+def search_approved_documents(query="", category="", limit=25, offset=0):
     conn = get_connection()
     cursor = conn.cursor()
     query = (query or "").strip()
+    category = (category or "").strip()
     limit = max(1, min(int(limit), 100))
     offset = max(0, int(offset))
     clauses = ["approved = 1"]
@@ -543,13 +554,16 @@ def search_approved_documents(query="", limit=25, offset=0):
     if query:
         clauses.append("instr(lower(COALESCE(original_filename, '')), lower(?)) > 0")
         params.append(query)
+    if category:
+        clauses.append("category = ? COLLATE NOCASE")
+        params.append(category)
 
     where_clause = f"WHERE {' AND '.join(clauses)}"
     cursor.execute(f"SELECT COUNT(*) AS total FROM uploads {where_clause}", params)
     total = cursor.fetchone()["total"]
     cursor.execute(
         f"""
-        SELECT id, original_filename, mime_type, size, created_at, approved_at
+        SELECT id, original_filename, category, mime_type, size, created_at, approved_at
         FROM uploads
         {where_clause}
         ORDER BY lower(COALESCE(original_filename, '')), id

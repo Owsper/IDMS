@@ -166,6 +166,7 @@ def current_user():
 
 IMPORT_TARGET_TABLES = {"users_data"}
 IMPORT_SYSTEM_COLUMNS = {"created_at", "updated_at", "last_login_at"}
+DOCUMENT_CATEGORIES = ("General", "Policies", "Guides", "Forms", "Reports")
 
 
 def json_response_error(message, status=400, **extra):
@@ -1241,6 +1242,9 @@ def import_files():
     user = current_user()
 
     if request.method == "POST":
+        category = request.form.get("category", "General").strip()
+        if category not in DOCUMENT_CATEGORIES:
+            return render_template("ImportFilesPage.html", error="Select a valid document category.")
         if "files" not in request.files:
             return render_template("ImportFilesPage.html", error="No files provided.")
 
@@ -1283,6 +1287,7 @@ def import_files():
                     sha256=sha256,
                     approved=(1 if is_admin else 0),
                     approved_by=(session.get("admin_username") if is_admin else None),
+                    category=category,
                 )
             except Exception:
                 app.logger.exception("Failed saving upload metadata")
@@ -1308,15 +1313,24 @@ def import_files():
 def list_files():
     user = current_user()
     files = get_approved_uploads(limit=200)
-    return render_template("DocumentsPage.html", user=user, files=files, stats=get_dashboard_stats(user["id"]))
+    return render_template(
+        "DocumentsPage.html",
+        user=user,
+        files=files,
+        categories=DOCUMENT_CATEGORIES,
+        stats=get_dashboard_stats(user["id"]),
+    )
 
 
 @app.route("/api/documents")
 @login_required
 def api_documents():
     query = request.args.get("q", "").strip()
+    category = request.args.get("category", "").strip()
     if len(query) > 150:
         return json_response_error("Search query must be 150 characters or fewer.")
+    if category and category not in DOCUMENT_CATEGORIES:
+        return json_response_error("Select a valid document category.")
     try:
         page = max(1, int(request.args.get("page", 1)))
         per_page = max(1, min(int(request.args.get("per_page", 25)), 100))
@@ -1325,6 +1339,7 @@ def api_documents():
 
     results = search_approved_documents(
         query=query,
+        category=category,
         limit=per_page,
         offset=(page - 1) * per_page,
     )
@@ -1340,6 +1355,8 @@ def api_documents():
     return jsonify({
         "documents": documents,
         "query": query,
+        "category": category,
+        "categories": list(DOCUMENT_CATEGORIES),
         "pagination": {
             "page": page,
             "per_page": per_page,
