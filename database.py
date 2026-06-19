@@ -737,6 +737,47 @@ def get_import_rows(job_id, statuses=None, limit=None):
     return rows
 
 
+def get_import_row(row_id, job_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM import_rows WHERE id = ? AND job_id = ?",
+        (row_id, job_id),
+    )
+    item = row_to_dict(cursor.fetchone())
+    conn.close()
+    if not item:
+        return None
+    item["source_data"] = json.loads(item.get("source_data") or "{}")
+    item["mapped_data"] = json.loads(item.get("mapped_data") or "{}")
+    item["errors"] = json.loads(item.get("errors") or "[]")
+    item["existing_record"] = json.loads(item.get("existing_record") or "{}")
+    return item
+
+
+def update_import_row(row_id, job_id, mapped_data, status, errors, duplicate_key, existing_record):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE import_rows
+        SET mapped_data = ?, status = ?, errors = ?, duplicate_key = ?,
+            existing_record = ?, resolution = ''
+        WHERE id = ? AND job_id = ?
+    """, (
+        json.dumps(mapped_data, default=str),
+        status,
+        json.dumps(errors, default=str),
+        duplicate_key,
+        json.dumps(existing_record, default=str),
+        row_id,
+        job_id,
+    ))
+    updated = cursor.rowcount == 1
+    conn.commit()
+    conn.close()
+    return updated
+
+
 def get_import_history(limit=50):
     conn = get_connection()
     cursor = conn.cursor()

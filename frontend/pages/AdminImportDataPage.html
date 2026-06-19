@@ -254,6 +254,62 @@
       `;
     }
 
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderInvalidRows(rows) {
+      if (!rows || rows.length === 0) {
+        return '<p class="muted">No invalid rows.</p>';
+      }
+      const editable = currentSchema.filter((column) => column.editable);
+      return `
+        <table>
+          <thead><tr><th>Row</th><th>Correct mapped values</th><th>Errors</th><th>Action</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr data-invalid-row="${row.id}">
+                <td>${row.row_number}</td>
+                <td>
+                  <div class="mapping">
+                    ${editable.map((column) => `
+                      <label>
+                        <span class="muted">${escapeHtml(column.name)}${column.required ? " *" : ""}</span>
+                        <input type="text" data-correction-field="${escapeHtml(column.name)}"
+                          value="${escapeHtml(row.mapped_data[column.name])}" />
+                      </label>
+                    `).join("")}
+                  </div>
+                </td>
+                <td>${row.errors.map(escapeHtml).join("<br>")}</td>
+                <td><button class="button" type="button" data-save-correction="${row.id}">Save &amp; revalidate</button></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderValidationResults(data) {
+      const counts = data.counts;
+      document.getElementById("validationSummary").textContent =
+        `${counts.total} rows checked. ${counts.valid} valid, ${counts.conflict} conflicts, ${counts.duplicate} duplicates, ${counts.invalid} invalid.`;
+      document.getElementById("validationTable").innerHTML = `
+        <div>${renderInvalidRows(data.invalid_rows)}</div>
+        <h3 style="padding: 0 10px;">Valid row preview</h3>
+        <div id="validRowsPreview"></div>
+      `;
+      renderTable(document.getElementById("validRowsPreview"), data.valid_preview || []);
+      renderManualReview(data.conflicts || []);
+      document.getElementById("validationPanel").style.display = "grid";
+      document.getElementById("mergeBtn").disabled = counts.valid + counts.conflict + counts.duplicate === 0;
+    }
+
     function renderMapping(suggested) {
       const editable = currentSchema.filter((column) => column.editable);
       document.getElementById("mappingRows").innerHTML = currentHeaders.map((header) => `
@@ -362,17 +418,37 @@
             duplicate_key: document.getElementById("duplicateKey").value
           })
         });
-        const counts = data.counts;
         currentConflicts = data.conflicts || [];
-        document.getElementById("validationSummary").textContent =
-          `${counts.total} rows checked. ${counts.valid} valid, ${counts.conflict} conflicts, ${counts.duplicate} duplicates, ${counts.invalid} invalid.`;
-        renderTable(document.getElementById("validationTable"), [...data.invalid_rows, ...data.conflicts, ...data.valid_preview]);
-        renderManualReview(currentConflicts);
-        document.getElementById("validationPanel").style.display = "grid";
-        document.getElementById("mergeBtn").disabled = counts.valid + counts.conflict + counts.duplicate === 0;
+        renderValidationResults(data);
         setProgress(80);
         showMessage("success", "Validation complete. Invalid rows will be excluded from the merge.");
       } catch (error) {
+        showMessage("error", error.message);
+      }
+    });
+
+    document.getElementById("validationTable").addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-save-correction]");
+      if (!button) return;
+      const rowElement = button.closest("[data-invalid-row]");
+      const mappedData = {};
+      rowElement.querySelectorAll("[data-correction-field]").forEach((input) => {
+        mappedData[input.dataset.correctionField] = input.value;
+      });
+      button.disabled = true;
+      try {
+        const data = await apiFetch(`/api/admin/import/${currentJobId}/rows/${button.dataset.saveCorrection}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mapped_data: mappedData })
+        });
+        currentConflicts = data.conflicts || [];
+        renderValidationResults(data);
+        showMessage("success", data.row.status === "invalid"
+          ? "Correction saved, but this row still has validation errors."
+          : `Row ${data.row.row_number} corrected and marked ${data.row.status}.`);
+      } catch (error) {
+        button.disabled = false;
         showMessage("error", error.message);
       }
     });

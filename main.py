@@ -33,6 +33,8 @@ from database import (
     update_import_job,
     replace_import_rows,
     get_import_rows,
+    get_import_row,
+    update_import_row,
     get_import_history,
 )
 import uuid
@@ -437,6 +439,50 @@ def row_counts(rows):
         status = row.get("status", "pending")
         counts[status] = counts.get(status, 0) + 1
     return counts
+
+
+def validate_corrected_import_data(job, values, duplicate_key):
+    target_table = safe_target_table(job["target_table"])
+    schema = schema_payload(target_table)
+    editable_columns = {column["name"]: column for column in schema if column["editable"]}
+    unknown_fields = set(values) - set(editable_columns)
+    if unknown_fields:
+        raise ValueError(f"Unknown import fields: {', '.join(sorted(unknown_fields))}")
+
+    mapped_data = {}
+    errors = []
+    for field, column in editable_columns.items():
+        value = normalize_import_value(values.get(field))
+        if not validate_type(value, column["type"]):
+            errors.append(f"{field} must match {column['type'] or 'TEXT'}")
+            continue
+        try:
+            mapped_data[field] = coerce_value(value, column["type"])
+        except (TypeError, ValueError):
+            errors.append(f"{field} has an invalid value")
+
+    for column in editable_columns.values():
+        if column["required"] and mapped_data.get(column["name"]) in (None, ""):
+            errors.append(f"{column['name']} is required")
+
+    email = mapped_data.get("email")
+    if email and ("@" not in str(email) or "." not in str(email)):
+        errors.append("email must be a valid address")
+    if "password" in mapped_data and "password_hash" not in mapped_data:
+        errors.append("map passwords to password_hash before import")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        existing = existing_record_for(cursor, target_table, duplicate_key, mapped_data)
+    finally:
+        conn.close()
+
+    status = "invalid" if errors else "valid"
+    if not errors and existing:
+        comparable_existing = {key: existing.get(key) for key in mapped_data}
+        status = "duplicate" if comparable_existing == mapped_data else "conflict"
+    return mapped_data, errors, status, existing or {}
 
 
 def generate_verification_token(email):
@@ -867,6 +913,52 @@ def api_admin_import_validate():
         "invalid_rows": [row for row in persisted_rows if row["status"] == "invalid"][:25],
         "conflicts": [row for row in persisted_rows if row["status"] in {"duplicate", "conflict"}][:25],
         "valid_preview": [row for row in persisted_rows if row["status"] == "valid"][:20],
+    })
+
+
+@app.route("/api/admin/import/<int:job_id>/rows/<int:row_id>", methods=["PATCH"])
+@login_required
+@admin_required
+def api_admin_import_correct_row(job_id, row_id):
+    job = require_import_job(job_id)
+    row = get_import_row(row_id, job["id"])
+    if not row:
+        return json_response_error("Import row not found.", status=404)
+    if row["status"] != "invalid":
+        return json_response_error("Only invalid import rows can be corrected.")
+
+    payload = request.get_json(silent=True) or {}
+    mapped_data = payload.get("mapped_data")
+    if not isinstance(mapped_data, dict):
+        return json_response_error("Corrected mapped_data must be an object.")
+
+    duplicate_key = job.get("duplicate_key") or "email"
+    try:
+        corrected, errors, status, existing = validate_corrected_import_data(
+            job, mapped_data, duplicate_key
+        )
+    except ValueError as exc:
+        return json_response_error(str(exc))
+
+    update_import_row(
+        row_id,
+        job["id"],
+        corrected,
+        status,
+        errors,
+        str(corrected.get(duplicate_key) or ""),
+        existing,
+    )
+    rows = get_import_rows(job["id"])
+    counts = row_counts(rows)
+    update_import_job(job["id"], status="validated", summary=json.dumps(counts))
+    corrected_row = get_import_row(row_id, job["id"])
+    return jsonify({
+        "row": corrected_row,
+        "counts": counts,
+        "invalid_rows": [item for item in rows if item["status"] == "invalid"][:25],
+        "conflicts": [item for item in rows if item["status"] in {"duplicate", "conflict"}][:25],
+        "valid_preview": [item for item in rows if item["status"] == "valid"][:20],
     })
 
 
