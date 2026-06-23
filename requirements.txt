@@ -1,4 +1,5 @@
 bcrypt
+certifi
 flask
-flask-mail
+itsdangerous
 openpyxl
