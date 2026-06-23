@@ -361,13 +361,141 @@
         grid-template-columns: 1fr;
       }
     }
-  </style>
+  
+    /* Pexel shared register theme */
+    :root {
+      --pexel-page-bg:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        radial-gradient(circle at 55% 62%, rgba(124,58,237,.32), transparent 32%),
+        radial-gradient(circle at 70% 70%, rgba(14,165,233,.18), transparent 28%),
+        #11101e;
+      --pexel-surface: #0d1017;
+      --pexel-surface-2: #1a1f2d;
+      --pexel-surface-3: #22283a;
+      --pexel-border: #2b3152;
+      --pexel-text: #ffffff;
+      --pexel-muted: #8190b8;
+      --pexel-muted-2: #8ea0c8;
+      --pexel-accent: #7c3aed;
+      --pexel-accent-2: #8b5cf6;
+      --pexel-cyan: #06b6d4;
+    }
+    body {
+      background: var(--pexel-page-bg) !important;
+      background-size: 40px 40px, 40px 40px, auto, auto !important;
+      color: var(--pexel-text) !important;
+    }
+    .sidebar, .topbar, .right, .card, .panel, .wrap, .form-box, .table-wrap {
+      background-color: rgba(13,16,23,.94) !important;
+      border-color: var(--pexel-border) !important;
+    }
+    .brand-icon, .avatar {
+      background: linear-gradient(135deg, var(--pexel-accent), var(--pexel-accent-2)) !important;
+      color: var(--pexel-text) !important;
+    }
+    .brand, .logo.brand {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      color: var(--pexel-text) !important;
+      font-weight: 900 !important;
+      text-decoration: none !important;
+    }
+    .brand-icon {
+      width: 38px !important;
+      height: 38px !important;
+      border-radius: 10px !important;
+      display: grid !important;
+      place-items: center !important;
+      flex: 0 0 auto !important;
+      font-size: 20px !important;
+      font-weight: 900 !important;
+      line-height: 1 !important;
+      box-shadow: 0 0 26px rgba(124,58,255,.28) !important;
+    }
+    .brand > span, .logo.brand > span {
+      color: var(--pexel-text) !important;
+      font-weight: 900 !important;
+    }
+    .button.primary, .main-btn, button[type="submit"], .btn, .button.active {
+      background: linear-gradient(90deg, var(--pexel-accent), var(--pexel-accent-2)) !important;
+      color: var(--pexel-text) !important;
+    }
+    .button, .btn.secondary, .quick-action, input, textarea, select, .social-btn, .page-link, .code, .feed-item {
+      background-color: var(--pexel-surface-2) !important;
+      border-color: var(--pexel-border) !important;
+      color: var(--pexel-text) !important;
+    }
+    .muted, .subtitle, .bottom, .back, .account a, .nav a, label {
+      color: var(--pexel-muted) !important;
+    }
+    .nav a:hover, .nav a.active {
+      color: var(--pexel-text) !important;
+      background: rgba(124,58,237,.18) !important;
+      border-color: rgba(124,58,237,.45) !important;
+    }
+    th {
+      background-color: var(--pexel-surface-2) !important;
+      color: var(--pexel-cyan) !important;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--pexel-accent) !important;
+      box-shadow: 0 0 0 3px rgba(124,58,237,.18) !important;
+      outline: none !important;
+    }
+    .sidebar {
+      max-height: 100vh !important;
+      overflow: hidden !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .sidebar > div:first-child {
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+    .sidebar .brand {
+      flex: 0 0 auto !important;
+    }
+    .sidebar .nav {
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      align-content: flex-start !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
+      padding-right: 4px !important;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(124,58,237,.65) rgba(13,16,23,.8);
+    }
+    .sidebar .nav::-webkit-scrollbar {
+      width: 8px;
+    }
+    .sidebar .nav::-webkit-scrollbar-track {
+      background: rgba(13,16,23,.8);
+    }
+    .sidebar .nav::-webkit-scrollbar-thumb {
+      background: rgba(124,58,237,.65);
+      border-radius: 999px;
+    }
+    .account {
+      flex: 0 0 auto !important;
+      background: rgba(13,16,23,.96) !important;
+      position: relative !important;
+      z-index: 2 !important;
+    }
+  
+  
+</style>
 </head>
 
 <body>
   <header class="topbar">
     <a href="{{ url_for('dashboard') }}" class="brand">
-      <span class="brand-icon">P</span>
+      <div class="brand-icon">P</div>
       <span>Pexel</span>
     </a>
 
@@ -428,7 +556,7 @@
           </div>
           <div class="stat">
             <strong>{{ stats.upcoming_events }}</strong>
-            <span>Events</span>
+            <span>Meetings</span>
           </div>
         </div>
       </aside>

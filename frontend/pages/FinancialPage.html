@@ -1,12 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="frontend\style.css">
-    <title>Financial</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pexel Finance</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+    *{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),radial-gradient(circle at 25% 12%,rgba(124,58,237,.18),transparent 28%),radial-gradient(circle at 78% 4%,rgba(6,182,212,.12),transparent 24%),#05070d;background-size:42px 42px;color:#f3f5ff;font-family:Inter,Arial,sans-serif}.layout{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}.sidebar{position:sticky;top:0;height:100vh;padding:22px 14px;background:rgba(8,11,19,.94);border-right:1px solid rgba(129,72,255,.24);display:flex;flex-direction:column;justify-content:space-between}.brand{display:flex;gap:12px;align-items:center;padding:0 8px 24px;font-size:20px;font-weight:900}.brand-icon,.avatar{display:grid;place-items:center;color:white;background:linear-gradient(135deg,#7d39ff,#9a45ff);box-shadow:0 0 26px rgba(124,58,255,.28)}.brand-icon{width:38px;height:38px;border-radius:10px}.nav{display:grid;gap:6px}.nav-section{display:grid;gap:6px;padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid rgba(129,72,255,.14)}.nav-section:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}.nav-label{padding:4px 12px;color:#54617f;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.nav a{min-height:42px;padding:0 12px;border-radius:8px;color:#8ea0c8;display:flex;align-items:center;text-decoration:none;font-size:14px;font-weight:800;border:1px solid transparent}.nav a:hover,.nav a.active{color:white;background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.36)}.nav a.active{background:linear-gradient(90deg,rgba(124,58,237,.32),rgba(124,58,237,.12))}.nav a.active::after{content:"Current";margin-left:auto;padding:3px 7px;border-radius:999px;background:rgba(6,182,212,.14);color:#b8f4ff;font-size:10px;font-weight:900}.account{padding:14px 8px 0;border-top:1px solid rgba(129,72,255,.22);display:flex;gap:10px;align-items:center}.avatar{width:38px;height:38px;border-radius:50%;font-weight:900}.account a{color:#8293c4;text-decoration:none;font-size:12px}.topbar{min-height:70px;padding:18px 28px;border-bottom:1px solid rgba(129,72,255,.22);background:rgba(5,7,13,.86);backdrop-filter:blur(14px);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}.topbar h1,.section-title{font-family:Orbitron,sans-serif}.topbar h1{font-size:20px}.content{width:min(1180px,100%);margin:0 auto;padding:28px;display:grid;gap:22px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.panel,.card{border:1px solid rgba(129,72,255,.28);border-radius:8px;background:rgba(15,20,32,.9);padding:20px}.section-title{font-size:17px;margin-bottom:14px}.metric{font-size:30px;font-weight:900}.muted{color:#94a3c7;font-size:13px;line-height:1.5}.stack{display:grid;gap:12px}.field{display:grid;gap:7px}.field span{font-size:12px;color:#8ea0c8;font-weight:900;text-transform:uppercase}.input,textarea,select{width:100%;border:1px solid rgba(129,72,255,.3);border-radius:7px;background:#0b1020;color:#f3f5ff;min-height:40px;padding:10px 12px;font:inherit}textarea{min-height:86px;resize:vertical}.button{min-height:40px;border-radius:7px;padding:0 14px;border:1px solid rgba(129,72,255,.35);background:#1a1f2d;color:white;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;font-weight:900;cursor:pointer}.button.primary{border:0;background:linear-gradient(135deg,#7d39ff,#8d45ff);box-shadow:0 0 24px rgba(124,58,255,.24)}.alert{border-radius:8px;padding:12px 14px;font-size:14px;font-weight:800}.alert.ok{background:rgba(16,185,129,.13);border:1px solid rgba(16,185,129,.35);color:#b8f7d5}.alert.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fecaca}.budget{display:grid;gap:8px}.track{height:11px;border-radius:999px;background:#0b1020;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,#10b981,#06b6d4)}.fill.warn{background:linear-gradient(90deg,#f59e0b,#ef4444)}@media(max-width:820px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto}.grid,.stats{grid-template-columns:1fr}.topbar{position:static}.content{padding:18px}}
+  
+    /* Pexel shared register theme */
+    :root {
+      --pexel-page-bg:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        radial-gradient(circle at 55% 62%, rgba(124,58,237,.32), transparent 32%),
+        radial-gradient(circle at 70% 70%, rgba(14,165,233,.18), transparent 28%),
+        #11101e;
+      --pexel-surface: #0d1017;
+      --pexel-surface-2: #1a1f2d;
+      --pexel-surface-3: #22283a;
+      --pexel-border: #2b3152;
+      --pexel-text: #ffffff;
+      --pexel-muted: #8190b8;
+      --pexel-muted-2: #8ea0c8;
+      --pexel-accent: #7c3aed;
+      --pexel-accent-2: #8b5cf6;
+      --pexel-cyan: #06b6d4;
+    }
+    body {
+      background: var(--pexel-page-bg) !important;
+      background-size: 40px 40px, 40px 40px, auto, auto !important;
+      color: var(--pexel-text) !important;
+    }
+    .sidebar, .topbar, .right, .card, .panel, .wrap, .form-box, .table-wrap {
+      background-color: rgba(13,16,23,.94) !important;
+      border-color: var(--pexel-border) !important;
+    }
+    .brand-icon, .avatar {
+      background: linear-gradient(135deg, var(--pexel-accent), var(--pexel-accent-2)) !important;
+      color: var(--pexel-text) !important;
+    }
+    .brand, .logo.brand {
+      display: flex !important;
+      align-items: center !important;
+      gap: 12px !important;
+      color: var(--pexel-text) !important;
+      font-weight: 900 !important;
+      text-decoration: none !important;
+    }
+    .brand-icon {
+      width: 38px !important;
+      height: 38px !important;
+      border-radius: 10px !important;
+      display: grid !important;
+      place-items: center !important;
+      flex: 0 0 auto !important;
+      font-size: 20px !important;
+      font-weight: 900 !important;
+      line-height: 1 !important;
+      box-shadow: 0 0 26px rgba(124,58,255,.28) !important;
+    }
+    .brand > span, .logo.brand > span {
+      color: var(--pexel-text) !important;
+      font-weight: 900 !important;
+    }
+    .button.primary, .main-btn, button[type="submit"], .btn, .button.active {
+      background: linear-gradient(90deg, var(--pexel-accent), var(--pexel-accent-2)) !important;
+      color: var(--pexel-text) !important;
+    }
+    .button, .btn.secondary, .quick-action, input, textarea, select, .social-btn, .page-link, .code, .feed-item {
+      background-color: var(--pexel-surface-2) !important;
+      border-color: var(--pexel-border) !important;
+      color: var(--pexel-text) !important;
+    }
+    .muted, .subtitle, .bottom, .back, .account a, .nav a, label {
+      color: var(--pexel-muted) !important;
+    }
+    .nav a:hover, .nav a.active {
+      color: var(--pexel-text) !important;
+      background: rgba(124,58,237,.18) !important;
+      border-color: rgba(124,58,237,.45) !important;
+    }
+    th {
+      background-color: var(--pexel-surface-2) !important;
+      color: var(--pexel-cyan) !important;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--pexel-accent) !important;
+      box-shadow: 0 0 0 3px rgba(124,58,237,.18) !important;
+      outline: none !important;
+    }
+    .sidebar {
+      max-height: 100vh !important;
+      overflow: hidden !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    .sidebar > div:first-child {
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+    .sidebar .brand {
+      flex: 0 0 auto !important;
+    }
+    .sidebar .nav {
+      min-height: 0 !important;
+      flex: 1 1 auto !important;
+      align-content: flex-start !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
+      padding-right: 4px !important;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(124,58,237,.65) rgba(13,16,23,.8);
+    }
+    .sidebar .nav::-webkit-scrollbar {
+      width: 8px;
+    }
+    .sidebar .nav::-webkit-scrollbar-track {
+      background: rgba(13,16,23,.8);
+    }
+    .sidebar .nav::-webkit-scrollbar-thumb {
+      background: rgba(124,58,237,.65);
+      border-radius: 999px;
+    }
+    .account {
+      flex: 0 0 auto !important;
+      background: rgba(13,16,23,.96) !important;
+      position: relative !important;
+      z-index: 2 !important;
+    }
+  
+  
+</style>
 </head>
 <body>
-    
+  <div class="layout">
+    <aside class="sidebar"><div><div class="brand"><div class="brand-icon">P</div><span>Pexel</span></div><nav class="nav"><div class="nav-section"><div class="nav-label">Overview</div><a href="{{ url_for('dashboard') }}">Dashboard</a><a href="{{ url_for('profile') }}">Profile</a></div><div class="nav-section"><div class="nav-label">Work</div><a href="{{ url_for('voting') }}">Voting</a><a href="{{ url_for('meetings') }}">Meetings</a><a href="{{ url_for('list_files') }}">Documents</a></div><div class="nav-section"><div class="nav-label">Admin</div><a href="{{ url_for('admin_members') }}">Members</a><a class="active" href="{{ url_for('financial') }}">Finance</a><a href="{{ url_for('whatsapp_analytics_page') }}">WhatsApp</a><a href="{{ url_for('notifications_page') }}">Notifications</a><a href="{{ url_for('activity_summary_page') }}">Activity</a><a href="{{ url_for('bugs_page') }}">Bugs</a><a href="{{ url_for('help_page') }}">Help</a><a href="{{ url_for('developer_guide_page') }}">Dev Guide</a></div></nav></div><div class="account"><div class="avatar">{{ (user.username or 'U')[:1]|upper }}</div><div><strong>{{ user.full_name or user.username }}</strong><br><a href="{{ url_for('logout') }}">Logout</a></div></div></aside>
+    <main>
+      <header class="topbar"><h1>Financial Records</h1><a class="button" href="{{ url_for('api_financial_report_csv') }}">Export CSV</a></header>
+      <section class="content">
+        {% if success %}<div class="alert ok">{{ success }}</div>{% endif %}{% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+        <div class="stats"><div class="card"><p class="muted">Income</p><div class="metric">{{ "%.2f"|format(report.total_income) }}</div></div><div class="card"><p class="muted">Expense</p><div class="metric">{{ "%.2f"|format(report.total_expense) }}</div></div><div class="card"><p class="muted">Net Balance</p><div class="metric">{{ "%.2f"|format(report.net_balance) }}</div></div></div>
+        <div class="grid">
+          <form class="panel stack" method="POST"><h2 class="section-title">Record Transaction</h2><input type="hidden" name="action" value="transaction"><div class="grid"><label class="field"><span>Date</span><input class="input" type="date" name="transaction_date" required></label><label class="field"><span>Type</span><select name="type"><option value="income">income</option><option value="expense">expense</option></select></label></div><div class="grid"><label class="field"><span>Category</span><input class="input" name="category" required></label><label class="field"><span>Amount</span><input class="input" type="number" step="0.01" min="0.01" name="amount" required></label></div><label class="field"><span>Description</span><textarea name="description"></textarea></label><button class="button primary">Save Transaction</button></form>
+          <form class="panel stack" method="POST"><h2 class="section-title">Budget Monitoring</h2><input type="hidden" name="action" value="budget"><label class="field"><span>Category</span><input class="input" name="category" required></label><div class="grid"><label class="field"><span>Allocated amount</span><input class="input" type="number" step="0.01" min="0.01" name="allocated_amount" required></label><label class="field"><span>Fiscal period</span><input class="input" name="fiscal_period" value="2026" required></label></div><button class="button primary">Save Budget</button></form>
+        </div>
+        <div class="grid"><div class="panel"><h2 class="section-title">Income vs Expense</h2><canvas id="monthlyChart" height="140"></canvas></div><div class="panel"><h2 class="section-title">Expense Categories</h2><canvas id="categoryChart" height="140"></canvas></div></div>
+        <div class="panel stack"><h2 class="section-title">Budget Thresholds</h2>{% for budget in report.budgets %}{% set pct = (budget.spent / budget.allocated_amount * 100) if budget.allocated_amount else 0 %}<div class="budget"><div><strong>{{ budget.category }}</strong> <span class="muted">{{ "%.0f"|format(pct) }}% used · {{ "%.2f"|format(budget.spent) }} / {{ "%.2f"|format(budget.allocated_amount) }}</span></div><div class="track"><div class="fill {% if pct >= 80 %}warn{% endif %}" style="width:{{ [pct,100]|min }}%"></div></div></div>{% else %}<p class="muted">Add budgets to see real-time spending thresholds at 80%, 90%, and 100%.</p>{% endfor %}</div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const report = {{ report|tojson }};
+    if (window.Chart) {
+      new Chart(document.getElementById("monthlyChart"), {type:"line",data:{labels:report.monthly.map(x=>x.label),datasets:[{label:"Income",data:report.monthly.map(x=>x.income),borderColor:"#10b981",backgroundColor:"rgba(16,185,129,.18)"},{label:"Expense",data:report.monthly.map(x=>x.expense),borderColor:"#ef4444",backgroundColor:"rgba(239,68,68,.18)"}]}});
+      new Chart(document.getElementById("categoryChart"), {type:"pie",data:{labels:report.categories.map(x=>x.label),datasets:[{data:report.categories.map(x=>x.count),backgroundColor:["#7d39ff","#06b6d4","#10b981","#f59e0b","#ef4444"]}]}});
+    }
+  </script>
 </body>
 </html>
