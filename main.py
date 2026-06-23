@@ -1,8 +1,8 @@
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, abort, jsonify
-from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from werkzeug.utils import secure_filename
+from email.message import EmailMessage
 from database import (
     init_db,
     create_user,
@@ -51,9 +51,37 @@ import mimetypes
 import csv
 import json
 import sqlite3
+import re
+import io
+import smtplib
+import ssl
+
+try:
+    import certifi
+except ImportError:  # pragma: no cover - optional dependency
+    certifi = None
 from datetime import datetime, timedelta
+import database
 
 app = Flask(__name__, template_folder="frontend/pages")
+
+
+def load_local_env(path=".env"):
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+load_local_env()
 app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
 
 # Upload configuration
@@ -68,19 +96,17 @@ app.config["IMPORT_ROLLBACK_MINUTES"] = 60
 app.config["IMPORT_BATCH_SIZE"] = 250
 app.config["PASSWORD_RESET_MAX_AGE"] = 3600
 app.config["DOCUMENT_DOWNLOAD_CACHE_SECONDS"] = 3600
+app.config["EMAIL_DELIVERY_MODE"] = os.environ.get("PEXEL_EMAIL_DELIVERY_MODE", "smtp")
+app.config["EMAIL_FROM_ADDRESS"] = os.environ.get("PEXEL_EMAIL_FROM_ADDRESS", "")
+app.config["EMAIL_FROM_NAME"] = os.environ.get("PEXEL_EMAIL_FROM_NAME", "Pexel")
+app.config["SMTP_HOST"] = os.environ.get("PEXEL_SMTP_HOST", "")
+app.config["SMTP_PORT"] = int(os.environ.get("PEXEL_SMTP_PORT", "587"))
+app.config["SMTP_USERNAME"] = os.environ.get("PEXEL_SMTP_USERNAME", "")
+app.config["SMTP_PASSWORD"] = os.environ.get("PEXEL_SMTP_PASSWORD", "")
+app.config["SMTP_USE_TLS"] = os.environ.get("PEXEL_SMTP_USE_TLS", "true").lower() in {"1", "true", "yes", "on"}
+app.config["SMTP_USE_SSL"] = os.environ.get("PEXEL_SMTP_USE_SSL", "false").lower() in {"1", "true", "yes", "on"}
+app.config["EMAIL_TIMEOUT"] = int(os.environ.get("PEXEL_EMAIL_TIMEOUT", os.environ.get("PEXEL_EMAIL_HTTP_TIMEOUT", "10")))
 
-# Flask-Mail configuration
-app.config["MAIL_SERVER"] = "smtp.gmail.com"
-app.config["MAIL_PORT"] = 587
-app.config["MAIL_USE_TLS"] = True
-app.config["MAIL_USE_SSL"] = False
-mail_username = "rohanftw2466@gmail.com"
-mail_password = "pais dskg fwik ftyi"
-app.config["MAIL_USERNAME"] = mail_username
-app.config["MAIL_PASSWORD"] = mail_password
-app.config["MAIL_DEFAULT_SENDER"] = "rohanftw2466@gmail.com"
-
-mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.secret_key)
 
 # Ensure upload directory exists
@@ -505,28 +531,143 @@ def confirm_verification_token(token, expiration=3600):
     return serializer.loads(token, salt="email-verify", max_age=expiration)
 
 
-def send_verification_email(email, username):
-    token = generate_verification_token(email)
-    verify_url = url_for("verify_email", token=token, _external=True)
-
-    msg = Message(
-        subject="Verify your Pexel account",
-        recipients=[email],
-        sender=app.config["MAIL_DEFAULT_SENDER"],
-        body=(
-            f"Hi {username},\n\n"
-            f"Please verify your Pexel account by clicking this link:\n"
-            f"{verify_url}\n\n"
-            f"This link expires in 1 hour."
+def account_email_message(purpose, link):
+    if purpose == "registration_verification":
+        return {
+            "subject": "Verify your Pexel account",
+            "text": (
+                "Welcome to Pexel.\n\n"
+                "Use this verification link to verify your account:\n"
+                f"{link}\n\n"
+                "This link expires in 1 hour."
+            ),
+            "html": (
+                "<p>Welcome to Pexel.</p>"
+                "<p>Use this verification link to verify your account:</p>"
+                f'<p><a href="{link}">{link}</a></p>'
+                "<p>This link expires in 1 hour.</p>"
+            ),
+        }
+    return {
+        "subject": "Reset your Pexel password",
+        "text": (
+            "Use this password reset link to reset your Pexel password:\n"
+            f"{link}\n\n"
+            "This link expires in 1 hour and can only be used once. "
+            "If you did not request this, you can ignore this message."
         ),
-    )
+        "html": (
+            "<p>Use this password reset link to reset your Pexel password:</p>"
+            f'<p><a href="{link}">{link}</a></p>'
+            "<p>This link expires in 1 hour and can only be used once. "
+            "If you did not request this, you can ignore this message.</p>"
+        ),
+    }
+
+
+def build_smtp_ssl_context():
+    """Build an SSL context, preferring certifi's CA bundle.
+
+    On macOS (and some other environments) the python.org interpreter ships
+    without access to the system trust store, so the default context fails to
+    verify smtp.gmail.com with CERTIFICATE_VERIFY_FAILED. certifi provides a
+    portable CA bundle that fixes this.
+    """
+    if certifi is not None:
+        return ssl.create_default_context(cafile=certifi.where())
+    return ssl.create_default_context()
+
+
+def send_transactional_email(to_email, subject, text_body, html_body):
+    mode = app.config.get("EMAIL_DELIVERY_MODE", "smtp")
+    if mode == "test":
+        return {"sent": True, "provider": "test", "detail": "Test email delivery accepted."}
+
+    if mode != "smtp":
+        return {"sent": False, "provider": mode, "detail": "Unsupported email delivery mode."}
+
+    smtp_host = app.config.get("SMTP_HOST", "")
+    smtp_port = app.config.get("SMTP_PORT", 587)
+    smtp_username = app.config.get("SMTP_USERNAME", "")
+    smtp_password = app.config.get("SMTP_PASSWORD", "")
+    from_address = app.config.get("EMAIL_FROM_ADDRESS", "")
+    if not smtp_host or not from_address:
+        return {
+            "sent": False,
+            "provider": "smtp",
+            "detail": (
+                "Email delivery is not configured. Set PEXEL_SMTP_HOST and "
+                "PEXEL_EMAIL_FROM_ADDRESS."
+            ),
+        }
+    if smtp_username and not smtp_password:
+        return {
+            "sent": False,
+            "provider": "smtp",
+            "detail": "Email delivery is not configured. Set PEXEL_SMTP_PASSWORD.",
+        }
+
+    from_name = app.config.get("EMAIL_FROM_NAME", "Pexel")
+    from_header = f"{from_name} <{from_address}>" if from_name else from_address
+
+    message = EmailMessage()
+    message["From"] = from_header
+    message["To"] = to_email
+    message["Subject"] = subject
+    message.set_content(text_body)
+    message.add_alternative(html_body, subtype="html")
 
     try:
-        mail.send(msg)
-        return True
-    except Exception as e:
-        app.logger.exception("Verification email failed")
-        return False
+        if app.config.get("SMTP_USE_SSL"):
+            smtp_context = build_smtp_ssl_context()
+            smtp_client = smtplib.SMTP_SSL(
+                smtp_host,
+                smtp_port,
+                timeout=app.config["EMAIL_TIMEOUT"],
+                context=smtp_context,
+            )
+        else:
+            smtp_client = smtplib.SMTP(smtp_host, smtp_port, timeout=app.config["EMAIL_TIMEOUT"])
+
+        with smtp_client as server:
+            if app.config.get("SMTP_USE_TLS") and not app.config.get("SMTP_USE_SSL"):
+                server.starttls(context=build_smtp_ssl_context())
+            if smtp_username or smtp_password:
+                server.login(smtp_username, smtp_password)
+            server.send_message(message)
+        return {"sent": True, "provider": "smtp", "detail": "SMTP email delivery accepted."}
+    except (OSError, smtplib.SMTPException) as exc:
+        return {"sent": False, "provider": "smtp", "detail": str(exc)}
+
+
+def deliver_account_email(purpose, email, link, user_id=None):
+    message = account_email_message(purpose, link)
+    delivery = send_transactional_email(
+        email,
+        message["subject"],
+        message["text"],
+        message["html"],
+    )
+    link_id = database.create_auth_email_link(
+        purpose,
+        email,
+        link,
+        user_id,
+        status="email_sent" if delivery["sent"] else "email_failed",
+        error_message=delivery["detail"],
+    )
+    return {"sent": delivery["sent"], "link_id": link_id, "detail": delivery["detail"]}
+
+
+def create_verification_email(email, username, user_id=None):
+    token = generate_verification_token(email)
+    verify_url = url_for("verify_email", token=token, _external=True)
+    return deliver_account_email(
+        "registration_verification",
+        email,
+        verify_url,
+        user_id=user_id,
+    )
 
 
 def password_reset_fingerprint(user):
@@ -553,27 +694,15 @@ def confirm_password_reset_token(token):
     return user
 
 
-def send_password_reset_email(user):
+def create_password_reset_email(user):
     token = generate_password_reset_token(user)
     reset_url = url_for("reset_password", token=token, _external=True)
-    msg = Message(
-        subject="Reset your Pexel password",
-        recipients=[user["email"]],
-        sender=app.config["MAIL_DEFAULT_SENDER"],
-        body=(
-            f"Hi {user['username']},\n\n"
-            "Use the link below to choose a new password:\n"
-            f"{reset_url}\n\n"
-            "This link expires in 1 hour and can only be used once. "
-            "If you did not request this, you can ignore this email."
-        ),
+    return deliver_account_email(
+        "password_reset",
+        user["email"],
+        reset_url,
+        user_id=user["id"],
     )
-    try:
-        mail.send(msg)
-        return True
-    except Exception:
-        app.logger.exception("Password reset email failed")
-        return False
 
 
 @app.route("/")
@@ -605,17 +734,19 @@ def register():
                 error = "Email already exists."
             else:
                 create_user(username, email, password)
-                sent = send_verification_email(email, username)
-                if sent:
-                    success = "Account created. Please check your email to verify your account."
+                user = get_user_by_email(email)
+                delivery = create_verification_email(email, username, user["id"] if user else None)
+                if delivery["sent"]:
+                    success = "Account created. Check your email for the verification link."
                 else:
-                    success = "Account created, but verification email could not be sent right now."
+                    error = "Account created, but the verification email could not be sent. Ask an administrator to configure email delivery."
 
     return render_template("RegisterPage.html", error=error, success=success)
 
 
 @app.route("/verify-email/<token>")
 def verify_email(token):
+    verification_link = url_for("verify_email", token=token, _external=True)
     try:
         email = confirm_verification_token(token)
     except SignatureExpired:
@@ -630,7 +761,16 @@ def verify_email(token):
     if int(user.get("is_verified", 0)) == 1:
         return render_template("VerifyPage.html", success="Your account is already verified.")
 
+    verification_email_link = database.get_active_auth_email_link(
+        "registration_verification",
+        verification_link,
+        user_id=user["id"],
+    )
+    if not verification_email_link:
+        return render_template("VerifyPage.html", error="Invalid verification link.")
+
     mark_user_verified(user["id"])
+    database.mark_auth_email_link_used(verification_link)
     return render_template("VerifyPage.html", success="Email verified successfully. You can now log in.")
 
 
@@ -670,16 +810,19 @@ def forgot_password():
         if email:
             user = get_user_by_email(email)
             if user:
-                send_password_reset_email(user)
+                create_password_reset_email(user)
 
         # Do not reveal whether an email address is registered.
-        success = "If an account exists for that email, a password reset link has been sent."
+        success = (
+            "If an account exists for that email, a password reset link has been emailed."
+        )
 
     return render_template("PasswordResetPage.html", mode="request", success=success)
 
 
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
+    reset_link = url_for("reset_password", token=token, _external=True)
     try:
         user = confirm_password_reset_token(token)
     except SignatureExpired:
@@ -689,6 +832,18 @@ def reset_password(token):
             error="This password reset link has expired. Please request a new one.",
         ), 400
     except BadSignature:
+        return render_template(
+            "PasswordResetPage.html",
+            mode="invalid",
+            error="This password reset link is invalid or has already been used.",
+        ), 400
+
+    reset_email_link = database.get_active_auth_email_link(
+        "password_reset",
+        reset_link,
+        user_id=user["id"],
+    )
+    if not reset_email_link:
         return render_template(
             "PasswordResetPage.html",
             mode="invalid",
@@ -707,6 +862,7 @@ def reset_password(token):
             error = password_policy_error(password)
         else:
             update_user_password(user["id"], password)
+            database.mark_auth_email_link_used(reset_link)
             session.clear()
             return render_template(
                 "PasswordResetPage.html",
@@ -1286,18 +1442,6 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/meetings")
-@login_required
-def meetings():
-    return render_template("MeetingsPage.html")
-
-
-@app.route("/voting")
-@login_required
-def voting():
-    return render_template("VotingPage.html")
-
-
 @app.route("/import-files", methods=["GET", "POST"])
 @login_required
 def import_files():
@@ -1475,6 +1619,366 @@ def download_file(file_id):
             user_agent=str(request.user_agent)[:500],
         )
     return response
+
+
+def parse_form_datetime(value):
+    if not value:
+        raise ValueError("Date and time are required.")
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+
+
+def current_actor_name():
+    user = current_user() or {}
+    return user.get("username") or session.get("admin_username") or "system"
+
+
+def parse_whatsapp_export(text, filename=""):
+    patterns = [
+        re.compile(r"^\[(?P<date>\d{1,2}/\d{1,2}/\d{2,4}), (?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)\] (?P<sender>[^:]+): (?P<message>.*)$"),
+        re.compile(r"^(?P<date>\d{1,2}/\d{1,2}/\d{2,4}), (?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?) - (?P<sender>[^:]+): (?P<message>.*)$"),
+    ]
+    messages = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip("\ufeff").strip()
+        if not line:
+            continue
+        match = next((pattern.match(line) for pattern in patterns if pattern.match(line)), None)
+        if not match:
+            continue
+        sender = match.group("sender").strip()
+        message = match.group("message").strip()
+        if not sender or not message or sender.lower() in {"messages and calls are end-to-end encrypted"}:
+            continue
+        date_value = match.group("date")
+        time_value = match.group("time").upper().replace("\u202f", " ")
+        parsed_at = None
+        for fmt in ("%m/%d/%y %I:%M %p", "%m/%d/%Y %I:%M %p", "%d/%m/%y %H:%M", "%d/%m/%Y %H:%M", "%m/%d/%y %H:%M", "%m/%d/%Y %H:%M"):
+            try:
+                parsed_at = datetime.strptime(f"{date_value} {time_value}", fmt)
+                break
+            except ValueError:
+                pass
+        if not parsed_at:
+            continue
+        lowered = message.lower()
+        media_type = "media" if "omitted" in lowered or "<media" in lowered else "text"
+        messages.append({
+            "sender": sender,
+            "sent_at": parsed_at.isoformat(timespec="seconds"),
+            "message": message,
+            "media_type": media_type,
+            "source_filename": filename,
+        })
+    return messages
+
+
+def csv_download(filename, rows, fieldnames):
+    handle = io.StringIO()
+    writer = csv.DictWriter(handle, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({field: row.get(field, "") for field in fieldnames})
+    return app.response_class(
+        handle.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@app.route("/voting", methods=["GET", "POST"])
+@login_required
+def voting():
+    error = None
+    success = None
+    if request.method == "POST":
+        try:
+            if request.form.get("action") == "create":
+                if not session.get("admin_username"):
+                    abort(403)
+                options = request.form.get("options", "").replace("\r", "").split("\n")
+                database.create_voting_event(
+                    request.form.get("title", ""),
+                    request.form.get("description", ""),
+                    options,
+                    parse_form_datetime(request.form.get("start_at", "")),
+                    parse_form_datetime(request.form.get("end_at", "")),
+                    created_by=current_actor_name(),
+                    eligibility={
+                        "membership_status": request.form.get("membership_status", "verified"),
+                        "min_membership_days": request.form.get("min_membership_days", 0),
+                        "allowed_roles": request.form.get("allowed_roles", ""),
+                    },
+                )
+                success = "Voting event created."
+            elif request.form.get("action") == "vote":
+                database.cast_vote(
+                    int(request.form.get("event_id", "")),
+                    int(request.form.get("option_id", "")),
+                    session.get("user_id"),
+                    app.secret_key,
+                )
+                success = "Vote recorded securely."
+        except ValueError as exc:
+            error = str(exc)
+    return render_template(
+        "VotingPage.html",
+        user=current_user(),
+        events=database.list_voting_events(user_id=session.get("user_id")),
+        is_admin=bool(session.get("admin_username")),
+        error=error,
+        success=success,
+    )
+
+
+@app.route("/api/voting/events", methods=["POST"])
+@login_required
+@admin_required
+def api_voting_create_event():
+    payload = request.get_json(silent=True) or {}
+    try:
+        event_id = database.create_voting_event(
+            payload.get("title", ""),
+            payload.get("description", ""),
+            payload.get("options", []),
+            parse_form_datetime(payload.get("start_at", "")),
+            parse_form_datetime(payload.get("end_at", "")),
+            created_by=current_actor_name(),
+            eligibility=payload.get("eligibility") or {},
+        )
+    except ValueError as exc:
+        return json_response_error(str(exc))
+    return jsonify({"event_id": event_id}), 201
+
+
+@app.route("/api/voting/votes", methods=["POST"])
+@login_required
+def api_voting_cast_vote():
+    payload = request.get_json(silent=True) or {}
+    try:
+        database.cast_vote(int(payload.get("event_id")), int(payload.get("option_id")), session.get("user_id"), app.secret_key)
+    except (TypeError, ValueError) as exc:
+        return json_response_error(str(exc))
+    return jsonify({"status": "recorded"})
+
+
+@app.route("/api/voting/events/<int:event_id>/results")
+@login_required
+def api_voting_results(event_id):
+    try:
+        results = database.get_voting_results(event_id)
+    except ValueError as exc:
+        return json_response_error(str(exc), status=404)
+    event_closed = datetime.utcnow() >= database.parse_db_datetime(results["event"]["end_at"])
+    if not event_closed and not session.get("admin_username"):
+        abort(403)
+    return jsonify(results)
+
+
+@app.route("/api/voting/events/<int:event_id>/results.csv")
+@login_required
+@admin_required
+def api_voting_results_csv(event_id):
+    results = database.get_voting_results(event_id)
+    return csv_download("voting-results.csv", results["options"], ["id", "label", "votes"])
+
+
+@app.route("/whatsapp-analytics", methods=["GET", "POST"])
+@login_required
+@admin_required
+def whatsapp_analytics_page():
+    error = None
+    success = None
+    if request.method == "POST":
+        uploaded = request.files.get("file")
+        if not uploaded or not uploaded.filename:
+            error = "Choose a WhatsApp .txt export."
+        elif not uploaded.filename.lower().endswith(".txt"):
+            error = "WhatsApp imports must be .txt files."
+        else:
+            text = uploaded.read().decode("utf-8", errors="replace")
+            messages = parse_whatsapp_export(text, secure_filename(uploaded.filename))
+            database.store_whatsapp_messages(messages)
+            success = f"Imported {len(messages)} messages."
+    return render_template("WhatsAppAnalyticsPage.html", user=current_user(), analytics=database.whatsapp_analytics(), error=error, success=success)
+
+
+@app.route("/api/whatsapp/import", methods=["POST"])
+@login_required
+@admin_required
+def api_whatsapp_import():
+    uploaded = request.files.get("file")
+    if not uploaded or not uploaded.filename:
+        return json_response_error("Choose a WhatsApp .txt export.")
+    messages = parse_whatsapp_export(uploaded.read().decode("utf-8", errors="replace"), secure_filename(uploaded.filename))
+    return jsonify({"imported": database.store_whatsapp_messages(messages)})
+
+
+@app.route("/api/whatsapp/analytics")
+@login_required
+@admin_required
+def api_whatsapp_analytics():
+    return jsonify(database.whatsapp_analytics())
+
+
+@app.route("/notifications", methods=["GET", "POST"])
+@login_required
+def notifications_page():
+    if request.method == "POST":
+        if not session.get("admin_username"):
+            abort(403)
+        database.create_notification(
+            request.form.get("category", "general"),
+            request.form.get("title", ""),
+            request.form.get("body", ""),
+            channel=request.form.get("channel", "in-app"),
+            scheduled_for=request.form.get("scheduled_for") or None,
+        )
+    conn = get_connection()
+    rows = [dict(row) for row in conn.execute("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 100").fetchall()]
+    conn.close()
+    return render_template("NotificationsPage.html", user=current_user(), notifications=rows, is_admin=bool(session.get("admin_username")))
+
+
+@app.route("/meetings", methods=["GET", "POST"])
+@login_required
+def meetings():
+    error = None
+    success = None
+    if request.method == "POST":
+        try:
+            action = request.form.get("action")
+            if action == "create":
+                if not session.get("admin_username"):
+                    abort(403)
+                database.create_meeting(
+                    request.form.get("title", ""),
+                    request.form.get("description", ""),
+                    parse_form_datetime(request.form.get("meeting_at", "")),
+                    request.form.get("location", ""),
+                    request.form.get("agenda", ""),
+                    [item.strip() for item in request.form.get("invitees", "").split(",") if item.strip()],
+                    created_by=current_actor_name(),
+                    meeting_type=request.form.get("meeting_type", "general"),
+                )
+                success = "Meeting scheduled."
+            elif action == "attendance":
+                if not session.get("admin_username"):
+                    abort(403)
+                database.record_attendance(int(request.form.get("meeting_id")), int(request.form.get("member_id")), request.form.get("status", "present"))
+                success = "Attendance recorded."
+            elif action == "minutes":
+                if not session.get("admin_username"):
+                    abort(403)
+                database.add_meeting_minutes(int(request.form.get("meeting_id")), request.form.get("title", ""), request.form.get("content", ""), uploaded_by=current_actor_name())
+                success = "Minutes saved."
+        except ValueError as exc:
+            error = str(exc)
+    members = search_members(limit=100, offset=0)["members"] if session.get("admin_username") else []
+    return render_template("MeetingsPage.html", user=current_user(), meetings=database.list_meetings(), members=members, attendance=database.meeting_attendance_summary(), is_admin=bool(session.get("admin_username")), error=error, success=success)
+
+
+@app.route("/api/meetings")
+@login_required
+def api_meetings():
+    return jsonify({"meetings": database.list_meetings(request.args.get("start"), request.args.get("end"))})
+
+
+@app.route("/api/meetings", methods=["POST"])
+@login_required
+@admin_required
+def api_meeting_create():
+    payload = request.get_json(silent=True) or {}
+    try:
+        meeting_id = database.create_meeting(payload.get("title", ""), payload.get("description", ""), parse_form_datetime(payload.get("meeting_at", "")), payload.get("location", ""), payload.get("agenda", ""), payload.get("invitees", []), current_actor_name(), payload.get("meeting_type", "general"))
+    except ValueError as exc:
+        return json_response_error(str(exc))
+    return jsonify({"meeting_id": meeting_id}), 201
+
+
+@app.route("/api/meetings/attendance.csv")
+@login_required
+@admin_required
+def api_meeting_attendance_csv():
+    return csv_download("attendance-report.csv", database.meeting_attendance_summary(), ["label", "present", "total"])
+
+
+@app.route("/financial", methods=["GET", "POST"])
+@login_required
+@admin_required
+def financial():
+    error = None
+    success = None
+    if request.method == "POST":
+        try:
+            if request.form.get("action") == "transaction":
+                database.create_transaction(request.form.get("transaction_date", ""), request.form.get("type", ""), request.form.get("category", ""), request.form.get("amount", 0), request.form.get("description", ""), current_actor_name())
+                success = "Transaction recorded."
+            elif request.form.get("action") == "budget":
+                database.upsert_budget(request.form.get("category", ""), request.form.get("allocated_amount", 0), request.form.get("fiscal_period", ""))
+                success = "Budget saved."
+        except ValueError as exc:
+            error = str(exc)
+    return render_template("FinancialPage.html", user=current_user(), report=database.financial_report(), error=error, success=success)
+
+
+@app.route("/api/financial/report")
+@login_required
+@admin_required
+def api_financial_report():
+    return jsonify(database.financial_report())
+
+
+@app.route("/api/financial/report.csv")
+@login_required
+@admin_required
+def api_financial_report_csv():
+    report = database.financial_report()
+    return csv_download("financial-report.csv", report["monthly"], ["label", "income", "expense"])
+
+
+@app.route("/activity-summary")
+@login_required
+@admin_required
+def activity_summary_page():
+    period = request.args.get("period", "monthly")
+    return render_template("ActivitySummaryPage.html", user=current_user(), summary=database.activity_summary(period))
+
+
+@app.route("/api/admin/activity-summary")
+@login_required
+@admin_required
+def api_activity_summary():
+    return jsonify(database.activity_summary(request.args.get("period", "monthly")))
+
+
+@app.route("/bugs", methods=["GET", "POST"])
+@login_required
+def bugs_page():
+    error = None
+    if request.method == "POST":
+        try:
+            if request.form.get("action") == "create":
+                database.create_bug_report(request.form.get("title", ""), request.form.get("severity", "Medium"), request.form.get("steps", ""), request.form.get("expected", ""), request.form.get("actual", ""), current_actor_name())
+            elif request.form.get("action") == "status":
+                if not session.get("admin_username"):
+                    abort(403)
+                database.update_bug_status(int(request.form.get("bug_id")), request.form.get("status", "Open"), request.form.get("resolution_notes", ""))
+        except ValueError as exc:
+            error = str(exc)
+    return render_template("BugTrackerPage.html", user=current_user(), bugs=database.list_bug_reports(), is_admin=bool(session.get("admin_username")), error=error)
+
+
+@app.route("/help")
+@login_required
+def help_page():
+    return render_template("HelpPage.html", user=current_user())
+
+
+@app.route("/developer-guide")
+@login_required
+@admin_required
+def developer_guide_page():
+    return render_template("DeveloperGuidePage.html", user=current_user())
 
 
 if __name__ == "__main__":

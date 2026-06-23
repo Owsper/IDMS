@@ -199,6 +199,27 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_team_role ON users_data(team_role)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_verified ON users_data(is_verified)")
 
+    if table_exists(cursor, "auth_magic_links") and not table_exists(cursor, "auth_email_links"):
+        cursor.execute("ALTER TABLE auth_magic_links RENAME TO auth_email_links")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS auth_email_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            purpose TEXT NOT NULL CHECK(purpose IN ('registration_verification', 'password_reset')),
+            email TEXT NOT NULL,
+            user_id INTEGER,
+            link TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'email_created',
+            error_message TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            delivered_at DATETIME,
+            used_at DATETIME,
+            FOREIGN KEY(user_id) REFERENCES users_data(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_auth_email_links_status ON auth_email_links(status, created_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_auth_email_links_email ON auth_email_links(email)")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS import_jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -256,6 +277,175 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON import_jobs(created_at)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_import_rows_job ON import_rows(job_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_import_changes_job ON import_changes(job_id)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module TEXT NOT NULL,
+            action TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            actor_id INTEGER,
+            actor_name TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS voting_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            start_at DATETIME NOT NULL,
+            end_at DATETIME NOT NULL,
+            eligibility_status TEXT NOT NULL DEFAULT 'verified',
+            min_membership_days INTEGER NOT NULL DEFAULT 0,
+            allowed_roles TEXT NOT NULL DEFAULT '[]',
+            created_by TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS voting_options (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(event_id) REFERENCES voting_events(id)
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS votes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL,
+            option_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            vote_hash TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(event_id, user_id),
+            FOREIGN KEY(event_id) REFERENCES voting_events(id),
+            FOREIGN KEY(option_id) REFERENCES voting_options(id),
+            FOREIGN KEY(user_id) REFERENCES users_data(id)
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS eligibility_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL,
+            user_id INTEGER,
+            eligible INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            checked_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS whatsapp_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender TEXT NOT NULL,
+            sent_at DATETIME NOT NULL,
+            message TEXT NOT NULL,
+            media_type TEXT NOT NULL DEFAULT 'text',
+            source_filename TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_sent ON whatsapp_messages(sent_at)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            recipient_id INTEGER,
+            channel TEXT NOT NULL DEFAULT 'in-app',
+            status TEXT NOT NULL DEFAULT 'sent',
+            read_at DATETIME,
+            scheduled_for DATETIME,
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS meetings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            meeting_at DATETIME NOT NULL,
+            location TEXT NOT NULL DEFAULT '',
+            agenda TEXT NOT NULL DEFAULT '',
+            invitees TEXT NOT NULL DEFAULT '[]',
+            meeting_type TEXT NOT NULL DEFAULT 'general',
+            status TEXT NOT NULL DEFAULT 'upcoming',
+            created_by TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_meetings_at ON meetings(meeting_at)")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS meeting_attendance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            meeting_id INTEGER NOT NULL,
+            member_id INTEGER NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'excused')),
+            recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(meeting_id, member_id)
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS meeting_minutes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            meeting_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL DEFAULT '',
+            filename TEXT NOT NULL DEFAULT '',
+            uploaded_by TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS financial_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transaction_date DATE NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+            category TEXT NOT NULL,
+            amount REAL NOT NULL CHECK(amount > 0),
+            description TEXT NOT NULL DEFAULT '',
+            recorded_by TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS budgets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            allocated_amount REAL NOT NULL CHECK(allocated_amount > 0),
+            fiscal_period TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(category, fiscal_period)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bug_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            severity TEXT NOT NULL CHECK(severity IN ('Critical', 'High', 'Medium', 'Low')),
+            steps TEXT NOT NULL,
+            expected TEXT NOT NULL,
+            actual TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Open',
+            reporter TEXT NOT NULL DEFAULT '',
+            resolution_notes TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     conn.commit()
     conn.close()
@@ -365,6 +555,81 @@ def update_user_password(user_id, password):
     updated = cursor.rowcount == 1
     conn.close()
     return updated
+
+
+def create_auth_email_link(purpose, email, link, user_id=None, status="email_created", error_message=""):
+    if purpose not in {"registration_verification", "password_reset"}:
+        raise ValueError("Unsupported email link purpose.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO auth_email_links (
+            purpose, email, user_id, link, status, error_message, delivered_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    """, (
+        purpose,
+        email.strip().lower(),
+        user_id,
+        link,
+        status,
+        error_message[:500],
+    ))
+    link_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return link_id
+
+
+def list_auth_email_links(status=None, limit=100):
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT l.*, u.username, u.full_name
+        FROM auth_email_links AS l
+        LEFT JOIN users_data AS u ON u.id = l.user_id
+    """
+    params = []
+    if status:
+        query += " WHERE l.status = ?"
+        params.append(status)
+    query += " ORDER BY l.created_at DESC LIMIT ?"
+    params.append(max(1, min(int(limit), 250)))
+    cursor.execute(query, params)
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_active_auth_email_link(purpose, link, user_id=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT *
+        FROM auth_email_links
+        WHERE purpose = ? AND link = ? AND status = 'email_sent'
+    """
+    params = [purpose, link]
+    if user_id is not None:
+        query += " AND user_id = ?"
+        params.append(user_id)
+    query += " ORDER BY created_at DESC LIMIT 1"
+    cursor.execute(query, params)
+    row = row_to_dict(cursor.fetchone())
+    conn.close()
+    return row
+
+
+def mark_auth_email_link_used(link):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE auth_email_links
+        SET status = 'used', used_at = CURRENT_TIMESTAMP
+        WHERE link = ? AND status != 'used'
+    """, (link,))
+    conn.commit()
+    conn.close()
 
 
 def user_login(email, password):
@@ -1093,3 +1358,501 @@ def get_import_history(limit=50):
         rows.append(item)
     conn.close()
     return rows
+
+
+def log_activity(module, action, detail="", actor_id=None, actor_name=""):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO activity_log (module, action, detail, actor_id, actor_name)
+        VALUES (?, ?, ?, ?, ?)
+    """, (module, action, detail, actor_id, actor_name))
+    activity_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return activity_id
+
+
+def create_notification(category, title, body, recipient_id=None, channel="in-app", scheduled_for=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO notifications (category, title, body, recipient_id, channel, scheduled_for)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (category, title, body, recipient_id, channel, scheduled_for))
+    notification_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return notification_id
+
+
+def _json_list(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return value
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else []
+    except (TypeError, ValueError):
+        return []
+
+
+def create_voting_event(title, description, option_labels, start_at, end_at, created_by="", eligibility=None):
+    title = (title or "").strip()
+    option_labels = [label.strip() for label in option_labels if label and label.strip()]
+    if not title:
+        raise ValueError("Voting event title is required.")
+    if len(option_labels) < 2:
+        raise ValueError("Add at least two candidates or options.")
+    if start_at <= datetime_now():
+        raise ValueError("Voting start date must be in the future.")
+    if end_at <= start_at:
+        raise ValueError("Voting end date must be after the start date.")
+    eligibility = eligibility or {}
+    allowed_roles = eligibility.get("allowed_roles") or []
+    if isinstance(allowed_roles, str):
+        allowed_roles = [role.strip() for role in allowed_roles.split(",") if role.strip()]
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO voting_events (
+            title, description, start_at, end_at, eligibility_status,
+            min_membership_days, allowed_roles, created_by
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        title,
+        (description or "").strip(),
+        start_at.isoformat(timespec="seconds"),
+        end_at.isoformat(timespec="seconds"),
+        eligibility.get("membership_status", "verified"),
+        int(eligibility.get("min_membership_days") or 0),
+        json.dumps(allowed_roles),
+        created_by,
+    ))
+    event_id = cursor.lastrowid
+    cursor.executemany("""
+        INSERT INTO voting_options (event_id, label, position)
+        VALUES (?, ?, ?)
+    """, [(event_id, label, index) for index, label in enumerate(option_labels)])
+    conn.commit()
+    conn.close()
+    log_activity("Voting", "Event created", title, actor_name=created_by)
+    create_notification("voting", f"Voting opened: {title}", "A voting event has been scheduled.")
+    return event_id
+
+
+def datetime_now():
+    from datetime import datetime
+    return datetime.utcnow().replace(microsecond=0)
+
+
+def parse_db_datetime(value):
+    from datetime import datetime
+    return datetime.fromisoformat(str(value).replace("Z", "+00:00").replace(" ", "T")).replace(tzinfo=None)
+
+
+def list_voting_events(include_closed=True, user_id=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    where = "" if include_closed else "WHERE datetime(e.start_at) <= CURRENT_TIMESTAMP AND datetime(e.end_at) > CURRENT_TIMESTAMP"
+    cursor.execute(f"""
+        SELECT e.*,
+               COUNT(DISTINCT o.id) AS option_count,
+               COUNT(DISTINCT v.id) AS vote_count,
+               MAX(CASE WHEN v.user_id = ? THEN 1 ELSE 0 END) AS user_voted
+        FROM voting_events e
+        LEFT JOIN voting_options o ON o.event_id = e.id
+        LEFT JOIN votes v ON v.event_id = e.id
+        {where}
+        GROUP BY e.id
+        ORDER BY e.start_at DESC
+    """, (user_id or -1,))
+    events = [row_to_dict(row) for row in cursor.fetchall()]
+    for event in events:
+        cursor.execute("SELECT id, label FROM voting_options WHERE event_id = ? ORDER BY position, id", (event["id"],))
+        event["options"] = [row_to_dict(row) for row in cursor.fetchall()]
+        event["allowed_roles"] = _json_list(event.get("allowed_roles"))
+    conn.close()
+    return events
+
+
+def verify_vote_eligibility(event_id, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM voting_events WHERE id = ?", (event_id,))
+    event = row_to_dict(cursor.fetchone())
+    cursor.execute("SELECT * FROM users_data WHERE id = ?", (user_id,))
+    user = row_to_dict(cursor.fetchone())
+    eligible = True
+    reason = "Eligible"
+    if not event:
+        eligible, reason = False, "Voting event not found."
+    elif not user:
+        eligible, reason = False, "Member not found."
+    else:
+        now = datetime_now()
+        if now < parse_db_datetime(event["start_at"]) or now >= parse_db_datetime(event["end_at"]):
+            eligible, reason = False, "Voting is not active for this event."
+        elif event["eligibility_status"] == "verified" and int(user.get("is_verified", 0)) != 1:
+            eligible, reason = False, "Only verified members can vote in this event."
+        else:
+            roles = _json_list(event.get("allowed_roles"))
+            if roles and user.get("role") not in roles and user.get("team_role") not in roles:
+                eligible, reason = False, "Your role is not eligible for this vote."
+            min_days = int(event.get("min_membership_days") or 0)
+            if eligible and min_days:
+                from datetime import timedelta
+                created = parse_db_datetime(user["created_at"])
+                if created > now - timedelta(days=min_days):
+                    eligible, reason = False, f"Membership must be at least {min_days} days old."
+    cursor.execute("""
+        INSERT INTO eligibility_audit (event_id, user_id, eligible, reason)
+        VALUES (?, ?, ?, ?)
+    """, (event_id, user_id, int(eligible), reason))
+    conn.commit()
+    conn.close()
+    return {"eligible": eligible, "reason": reason}
+
+
+def cast_vote(event_id, option_id, user_id, secret=""):
+    eligibility = verify_vote_eligibility(event_id, user_id)
+    if not eligibility["eligible"]:
+        raise ValueError(eligibility["reason"])
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM voting_options WHERE id = ? AND event_id = ?", (option_id, event_id))
+    if not cursor.fetchone():
+        conn.close()
+        raise ValueError("Select a valid voting option.")
+    vote_hash = bcrypt.hashpw(f"{event_id}:{option_id}:{user_id}:{secret}".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    try:
+        cursor.execute("""
+            INSERT INTO votes (event_id, option_id, user_id, vote_hash)
+            VALUES (?, ?, ?, ?)
+        """, (event_id, option_id, user_id, vote_hash))
+        conn.commit()
+    except sqlite3.IntegrityError as exc:
+        conn.close()
+        raise ValueError("You have already voted in this event.") from exc
+    conn.close()
+    log_activity("Voting", "Vote cast", f"Event #{event_id}", actor_id=user_id)
+    return True
+
+
+def get_voting_results(event_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM voting_events WHERE id = ?", (event_id,))
+    event = row_to_dict(cursor.fetchone())
+    if not event:
+        conn.close()
+        raise ValueError("Voting event not found.")
+    cursor.execute("""
+        SELECT o.id, o.label, COUNT(v.id) AS votes
+        FROM voting_options o
+        LEFT JOIN votes v ON v.option_id = o.id
+        WHERE o.event_id = ?
+        GROUP BY o.id
+        ORDER BY o.position, o.id
+    """, (event_id,))
+    options = [row_to_dict(row) for row in cursor.fetchall()]
+    total = sum(item["votes"] for item in options)
+    conn.close()
+    return {"event": event, "options": options, "total_votes": total}
+
+
+def store_whatsapp_messages(messages):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.executemany("""
+        INSERT INTO whatsapp_messages (sender, sent_at, message, media_type, source_filename)
+        VALUES (?, ?, ?, ?, ?)
+    """, [
+        (m["sender"], m["sent_at"], m["message"], m.get("media_type", "text"), m.get("source_filename", ""))
+        for m in messages
+    ])
+    conn.commit()
+    conn.close()
+    log_activity("WhatsApp", "Import completed", f"{len(messages)} messages imported")
+    return len(messages)
+
+
+def whatsapp_analytics():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT date(sent_at) AS label, COUNT(*) AS count
+        FROM whatsapp_messages
+        GROUP BY date(sent_at)
+        ORDER BY label
+    """)
+    per_day = [row_to_dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+        SELECT sender AS label, COUNT(*) AS count
+        FROM whatsapp_messages
+        GROUP BY sender
+        ORDER BY count DESC, sender
+        LIMIT 10
+    """)
+    top_participants = [row_to_dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+        SELECT media_type AS label, COUNT(*) AS count
+        FROM whatsapp_messages
+        GROUP BY media_type
+        ORDER BY count DESC
+    """)
+    media_types = [row_to_dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+        SELECT strftime('%H', sent_at) AS label, COUNT(*) AS count
+        FROM whatsapp_messages
+        GROUP BY strftime('%H', sent_at)
+        ORDER BY label
+    """)
+    peak_hours = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return {
+        "per_day": per_day,
+        "top_participants": top_participants,
+        "media_types": media_types,
+        "peak_hours": peak_hours,
+    }
+
+
+def create_meeting(title, description, meeting_at, location, agenda, invitees, created_by="", meeting_type="general"):
+    if not title.strip():
+        raise ValueError("Meeting title is required.")
+    if meeting_at <= datetime_now():
+        raise ValueError("Meeting date must be in the future.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id FROM meetings
+        WHERE datetime(meeting_at) BETWEEN datetime(?, '-30 minutes') AND datetime(?, '+30 minutes')
+          AND lower(location) = lower(?)
+        LIMIT 1
+    """, (meeting_at.isoformat(timespec="seconds"), meeting_at.isoformat(timespec="seconds"), location.strip()))
+    if location.strip() and cursor.fetchone():
+        conn.close()
+        raise ValueError("Another meeting is already scheduled near that time and location.")
+    cursor.execute("""
+        INSERT INTO meetings (title, description, meeting_at, location, agenda, invitees, meeting_type, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (title.strip(), description.strip(), meeting_at.isoformat(timespec="seconds"), location.strip(), agenda.strip(), json.dumps(invitees), meeting_type, created_by))
+    meeting_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    log_activity("Meetings", "Meeting scheduled", title, actor_name=created_by)
+    create_notification("meeting", f"Meeting scheduled: {title}", agenda or "A meeting has been scheduled.", scheduled_for=meeting_at.isoformat(timespec="seconds"))
+    return meeting_id
+
+
+def list_meetings(start=None, end=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    clauses = []
+    params = []
+    if start:
+        clauses.append("date(meeting_at) >= date(?)")
+        params.append(start)
+    if end:
+        clauses.append("date(meeting_at) <= date(?)")
+        params.append(end)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    cursor.execute(f"SELECT * FROM meetings {where} ORDER BY meeting_at ASC", params)
+    meetings = [row_to_dict(row) for row in cursor.fetchall()]
+    for meeting in meetings:
+        meeting["invitees"] = _json_list(meeting.get("invitees"))
+    conn.close()
+    return meetings
+
+
+def record_attendance(meeting_id, member_id, status):
+    if status not in {"present", "absent", "excused"}:
+        raise ValueError("Attendance status must be present, absent, or excused.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO meeting_attendance (meeting_id, member_id, status)
+        VALUES (?, ?, ?)
+        ON CONFLICT(meeting_id, member_id) DO UPDATE SET
+            status = excluded.status,
+            recorded_at = CURRENT_TIMESTAMP
+    """, (meeting_id, member_id, status))
+    conn.commit()
+    conn.close()
+    log_activity("Meetings", "Attendance recorded", f"Meeting #{meeting_id}")
+
+
+def meeting_attendance_summary():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT m.title AS label,
+               SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present,
+               COUNT(a.id) AS total
+        FROM meetings m
+        LEFT JOIN meeting_attendance a ON a.meeting_id = m.id
+        GROUP BY m.id
+        ORDER BY m.meeting_at DESC
+        LIMIT 12
+    """)
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def add_meeting_minutes(meeting_id, title, content, filename="", uploaded_by=""):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO meeting_minutes (meeting_id, title, content, filename, uploaded_by)
+        VALUES (?, ?, ?, ?, ?)
+    """, (meeting_id, title.strip(), content.strip(), filename, uploaded_by))
+    conn.commit()
+    conn.close()
+    log_activity("Meetings", "Minutes saved", title, actor_name=uploaded_by)
+
+
+def create_transaction(transaction_date, tx_type, category, amount, description="", recorded_by=""):
+    if tx_type not in {"income", "expense"}:
+        raise ValueError("Transaction type must be income or expense.")
+    amount = float(amount)
+    if amount <= 0:
+        raise ValueError("Amount must be positive.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO financial_transactions (transaction_date, type, category, amount, description, recorded_by)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (transaction_date, tx_type, category.strip(), amount, description.strip(), recorded_by))
+    tx_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    log_activity("Finance", "Transaction recorded", f"{tx_type} {category}", actor_name=recorded_by)
+    return tx_id
+
+
+def upsert_budget(category, allocated_amount, fiscal_period):
+    amount = float(allocated_amount)
+    if amount <= 0:
+        raise ValueError("Budget amount must be positive.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO budgets (category, allocated_amount, fiscal_period)
+        VALUES (?, ?, ?)
+        ON CONFLICT(category, fiscal_period) DO UPDATE SET allocated_amount = excluded.allocated_amount
+    """, (category.strip(), amount, fiscal_period.strip()))
+    conn.commit()
+    conn.close()
+
+
+def financial_report():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT type, COALESCE(SUM(amount), 0) AS total
+        FROM financial_transactions
+        GROUP BY type
+    """)
+    totals = {row["type"]: row["total"] for row in cursor.fetchall()}
+    cursor.execute("""
+        SELECT strftime('%Y-%m', transaction_date) AS label,
+               SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS income,
+               SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS expense
+        FROM financial_transactions
+        GROUP BY strftime('%Y-%m', transaction_date)
+        ORDER BY label
+    """)
+    monthly = [row_to_dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+        SELECT category AS label, SUM(amount) AS count
+        FROM financial_transactions
+        WHERE type = 'expense'
+        GROUP BY category
+        ORDER BY count DESC
+    """)
+    categories = [row_to_dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+        SELECT b.category, b.fiscal_period, b.allocated_amount,
+               COALESCE(SUM(t.amount), 0) AS spent
+        FROM budgets b
+        LEFT JOIN financial_transactions t
+          ON lower(t.category) = lower(b.category)
+         AND t.type = 'expense'
+         AND strftime('%Y', t.transaction_date) = b.fiscal_period
+        GROUP BY b.id
+        ORDER BY b.category
+    """)
+    budgets = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return {
+        "total_income": totals.get("income", 0),
+        "total_expense": totals.get("expense", 0),
+        "net_balance": totals.get("income", 0) - totals.get("expense", 0),
+        "monthly": monthly,
+        "categories": categories,
+        "budgets": budgets,
+    }
+
+
+def activity_summary(period="monthly"):
+    modifier = {"daily": "-1 day", "weekly": "-7 days", "monthly": "-30 days"}.get(period, "-30 days")
+    conn = get_connection()
+    cursor = conn.cursor()
+    stats = {
+        "meetings": count_rows(cursor, "meetings", f"created_at >= datetime('now', '{modifier}')"),
+        "votes": count_rows(cursor, "voting_events", f"created_at >= datetime('now', '{modifier}')"),
+        "documents": count_rows(cursor, "uploads", f"created_at >= datetime('now', '{modifier}')"),
+        "transactions": count_rows(cursor, "financial_transactions", f"created_at >= datetime('now', '{modifier}')"),
+    }
+    cursor.execute("""
+        SELECT module, action, detail, actor_name, created_at
+        FROM activity_log
+        ORDER BY created_at DESC
+        LIMIT 25
+    """)
+    feed = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return {"period": period, "stats": stats, "feed": feed}
+
+
+def create_bug_report(title, severity, steps, expected, actual, reporter=""):
+    if severity not in {"Critical", "High", "Medium", "Low"}:
+        raise ValueError("Choose a valid severity.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO bug_reports (title, severity, steps, expected, actual, reporter)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (title.strip(), severity, steps.strip(), expected.strip(), actual.strip(), reporter))
+    bug_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return bug_id
+
+
+def list_bug_reports():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM bug_reports ORDER BY created_at DESC")
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def update_bug_status(bug_id, status, notes=""):
+    if status not in {"Open", "In Progress", "Fixed", "Verified"}:
+        raise ValueError("Choose a valid bug status.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE bug_reports
+        SET status = ?, resolution_notes = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """, (status, notes.strip(), bug_id))
+    conn.commit()
+    conn.close()
