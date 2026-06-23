@@ -1,24 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Import Files — Pexel</title>
-  <style>
-    /* Minimal styles to match dashboard feel */
-    body { font-family: Inter, Arial, sans-serif; background:#05070d; color:#f3f5ff; }
-    .wrap { max-width:880px; margin:28px auto; padding:20px; background:rgba(15,20,32,0.9); border:1px solid rgba(124,58,237,0.12); border-radius:8px; }
-    h1 { font-family:Orbitron, sans-serif; }
-    .muted { color:#8293c4; }
-    .form-row { margin-top:12px; }
-    input[type=file], select { background:#0f1622; color:#fff; padding:10px; border:1px solid rgba(129,72,255,.25); border-radius:6px; }
-    .button { margin-top:12px; padding:10px 14px; border-radius:6px; background:linear-gradient(135deg,#7d39ff,#8d45ff); border:none; color:white; font-weight:800; cursor:pointer; }
-    .notice { margin-top:10px; padding:10px; border-radius:6px; }
-    .notice.error { background:#3b1e1e; color:#ffb4b4; border:1px solid #6b2b2b; }
-    .notice.success { background:#16321f; color:#b7ffcf; border:1px solid #264b33; }
-    .file-list { margin-top:18px; }
-    .file-item { padding:8px; border-bottom:1px solid rgba(129,72,255,0.06); display:flex; justify-content:space-between; }
-  
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pexel Help</title><style>@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),radial-gradient(circle at 25% 12%,rgba(124,58,237,.18),transparent 28%),#05070d;background-size:42px 42px;color:#f3f5ff;font-family:Inter,Arial}.topbar{min-height:70px;padding:18px 28px;border-bottom:1px solid rgba(129,72,255,.22);background:rgba(5,7,13,.86);display:flex;justify-content:space-between}.topbar h1,h2{font-family:Orbitron}.content{width:min(960px,100%);margin:0 auto;padding:28px;display:grid;gap:18px}.panel{border:1px solid rgba(129,72,255,.28);border-radius:8px;background:rgba(15,20,32,.9);padding:22px}.panel p,.panel li{color:#b7c3e4;line-height:1.6;margin-top:8px}.panel ul{padding-left:20px}.button{min-height:40px;border-radius:7px;padding:10px 14px;border:1px solid rgba(129,72,255,.35);background:#1a1f2d;color:white;text-decoration:none;font-weight:900}
     /* Pexel shared register theme */
     :root {
       --pexel-page-bg:
@@ -146,45 +127,4 @@
     }
   
   
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>Import Files</h1>
-    <p class="muted">Upload documents here. Admin uploads are automatically approved; member uploads require approval. Supported: .pdf, .docx, .doc, .txt, .png, .jpg</p>
-
-    {% if error %}
-      <div class="notice error">{{ error }}</div>
-    {% endif %}
-    {% if success %}
-      <div class="notice success">{{ success }}</div>
-    {% endif %}
-
-    <form action="{{ url_for('import_files') }}" method="post" enctype="multipart/form-data">
-      <div class="form-row">
-        <input type="file" name="files" multiple />
-      </div>
-      <div class="form-row">
-        <label for="documentCategory">Category</label>
-        <select id="documentCategory" name="category">
-          {% for category in categories %}
-            <option value="{{ category }}">{{ category }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-row">
-        <button class="button" type="submit">Upload</button>
-        <a class="button" href="{{ url_for('list_files') }}" style="background:#1a1f2d; margin-left:12px; text-decoration:none;">View Documents</a>
-        {% if session.get('admin_username') %}
-          <a class="button" href="{{ url_for('admin_document_categories') }}" style="background:#1a1f2d; margin-left:12px; text-decoration:none;">Manage Categories</a>
-        {% endif %}
-      </div>
-    </form>
-
-    <div class="file-list">
-      <h3>Notes</h3>
-      <p class="muted">Files uploaded by admins are automatically approved and will be visible to members on the Documents page.</p>
-    </div>
-  </div>
-</body>
-</html>
+</style></head><body><header class="topbar"><h1>User Guide</h1><a class="button" href="{{ url_for('dashboard') }}">Dashboard</a></header><main class="content"><section class="panel"><h2>Core Workflows</h2><ul><li>Register, verify email, sign in, and maintain your member profile from Profile.</li><li>Upload approved documents from Documents and search by title or category.</li><li>Open Voting to cast one secure vote per active event when your membership is eligible.</li><li>Open Meetings to view upcoming meeting cards, agendas, locations, and minutes.</li><li>Use Bugs to report defects with severity, reproduction steps, expected behavior, and actual behavior.</li></ul></section><section class="panel"><h2>Admin Workflows</h2><ul><li>Create voting events with candidates, date validation, and eligibility rules.</li><li>Import WhatsApp .txt exports, then review daily activity, top participants, peak hours, and message type ratios.</li><li>Schedule meetings, record attendance, save minutes, and export attendance CSV reports.</li><li>Record income and expenses, create budgets, monitor threshold alerts, and export financial CSV reports.</li><li>Use Activity Summary to review meetings, votes, documents, transactions, and the cross-module timeline.</li></ul></section><section class="panel"><h2>Testing Plan</h2><p>System testing covers happy paths, validation failures, access restrictions, duplicate prevention, malformed imports, empty reports, export generation, and regression checks after bug fixes. Each module has focused unit tests for creation, verification, analysis, report generation, and status workflows.</p></section></main></body></html>

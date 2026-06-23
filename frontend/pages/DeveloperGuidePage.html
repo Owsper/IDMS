@@ -1,24 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Import Files — Pexel</title>
-  <style>
-    /* Minimal styles to match dashboard feel */
-    body { font-family: Inter, Arial, sans-serif; background:#05070d; color:#f3f5ff; }
-    .wrap { max-width:880px; margin:28px auto; padding:20px; background:rgba(15,20,32,0.9); border:1px solid rgba(124,58,237,0.12); border-radius:8px; }
-    h1 { font-family:Orbitron, sans-serif; }
-    .muted { color:#8293c4; }
-    .form-row { margin-top:12px; }
-    input[type=file], select { background:#0f1622; color:#fff; padding:10px; border:1px solid rgba(129,72,255,.25); border-radius:6px; }
-    .button { margin-top:12px; padding:10px 14px; border-radius:6px; background:linear-gradient(135deg,#7d39ff,#8d45ff); border:none; color:white; font-weight:800; cursor:pointer; }
-    .notice { margin-top:10px; padding:10px; border-radius:6px; }
-    .notice.error { background:#3b1e1e; color:#ffb4b4; border:1px solid #6b2b2b; }
-    .notice.success { background:#16321f; color:#b7ffcf; border:1px solid #264b33; }
-    .file-list { margin-top:18px; }
-    .file-item { padding:8px; border-bottom:1px solid rgba(129,72,255,0.06); display:flex; justify-content:space-between; }
-  
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pexel Developer Guide</title><style>@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),radial-gradient(circle at 25% 12%,rgba(124,58,237,.18),transparent 28%),#05070d;background-size:42px 42px;color:#f3f5ff;font-family:Inter,Arial}.topbar{min-height:70px;padding:18px 28px;border-bottom:1px solid rgba(129,72,255,.22);background:rgba(5,7,13,.86);display:flex;justify-content:space-between}.topbar h1,h2{font-family:Orbitron}.content{width:min(1040px,100%);margin:0 auto;padding:28px;display:grid;gap:18px}.panel{border:1px solid rgba(129,72,255,.28);border-radius:8px;background:rgba(15,20,32,.9);padding:22px}.panel p,.panel li{color:#b7c3e4;line-height:1.6;margin-top:8px}.panel ul{padding-left:20px}.code{white-space:pre-wrap;background:#0b1020;border:1px solid rgba(129,72,255,.22);border-radius:8px;padding:14px;color:#dbeafe;margin-top:12px}.button{min-height:40px;border-radius:7px;padding:10px 14px;border:1px solid rgba(129,72,255,.35);background:#1a1f2d;color:white;text-decoration:none;font-weight:900}
     /* Pexel shared register theme */
     :root {
       --pexel-page-bg:
@@ -146,45 +127,13 @@
     }
   
   
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>Import Files</h1>
-    <p class="muted">Upload documents here. Admin uploads are automatically approved; member uploads require approval. Supported: .pdf, .docx, .doc, .txt, .png, .jpg</p>
-
-    {% if error %}
-      <div class="notice error">{{ error }}</div>
-    {% endif %}
-    {% if success %}
-      <div class="notice success">{{ success }}</div>
-    {% endif %}
-
-    <form action="{{ url_for('import_files') }}" method="post" enctype="multipart/form-data">
-      <div class="form-row">
-        <input type="file" name="files" multiple />
-      </div>
-      <div class="form-row">
-        <label for="documentCategory">Category</label>
-        <select id="documentCategory" name="category">
-          {% for category in categories %}
-            <option value="{{ category }}">{{ category }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-row">
-        <button class="button" type="submit">Upload</button>
-        <a class="button" href="{{ url_for('list_files') }}" style="background:#1a1f2d; margin-left:12px; text-decoration:none;">View Documents</a>
-        {% if session.get('admin_username') %}
-          <a class="button" href="{{ url_for('admin_document_categories') }}" style="background:#1a1f2d; margin-left:12px; text-decoration:none;">Manage Categories</a>
-        {% endif %}
-      </div>
-    </form>
-
-    <div class="file-list">
-      <h3>Notes</h3>
-      <p class="muted">Files uploaded by admins are automatically approved and will be visible to members on the Documents page.</p>
-    </div>
-  </div>
-</body>
-</html>
+</style></head><body><header class="topbar"><h1>Developer Guide</h1><a class="button" href="{{ url_for('dashboard') }}">Dashboard</a></header><main class="content"><section class="panel"><h2>Architecture</h2><p>The IDMS uses Flask in <strong>main.py</strong>, SQLite accessors in <strong>database.py</strong>, static Jinja HTML pages in <strong>frontend/pages</strong>, and unittest-based regression tests at repository root. Data flow is browser form or JSON request to Flask route, database helper validation, SQLite write/read, then HTML or JSON response.</p></section><section class="panel"><h2>Database Schema</h2><div class="code">users_data -> votes, meeting_attendance, uploads
+voting_events -> voting_options -> votes
+voting_events -> eligibility_audit
+whatsapp_messages -> analytics queries
+meetings -> meeting_attendance, meeting_minutes
+financial_transactions -> financial_report
+budgets -> budget monitoring
+notifications -> delivery/history log
+activity_log -> admin activity summary
+bug_reports -> bug workflow</div></section><section class="panel"><h2>Primary Endpoints</h2><ul><li>POST /api/voting/events, POST /api/voting/votes, GET /api/voting/events/&lt;id&gt;/results, GET /api/voting/events/&lt;id&gt;/results.csv</li><li>POST /api/whatsapp/import, GET /api/whatsapp/analytics</li><li>GET/POST /meetings, GET/POST /api/meetings, GET /api/meetings/attendance.csv</li><li>GET/POST /financial, GET /api/financial/report, GET /api/financial/report.csv</li><li>GET /api/admin/activity-summary, GET/POST /bugs, GET/POST /notifications</li></ul></section><section class="panel"><h2>Security Notes</h2><p>Admin-only routes use the existing <strong>admin_required</strong> decorator. Voting uses a unique event/member constraint to prevent duplicates and stores a bcrypt hash instead of plain ballot values. File import endpoints validate file type and parse only expected text formats.</p></section></main></body></html>
