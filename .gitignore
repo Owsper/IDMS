@@ -1,4 +1,7 @@
 /*__pycache__
+.env
+.env.*
+!.env.example
 main_db.db
 /*.venv
 .gitignore
