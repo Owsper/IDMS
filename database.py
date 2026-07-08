@@ -65,6 +65,7 @@ def init_db():
     add_column_if_missing(cursor, "users_data", "updated_at", "DATETIME")
     add_column_if_missing(cursor, "users_data", "last_login_at", "DATETIME")
     add_column_if_missing(cursor, "users_data", "is_verified", "BOOLEAN DEFAULT 0")
+    add_column_if_missing(cursor, "users_data", "notification_opt_in", "INTEGER DEFAULT 1")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS document_categories (
@@ -370,6 +371,12 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    add_column_if_missing(cursor, "notifications", "template_key", "TEXT DEFAULT ''")
+    add_column_if_missing(cursor, "notifications", "metadata", "TEXT DEFAULT '{}'")
+    add_column_if_missing(cursor, "notifications", "error_message", "TEXT DEFAULT ''")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status, scheduled_for)")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS meetings (
@@ -1377,17 +1384,139 @@ def log_activity(module, action, detail="", actor_id=None, actor_name=""):
     return activity_id
 
 
-def create_notification(category, title, body, recipient_id=None, channel="in-app", scheduled_for=None):
+NOTIFICATION_TEMPLATES = {
+    "voting_opened": {
+        "category": "event",
+        "title": "Voting opened: {title}",
+        "body": "{title} is open until {end_at}.",
+    },
+    "meeting_scheduled": {
+        "category": "meeting",
+        "title": "Meeting scheduled: {title}",
+        "body": "{title} is scheduled for {meeting_at} at {location}.",
+    },
+    "manual_event_reminder": {
+        "category": "event",
+        "title": "{title}",
+        "body": "{body}",
+    },
+}
+
+
+def render_notification_template(template_key, context=None):
+    context = context or {}
+    template = NOTIFICATION_TEMPLATES.get(template_key)
+    if not template:
+        raise ValueError("Notification template not found.")
+    try:
+        return {
+            "category": template["category"],
+            "title": template["title"].format(**context),
+            "body": template["body"].format(**context),
+        }
+    except KeyError as exc:
+        raise ValueError(f"Missing notification template value: {exc.args[0]}") from exc
+
+
+def notification_recipients(recipient_ids=None, verified_only=True):
+    conn = get_connection()
+    cursor = conn.cursor()
+    clauses = ["notification_opt_in = 1"]
+    params = []
+    if verified_only:
+        clauses.append("is_verified = 1")
+    if recipient_ids:
+        placeholders = ", ".join(["?"] * len(recipient_ids))
+        clauses.append(f"id IN ({placeholders})")
+        params.extend(recipient_ids)
+    cursor.execute(
+        f"SELECT id, username, email FROM users_data WHERE {' AND '.join(clauses)} ORDER BY id",
+        params,
+    )
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def create_notification(category, title, body, recipient_id=None, channel="in-app", scheduled_for=None, template_key="", metadata=None):
+    category = (category or "event").strip().lower()
+    title = (title or "").strip()
+    body = (body or "").strip()
+    channel = (channel or "in-app").strip().lower()
+    if category not in {"event", "meeting", "document", "budget", "voting"}:
+        raise ValueError("Choose a valid notification category.")
+    if channel not in {"in-app", "email"}:
+        raise ValueError("Choose a valid notification channel.")
+    if not title or not body:
+        raise ValueError("Notification title and body are required.")
+    status = "scheduled" if scheduled_for else "sent"
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO notifications (category, title, body, recipient_id, channel, scheduled_for)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (category, title, body, recipient_id, channel, scheduled_for))
+        INSERT INTO notifications (
+            category, title, body, recipient_id, channel, status,
+            scheduled_for, sent_at, template_key, metadata
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, CASE WHEN ? IS NULL THEN CURRENT_TIMESTAMP ELSE NULL END, ?, ?)
+    """, (
+        category,
+        title,
+        body,
+        recipient_id,
+        channel,
+        status,
+        scheduled_for,
+        scheduled_for,
+        template_key,
+        json.dumps(metadata or {}),
+    ))
     notification_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return notification_id
+
+
+def send_notification(template_key, context=None, recipient_ids=None, channel="in-app", scheduled_for=None, verified_only=True):
+    rendered = render_notification_template(template_key, context)
+    recipients = notification_recipients(recipient_ids, verified_only=verified_only)
+    notification_ids = []
+    for recipient in recipients:
+        notification_ids.append(create_notification(
+            rendered["category"],
+            rendered["title"],
+            rendered["body"],
+            recipient_id=recipient["id"],
+            channel=channel,
+            scheduled_for=scheduled_for,
+            template_key=template_key,
+            metadata=context or {},
+        ))
+    return {"count": len(notification_ids), "notification_ids": notification_ids}
+
+
+def list_notifications(limit=100, recipient_id=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    clauses = []
+    params = []
+    if recipient_id is not None:
+        clauses.append("(recipient_id = ? OR recipient_id IS NULL)")
+        params.append(recipient_id)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    cursor.execute(f"""
+        SELECT *
+        FROM notifications
+        {where}
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?
+    """, params + [limit])
+    rows = []
+    for row in cursor.fetchall():
+        item = row_to_dict(row)
+        item["metadata"] = json.loads(item.get("metadata") or "{}")
+        rows.append(item)
+    conn.close()
+    return rows
 
 
 def _json_list(value):
@@ -1485,7 +1614,11 @@ def create_voting_event(title, description, option_labels, start_at, end_at, cre
     conn.commit()
     conn.close()
     log_activity("Voting", "Event created", title, actor_name=created_by)
-    create_notification("voting", f"Voting opened: {title}", "A voting event has been scheduled.")
+    send_notification(
+        "voting_opened",
+        {"title": title, "end_at": end_at.isoformat(timespec="seconds")},
+        verified_only=eligibility["membership_status"] == "verified",
+    )
     return event_id
 
 
@@ -1876,7 +2009,15 @@ def create_meeting(title, description, meeting_at, location, agenda, invitees, c
     conn.commit()
     conn.close()
     log_activity("Meetings", "Meeting scheduled", title, actor_name=created_by)
-    create_notification("meeting", f"Meeting scheduled: {title}", agenda or "A meeting has been scheduled.", scheduled_for=meeting_at.isoformat(timespec="seconds"))
+    send_notification(
+        "meeting_scheduled",
+        {
+            "title": title,
+            "meeting_at": meeting_at.isoformat(timespec="seconds"),
+            "location": location or "TBD",
+        },
+        scheduled_for=meeting_at.isoformat(timespec="seconds"),
+    )
     return meeting_id
 
 

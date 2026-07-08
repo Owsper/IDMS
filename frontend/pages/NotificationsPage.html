@@ -171,10 +171,11 @@
     <main>
       <header class="topbar"><h1>Smart Notifications</h1></header>
       <section class="content">
+        {% if success %}<div class="panel"><p class="muted">{{ success }}</p></div>{% endif %}
+        {% if error %}<div class="panel"><p class="muted">{{ error }}</p></div>{% endif %}
         {% if is_admin %}
         <form class="panel" method="POST">
-          <h2 class="section-title">Send Notification</h2>
-          <select name="category"><option>event</option><option>meeting</option><option>document</option><option>budget</option></select>
+          <h2 class="section-title">Send Event Reminder</h2>
           <input class="input" name="title" placeholder="Title" required>
           <textarea name="body" placeholder="Message body" required></textarea>
           <select name="channel"><option>in-app</option><option>email</option></select>
@@ -188,7 +189,7 @@
             <span class="pill">{{ item.category }}</span>
             <h2 class="section-title">{{ item.title }}</h2>
             <p class="muted">{{ item.body }}</p>
-            <p class="muted">{{ item.status }} · {{ item.channel }} · {{ item.created_at }}</p>
+            <p class="muted">{{ item.status }} | {{ item.channel }} | {{ item.created_at }}{% if item.scheduled_for %} | Scheduled {{ item.scheduled_for }}{% endif %}</p>
           </article>
           {% else %}
           <div class="panel"><h2 class="section-title">No Notifications</h2><p class="muted">Event, meeting, document, and budget alerts will appear here.</p></div>

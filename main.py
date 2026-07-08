@@ -2020,20 +2020,35 @@ def api_whatsapp_analytics():
 @app.route("/notifications", methods=["GET", "POST"])
 @login_required
 def notifications_page():
+    error = None
+    success = None
     if request.method == "POST":
         if not session.get("admin_username"):
             abort(403)
-        database.create_notification(
-            request.form.get("category", "general"),
-            request.form.get("title", ""),
-            request.form.get("body", ""),
-            channel=request.form.get("channel", "in-app"),
-            scheduled_for=request.form.get("scheduled_for") or None,
-        )
-    conn = get_connection()
-    rows = [dict(row) for row in conn.execute("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 100").fetchall()]
-    conn.close()
-    return render_template("NotificationsPage.html", user=current_user(), notifications=rows, is_admin=bool(session.get("admin_username")))
+        try:
+            result = database.send_notification(
+                "manual_event_reminder",
+                {
+                    "title": request.form.get("title", ""),
+                    "body": request.form.get("body", ""),
+                },
+                channel=request.form.get("channel", "in-app"),
+                scheduled_for=request.form.get("scheduled_for") or None,
+                verified_only=False,
+            )
+            success = f"Notification queued for {result['count']} member(s)."
+        except ValueError as exc:
+            error = str(exc)
+    recipient_id = None if session.get("admin_username") else session.get("user_id")
+    rows = database.list_notifications(limit=100, recipient_id=recipient_id)
+    return render_template("NotificationsPage.html", user=current_user(), notifications=rows, is_admin=bool(session.get("admin_username")), error=error, success=success)
+
+
+@app.route("/api/notifications")
+@login_required
+def api_notifications():
+    recipient_id = None if session.get("admin_username") else session.get("user_id")
+    return jsonify({"notifications": database.list_notifications(limit=100, recipient_id=recipient_id)})
 
 
 @app.route("/meetings", methods=["GET", "POST"])
