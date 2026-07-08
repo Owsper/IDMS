@@ -2392,14 +2392,41 @@ def bugs_page():
     if request.method == "POST":
         try:
             if request.form.get("action") == "create":
-                database.create_bug_report(request.form.get("title", ""), request.form.get("severity", "Medium"), request.form.get("steps", ""), request.form.get("expected", ""), request.form.get("actual", ""), current_actor_name())
+                database.create_bug_report(
+                    request.form.get("title", ""),
+                    request.form.get("severity", "Medium"),
+                    request.form.get("steps", ""),
+                    request.form.get("expected", ""),
+                    request.form.get("actual", ""),
+                    current_actor_name(),
+                    priority=request.form.get("priority") or request.form.get("severity", "Medium"),
+                    module=request.form.get("module", "General"),
+                    environment=request.form.get("environment", ""),
+                    build_version=request.form.get("build_version", ""),
+                    reproducibility=request.form.get("reproducibility", "Unknown"),
+                    assigned_to=request.form.get("assigned_to", ""),
+                )
             elif request.form.get("action") == "status":
                 if not session.get("admin_username"):
                     abort(403)
-                database.update_bug_status(int(request.form.get("bug_id")), request.form.get("status", "Open"), request.form.get("resolution_notes", ""))
+                database.update_bug_status(
+                    int(request.form.get("bug_id")),
+                    request.form.get("status", "Open"),
+                    request.form.get("resolution_notes", ""),
+                    assigned_to=request.form.get("assigned_to", ""),
+                    verified_by=current_actor_name(),
+                    fix_notes=request.form.get("fix_notes", ""),
+                )
         except ValueError as exc:
             error = str(exc)
-    return render_template("BugTrackerPage.html", user=current_user(), bugs=database.list_bug_reports(), is_admin=bool(session.get("admin_username")), error=error)
+    return render_template(
+        "BugTrackerPage.html",
+        user=current_user(),
+        bugs=database.list_bug_reports(),
+        summary=database.bug_tracker_summary(),
+        is_admin=bool(session.get("admin_username")),
+        error=error,
+    )
 
 
 @app.route("/help")

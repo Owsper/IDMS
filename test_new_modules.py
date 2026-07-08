@@ -100,7 +100,7 @@ class NewModulesTest(unittest.TestCase):
         self.assertEqual(report["budgets"][0]["spent"], 100)
 
         bug_id = database.create_bug_report("Broken export", "High", "Click export", "CSV", "Error", "member")
-        database.update_bug_status(bug_id, "Verified", "Regression passed")
+        database.update_bug_status(bug_id, "Verified", "Regression passed", verified_by="jira")
         self.assertEqual(database.list_bug_reports()[0]["status"], "Verified")
 
 

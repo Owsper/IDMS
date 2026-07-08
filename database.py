@@ -506,6 +506,16 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    add_column_if_missing(cursor, "bug_reports", "priority", "TEXT NOT NULL DEFAULT 'Medium'")
+    add_column_if_missing(cursor, "bug_reports", "module", "TEXT NOT NULL DEFAULT 'General'")
+    add_column_if_missing(cursor, "bug_reports", "environment", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "bug_reports", "build_version", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "bug_reports", "reproducibility", "TEXT NOT NULL DEFAULT 'Unknown'")
+    add_column_if_missing(cursor, "bug_reports", "assigned_to", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "bug_reports", "fix_notes", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "bug_reports", "verified_by", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "bug_reports", "verified_at", "DATETIME")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bug_reports_status_priority ON bug_reports(status, priority)")
 
     conn.commit()
     conn.close()
@@ -2828,39 +2838,156 @@ def activity_summary(period="monthly"):
     }
 
 
-def create_bug_report(title, severity, steps, expected, actual, reporter=""):
-    if severity not in {"Critical", "High", "Medium", "Low"}:
+BUG_SEVERITIES = {"Critical", "High", "Medium", "Low"}
+BUG_PRIORITIES = {"Critical", "High", "Medium", "Low"}
+BUG_STATUSES = {"Open", "In Progress", "Fixed", "Verified"}
+BUG_REPRODUCIBILITY = {"Always", "Sometimes", "Rarely", "Unknown"}
+
+
+def create_bug_report(
+    title,
+    severity,
+    steps,
+    expected,
+    actual,
+    reporter="",
+    priority=None,
+    module="General",
+    environment="",
+    build_version="",
+    reproducibility="Unknown",
+    assigned_to="",
+):
+    title = (title or "").strip()
+    steps = (steps or "").strip()
+    expected = (expected or "").strip()
+    actual = (actual or "").strip()
+    severity = (severity or "Medium").strip()
+    priority = (priority or severity).strip()
+    reproducibility = (reproducibility or "Unknown").strip()
+    if severity not in BUG_SEVERITIES:
         raise ValueError("Choose a valid severity.")
+    if priority not in BUG_PRIORITIES:
+        raise ValueError("Choose a valid priority.")
+    if reproducibility not in BUG_REPRODUCIBILITY:
+        raise ValueError("Choose a valid reproducibility.")
+    if not title or not steps or not expected or not actual:
+        raise ValueError("Title, steps, expected behavior, and actual behavior are required.")
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO bug_reports (title, severity, steps, expected, actual, reporter)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (title.strip(), severity, steps.strip(), expected.strip(), actual.strip(), reporter))
+        INSERT INTO bug_reports (
+            title, severity, priority, module, environment, build_version,
+            reproducibility, steps, expected, actual, reporter, assigned_to
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        title,
+        severity,
+        priority,
+        (module or "General").strip() or "General",
+        (environment or "").strip(),
+        (build_version or "").strip(),
+        reproducibility,
+        steps,
+        expected,
+        actual,
+        (reporter or "").strip(),
+        (assigned_to or "").strip(),
+    ))
     bug_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return bug_id
 
 
-def list_bug_reports():
+def bug_tracker_summary():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM bug_reports ORDER BY created_at DESC")
+    cursor.execute("SELECT status, COUNT(*) AS count FROM bug_reports GROUP BY status")
+    by_status = {row["status"]: row["count"] for row in cursor.fetchall()}
+    cursor.execute("SELECT priority, COUNT(*) AS count FROM bug_reports GROUP BY priority")
+    by_priority = {row["priority"]: row["count"] for row in cursor.fetchall()}
+    cursor.execute("SELECT COUNT(*) AS count FROM bug_reports")
+    total = cursor.fetchone()["count"]
+    conn.close()
+    return {
+        "total": total,
+        "open": by_status.get("Open", 0),
+        "in_progress": by_status.get("In Progress", 0),
+        "fixed": by_status.get("Fixed", 0),
+        "verified": by_status.get("Verified", 0),
+        "critical_priority": by_priority.get("Critical", 0),
+        "high_priority": by_priority.get("High", 0),
+    }
+
+
+def list_bug_reports(status=None, priority=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    clauses = []
+    params = []
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if priority:
+        clauses.append("priority = ?")
+        params.append(priority)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    cursor.execute(f"""
+        SELECT *
+        FROM bug_reports
+        {where}
+        ORDER BY
+            CASE priority
+                WHEN 'Critical' THEN 1
+                WHEN 'High' THEN 2
+                WHEN 'Medium' THEN 3
+                ELSE 4
+            END,
+            updated_at DESC,
+            created_at DESC
+    """, params)
     rows = [row_to_dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
 
 
-def update_bug_status(bug_id, status, notes=""):
-    if status not in {"Open", "In Progress", "Fixed", "Verified"}:
+def update_bug_status(bug_id, status, notes="", assigned_to="", verified_by="", fix_notes=""):
+    if status not in BUG_STATUSES:
         raise ValueError("Choose a valid bug status.")
+    notes = (notes or "").strip()
+    fix_notes = (fix_notes or notes).strip() if status == "Fixed" else (fix_notes or "").strip()
+    if status == "Fixed" and not (fix_notes or notes):
+        raise ValueError("Fix notes are required before marking a bug fixed.")
+    if status == "Verified" and not notes:
+        raise ValueError("Verification notes are required before marking a bug verified.")
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT * FROM bug_reports WHERE id = ?", (bug_id,))
+    bug = cursor.fetchone()
+    if not bug:
+        conn.close()
+        raise ValueError("Bug report not found.")
     cursor.execute("""
         UPDATE bug_reports
-        SET status = ?, resolution_notes = ?, updated_at = CURRENT_TIMESTAMP
+        SET status = ?,
+            resolution_notes = ?,
+            assigned_to = COALESCE(NULLIF(?, ''), assigned_to),
+            fix_notes = COALESCE(NULLIF(?, ''), fix_notes),
+            verified_by = CASE WHEN ? = 'Verified' THEN ? ELSE verified_by END,
+            verified_at = CASE WHEN ? = 'Verified' THEN CURRENT_TIMESTAMP ELSE verified_at END,
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-    """, (status, notes.strip(), bug_id))
+    """, (
+        status,
+        notes,
+        (assigned_to or "").strip(),
+        fix_notes,
+        status,
+        (verified_by or "").strip(),
+        status,
+        bug_id,
+    ))
     conn.commit()
     conn.close()
