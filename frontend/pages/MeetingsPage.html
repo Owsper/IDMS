@@ -179,7 +179,7 @@
   <script>
     const attendance = {{ attendance|tojson }};
     if (window.Chart && document.getElementById("attendanceChart")) {
-      new Chart(document.getElementById("attendanceChart"), {type:"bar",data:{labels:attendance.map(x=>x.label),datasets:[{label:"Present",data:attendance.map(x=>x.present),backgroundColor:"#7d39ff"},{label:"Total",data:attendance.map(x=>x.total),backgroundColor:"#06b6d4"}]},options:{scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+      new Chart(document.getElementById("attendanceChart"), {type:"bar",data:{labels:attendance.map(x=>x.label),datasets:[{label:"Present",data:attendance.map(x=>x.present),backgroundColor:"#10b981"},{label:"Absent",data:attendance.map(x=>x.absent),backgroundColor:"#ef4444"},{label:"Excused",data:attendance.map(x=>x.excused),backgroundColor:"#f59e0b"}]},options:{scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
     }
   </script>
   {% endif %}

@@ -402,10 +402,14 @@ def init_db():
             meeting_id INTEGER NOT NULL,
             member_id INTEGER NOT NULL,
             status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'excused')),
+            recorded_by TEXT NOT NULL DEFAULT '',
             recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(meeting_id, member_id)
         )
     """)
+    add_column_if_missing(cursor, "meeting_attendance", "recorded_by", "TEXT NOT NULL DEFAULT ''")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_attendance_meeting ON meeting_attendance(meeting_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_attendance_member ON meeting_attendance(member_id)")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS meeting_minutes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2141,7 +2145,7 @@ def list_meetings(start=None, end=None, meeting_type="", query="", upcoming_only
     return meetings
 
 
-def record_attendance(meeting_id, member_id, status):
+def record_attendance(meeting_id, member_id, status, recorded_by=""):
     if status not in {"present", "absent", "excused"}:
         raise ValueError("Attendance status must be present, absent, or excused.")
     conn = get_connection()
@@ -2155,15 +2159,16 @@ def record_attendance(meeting_id, member_id, status):
         conn.close()
         raise ValueError("Member not found.")
     cursor.execute("""
-        INSERT INTO meeting_attendance (meeting_id, member_id, status)
-        VALUES (?, ?, ?)
+        INSERT INTO meeting_attendance (meeting_id, member_id, status, recorded_by)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT(meeting_id, member_id) DO UPDATE SET
             status = excluded.status,
+            recorded_by = excluded.recorded_by,
             recorded_at = CURRENT_TIMESTAMP
-    """, (meeting_id, member_id, status))
+    """, (meeting_id, member_id, status, recorded_by.strip()))
     conn.commit()
     conn.close()
-    log_activity("Meetings", "Attendance recorded", f"Meeting #{meeting_id}")
+    log_activity("Meetings", "Attendance recorded", f"Meeting #{meeting_id}", actor_name=recorded_by)
 
 
 def meeting_attendance_summary():
@@ -2172,6 +2177,8 @@ def meeting_attendance_summary():
     cursor.execute("""
         SELECT m.title AS label,
                SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present,
+               SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) AS absent,
+               SUM(CASE WHEN a.status = 'excused' THEN 1 ELSE 0 END) AS excused,
                COUNT(a.id) AS total
         FROM meetings m
         LEFT JOIN meeting_attendance a ON a.meeting_id = m.id
@@ -2179,6 +2186,44 @@ def meeting_attendance_summary():
         ORDER BY m.meeting_at DESC
         LIMIT 12
     """)
+    rows = []
+    for row in cursor.fetchall():
+        item = row_to_dict(row)
+        total = item["total"] or 0
+        item["present"] = item["present"] or 0
+        item["absent"] = item["absent"] or 0
+        item["excused"] = item["excused"] or 0
+        item["attendance_rate"] = round((item["present"] / total) * 100, 1) if total else 0
+        rows.append(item)
+    conn.close()
+    return rows
+
+
+def meeting_attendance_report(meeting_id=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    params = []
+    where = ""
+    if meeting_id is not None:
+        where = "WHERE a.meeting_id = ?"
+        params.append(meeting_id)
+    cursor.execute(f"""
+        SELECT a.id,
+               a.meeting_id,
+               m.title AS meeting,
+               m.meeting_at,
+               a.member_id,
+               COALESCE(u.full_name, u.username) AS member,
+               u.email,
+               a.status,
+               a.recorded_by,
+               a.recorded_at
+        FROM meeting_attendance a
+        JOIN meetings m ON m.id = a.meeting_id
+        JOIN users_data u ON u.id = a.member_id
+        {where}
+        ORDER BY m.meeting_at DESC, lower(COALESCE(u.full_name, u.username)), a.id
+    """, params)
     rows = [row_to_dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows

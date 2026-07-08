@@ -2090,7 +2090,12 @@ def meetings():
             elif action == "attendance":
                 if not session.get("admin_username"):
                     abort(403)
-                database.record_attendance(int(request.form.get("meeting_id")), int(request.form.get("member_id")), request.form.get("status", "present"))
+                database.record_attendance(
+                    int(request.form.get("meeting_id")),
+                    int(request.form.get("member_id")),
+                    request.form.get("status", "present"),
+                    current_actor_name(),
+                )
                 success = "Attendance recorded."
             elif action == "minutes":
                 if not session.get("admin_username"):
@@ -2165,7 +2170,26 @@ def api_meeting_create():
 @login_required
 @admin_required
 def api_meeting_attendance_csv():
-    return csv_download("attendance-report.csv", database.meeting_attendance_summary(), ["label", "present", "total"])
+    return csv_download(
+        "attendance-report.csv",
+        database.meeting_attendance_report(),
+        ["meeting", "meeting_at", "member", "email", "status", "recorded_by", "recorded_at"],
+    )
+
+
+@app.route("/api/meetings/attendance")
+@login_required
+@admin_required
+def api_meeting_attendance():
+    meeting_id = request.args.get("meeting_id")
+    try:
+        meeting_id = int(meeting_id) if meeting_id else None
+    except (TypeError, ValueError):
+        return json_response_error("Meeting id must be a number.")
+    return jsonify({
+        "summary": database.meeting_attendance_summary(),
+        "records": database.meeting_attendance_report(meeting_id=meeting_id),
+    })
 
 
 @app.route("/financial", methods=["GET", "POST"])
