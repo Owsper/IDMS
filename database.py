@@ -417,10 +417,21 @@ def init_db():
             title TEXT NOT NULL,
             content TEXT NOT NULL DEFAULT '',
             filename TEXT NOT NULL DEFAULT '',
+            original_filename TEXT NOT NULL DEFAULT '',
+            stored_filename TEXT NOT NULL DEFAULT '',
+            mime_type TEXT NOT NULL DEFAULT '',
+            size INTEGER NOT NULL DEFAULT 0,
+            sha256 TEXT NOT NULL DEFAULT '',
             uploaded_by TEXT NOT NULL DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    add_column_if_missing(cursor, "meeting_minutes", "original_filename", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "meeting_minutes", "stored_filename", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "meeting_minutes", "mime_type", "TEXT NOT NULL DEFAULT ''")
+    add_column_if_missing(cursor, "meeting_minutes", "size", "INTEGER NOT NULL DEFAULT 0")
+    add_column_if_missing(cursor, "meeting_minutes", "sha256", "TEXT NOT NULL DEFAULT ''")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_meeting_minutes_meeting ON meeting_minutes(meeting_id)")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS financial_transactions (
@@ -2229,13 +2240,26 @@ def meeting_attendance_report(meeting_id=None):
     return rows
 
 
-def add_meeting_minutes(meeting_id, title, content, filename="", uploaded_by=""):
+def add_meeting_minutes(
+    meeting_id,
+    title,
+    content,
+    filename="",
+    uploaded_by="",
+    original_filename="",
+    stored_filename="",
+    mime_type="",
+    size=0,
+    sha256="",
+):
     title = (title or "").strip()
     content = (content or "").strip()
+    original_filename = (original_filename or filename or "").strip()
+    stored_filename = (stored_filename or "").strip()
     if not title:
         raise ValueError("Minutes title is required.")
-    if not content:
-        raise ValueError("Minutes content is required.")
+    if not content and not stored_filename:
+        raise ValueError("Minutes content or document is required.")
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM meetings WHERE id = ?", (meeting_id,))
@@ -2243,12 +2267,63 @@ def add_meeting_minutes(meeting_id, title, content, filename="", uploaded_by="")
         conn.close()
         raise ValueError("Meeting not found.")
     cursor.execute("""
-        INSERT INTO meeting_minutes (meeting_id, title, content, filename, uploaded_by)
-        VALUES (?, ?, ?, ?, ?)
-    """, (meeting_id, title, content, filename, uploaded_by))
+        INSERT INTO meeting_minutes (
+            meeting_id, title, content, filename, original_filename,
+            stored_filename, mime_type, size, sha256, uploaded_by
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        meeting_id,
+        title,
+        content,
+        original_filename,
+        original_filename,
+        stored_filename,
+        mime_type,
+        int(size or 0),
+        sha256,
+        uploaded_by,
+    ))
+    minutes_id = cursor.lastrowid
     conn.commit()
     conn.close()
     log_activity("Meetings", "Minutes saved", title, actor_name=uploaded_by)
+    return minutes_id
+
+
+def list_meeting_minutes(meeting_id=None, limit=100):
+    conn = get_connection()
+    cursor = conn.cursor()
+    params = []
+    where = ""
+    if meeting_id is not None:
+        where = "WHERE mm.meeting_id = ?"
+        params.append(meeting_id)
+    cursor.execute(f"""
+        SELECT mm.*, m.title AS meeting_title, m.meeting_at
+        FROM meeting_minutes mm
+        JOIN meetings m ON m.id = mm.meeting_id
+        {where}
+        ORDER BY mm.created_at DESC, mm.id DESC
+        LIMIT ?
+    """, params + [max(1, min(int(limit), 500))])
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_meeting_minutes(minutes_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT mm.*, m.title AS meeting_title, m.meeting_at
+        FROM meeting_minutes mm
+        JOIN meetings m ON m.id = mm.meeting_id
+        WHERE mm.id = ?
+    """, (minutes_id,))
+    row = row_to_dict(cursor.fetchone())
+    conn.close()
+    return row
 
 
 def create_transaction(transaction_date, tx_type, category, amount, description="", recorded_by=""):

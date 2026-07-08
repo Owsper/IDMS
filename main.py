@@ -87,6 +87,7 @@ app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
 # Upload configuration
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 app.config["UPLOAD_FOLDER"] = os.path.join(os.getcwd(), "secure_uploads")
+app.config["MEETING_MINUTES_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "meeting_minutes")
 app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
 app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
 app.config["IMPORT_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "imports")
@@ -113,6 +114,7 @@ serializer = URLSafeTimedSerializer(app.secret_key)
 # Ensure upload directory exists
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["IMPORT_FOLDER"], exist_ok=True)
+os.makedirs(app.config["MEETING_MINUTES_FOLDER"], exist_ok=True)
 try:
     os.chmod(app.config["UPLOAD_FOLDER"], 0o700)
 except Exception:
@@ -226,6 +228,33 @@ def safe_target_table(table_name):
 
 def import_file_path(stored_filename):
     return os.path.join(app.config["IMPORT_FOLDER"], stored_filename)
+
+
+def save_meeting_minutes_upload(uploaded):
+    if not uploaded or not uploaded.filename:
+        return None
+    original_name = secure_filename(uploaded.filename)
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in app.config["ALLOWED_EXTENSIONS"]:
+        raise ValueError(f"Invalid file type: {ext}")
+    content = uploaded.read()
+    if len(content) > app.config["PER_FILE_MAX_SIZE"]:
+        raise ValueError(f"File too large: {original_name}")
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = os.path.join(app.config["MEETING_MINUTES_FOLDER"], stored_name)
+    with open(dest_path, "wb") as out:
+        out.write(content)
+    try:
+        os.chmod(dest_path, 0o600)
+    except Exception:
+        pass
+    return {
+        "original_filename": original_name,
+        "stored_filename": stored_name,
+        "mime_type": uploaded.mimetype or mimetypes.guess_type(original_name)[0] or "application/octet-stream",
+        "size": len(content),
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
 
 
 def parse_csv_file(path):
@@ -2100,9 +2129,16 @@ def meetings():
             elif action == "minutes":
                 if not session.get("admin_username"):
                     abort(403)
-                database.add_meeting_minutes(int(request.form.get("meeting_id")), request.form.get("title", ""), request.form.get("content", ""), uploaded_by=current_actor_name())
+                upload = save_meeting_minutes_upload(request.files.get("minutes_file"))
+                database.add_meeting_minutes(
+                    int(request.form.get("meeting_id")),
+                    request.form.get("title", ""),
+                    request.form.get("content", ""),
+                    uploaded_by=current_actor_name(),
+                    **(upload or {}),
+                )
                 success = "Minutes saved."
-        except (TypeError, ValueError) as exc:
+        except (OSError, TypeError, ValueError) as exc:
             error = str(exc)
     members = search_members(limit=100, offset=0)["members"] if session.get("admin_username") else []
     visible_meetings = database.list_meetings(
@@ -2119,6 +2155,7 @@ def meetings():
         calendar_days=meeting_calendar_days(visible_meetings),
         members=members,
         attendance=database.meeting_attendance_summary(),
+        minutes=database.list_meeting_minutes(limit=50),
         is_admin=bool(session.get("admin_username")),
         min_meeting_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M"),
         filters=filters,
@@ -2190,6 +2227,39 @@ def api_meeting_attendance():
         "summary": database.meeting_attendance_summary(),
         "records": database.meeting_attendance_report(meeting_id=meeting_id),
     })
+
+
+@app.route("/api/meetings/minutes")
+@login_required
+def api_meeting_minutes():
+    meeting_id = request.args.get("meeting_id")
+    try:
+        meeting_id = int(meeting_id) if meeting_id else None
+    except (TypeError, ValueError):
+        return json_response_error("Meeting id must be a number.")
+    return jsonify({"minutes": database.list_meeting_minutes(meeting_id=meeting_id, limit=100)})
+
+
+@app.route("/meetings/minutes/<int:minutes_id>/download")
+@login_required
+def download_meeting_minutes(minutes_id):
+    record = database.get_meeting_minutes(minutes_id)
+    if not record or not record.get("stored_filename"):
+        abort(404)
+    response = send_from_directory(
+        app.config["MEETING_MINUTES_FOLDER"],
+        record["stored_filename"],
+        as_attachment=True,
+        mimetype=record.get("mime_type") or None,
+        download_name=record.get("original_filename") or record["stored_filename"],
+        conditional=True,
+        etag=True,
+        max_age=app.config["DOCUMENT_DOWNLOAD_CACHE_SECONDS"],
+    )
+    response.cache_control.public = False
+    response.cache_control.private = True
+    response.vary.add("Cookie")
+    return response
 
 
 @app.route("/financial", methods=["GET", "POST"])
