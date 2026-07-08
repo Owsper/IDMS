@@ -2398,6 +2398,91 @@ def list_transactions(limit=50):
     return rows
 
 
+def financial_summary_items(report):
+    summaries = []
+    if report["transaction_count"] == 0:
+        return ["No financial transactions have been recorded yet."]
+
+    summaries.append(
+        f"Net balance is {report['net_balance']:.2f} from {report['total_income']:.2f} income and {report['total_expense']:.2f} expenses."
+    )
+    if report["expense_ratio"] > 100:
+        summaries.append("Expenses are currently higher than recorded income.")
+    elif report["expense_ratio"] >= 80:
+        summaries.append("Expenses are using at least 80% of recorded income.")
+    else:
+        summaries.append("Expenses are below 80% of recorded income.")
+
+    if report["top_expense_category"]:
+        top = report["top_expense_category"]
+        summaries.append(f"Highest expense category is {top['label']} at {top['count']:.2f}.")
+    if report["largest_expense"]:
+        largest = report["largest_expense"]
+        summaries.append(
+            f"Largest single expense is {largest['amount']:.2f} for {largest['category']} on {largest['transaction_date']}."
+        )
+
+    over_budget = [budget for budget in report["budgets"] if budget.get("status") == "over"]
+    near_budget = [budget for budget in report["budgets"] if budget.get("status") == "watch"]
+    if over_budget:
+        summaries.append(f"{len(over_budget)} budget category is over its allocation.")
+    elif near_budget:
+        summaries.append(f"{len(near_budget)} budget category is at or above 80% utilization.")
+    elif report["budgets"]:
+        summaries.append("All tracked budgets are below alert thresholds.")
+
+    return summaries
+
+
+def financial_report_export_rows(report=None):
+    report = report or financial_report()
+    rows = [
+        {"section": "summary", "label": "total_income", "income": report["total_income"], "expense": "", "net": "", "value": report["total_income"]},
+        {"section": "summary", "label": "total_expense", "income": "", "expense": report["total_expense"], "net": "", "value": report["total_expense"]},
+        {"section": "summary", "label": "net_balance", "income": "", "expense": "", "net": report["net_balance"], "value": report["net_balance"]},
+        {"section": "summary", "label": "expense_ratio", "income": "", "expense": "", "net": "", "value": report["expense_ratio"]},
+        {"section": "summary", "label": "transaction_count", "income": "", "expense": "", "net": "", "value": report["transaction_count"]},
+    ]
+    for month in report["monthly"]:
+        rows.append({
+            "section": "monthly",
+            "label": month["label"],
+            "income": month["income"],
+            "expense": month["expense"],
+            "net": month["net"],
+            "value": "",
+        })
+    for category in report["categories"]:
+        rows.append({
+            "section": "expense_category",
+            "label": category["label"],
+            "income": "",
+            "expense": category["count"],
+            "net": "",
+            "value": category["count"],
+        })
+    for budget in report["budgets"]:
+        rows.append({
+            "section": "budget",
+            "label": f"{budget['category']} {budget['fiscal_period']}",
+            "income": "",
+            "expense": budget["spent"],
+            "net": "",
+            "value": budget["utilization"],
+        })
+    for transaction in report["transactions"]:
+        amount_key = "income" if transaction["type"] == "income" else "expense"
+        rows.append({
+            "section": "transaction",
+            "label": f"{transaction['transaction_date']} {transaction['category']}",
+            "income": transaction["amount"] if amount_key == "income" else "",
+            "expense": transaction["amount"] if amount_key == "expense" else "",
+            "net": "",
+            "value": transaction["description"],
+        })
+    return rows
+
+
 def upsert_budget(category, allocated_amount, fiscal_period):
     amount = float(allocated_amount)
     if amount <= 0:
@@ -2425,7 +2510,8 @@ def financial_report():
     cursor.execute("""
         SELECT strftime('%Y-%m', transaction_date) AS label,
                SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS income,
-               SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS expense
+               SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS expense,
+               SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) AS net
         FROM financial_transactions
         GROUP BY strftime('%Y-%m', transaction_date)
         ORDER BY label
@@ -2440,6 +2526,24 @@ def financial_report():
     """)
     categories = [row_to_dict(row) for row in cursor.fetchall()]
     cursor.execute("""
+        SELECT *
+        FROM financial_transactions
+        WHERE type = 'expense'
+        ORDER BY amount DESC, transaction_date DESC, id DESC
+        LIMIT 1
+    """)
+    largest_expense = row_to_dict(cursor.fetchone())
+    cursor.execute("""
+        SELECT *
+        FROM financial_transactions
+        WHERE type = 'income'
+        ORDER BY amount DESC, transaction_date DESC, id DESC
+        LIMIT 1
+    """)
+    largest_income = row_to_dict(cursor.fetchone())
+    cursor.execute("SELECT COUNT(*) AS count FROM financial_transactions")
+    transaction_count = cursor.fetchone()["count"]
+    cursor.execute("""
         SELECT b.category, b.fiscal_period, b.allocated_amount,
                COALESCE(SUM(t.amount), 0) AS spent
         FROM budgets b
@@ -2452,15 +2556,37 @@ def financial_report():
     """)
     budgets = [row_to_dict(row) for row in cursor.fetchall()]
     conn.close()
-    return {
+    for budget in budgets:
+        utilization = round((budget["spent"] / budget["allocated_amount"] * 100) if budget["allocated_amount"] else 0, 2)
+        budget["utilization"] = utilization
+        if utilization >= 100:
+            budget["status"] = "over"
+        elif utilization >= 80:
+            budget["status"] = "watch"
+        else:
+            budget["status"] = "ok"
+
+    total_income = totals.get("income", 0)
+    total_expense = totals.get("expense", 0)
+    report = {
+        "transaction_count": transaction_count,
         "total_income": totals.get("income", 0),
         "total_expense": totals.get("expense", 0),
         "net_balance": totals.get("income", 0) - totals.get("expense", 0),
+        "expense_ratio": round((total_expense / total_income * 100) if total_income else 0, 2),
+        "average_income": round(total_income / transaction_count, 2) if transaction_count else 0,
+        "average_expense": round(total_expense / transaction_count, 2) if transaction_count else 0,
+        "largest_income": largest_income,
+        "largest_expense": largest_expense,
+        "top_expense_category": categories[0] if categories else None,
+        "budget_alert_count": len([budget for budget in budgets if budget["status"] in {"watch", "over"}]),
         "monthly": monthly,
         "categories": categories,
         "budgets": budgets,
         "transactions": list_transactions(25),
     }
+    report["summaries"] = financial_summary_items(report)
+    return report
 
 
 def activity_summary(period="monthly"):

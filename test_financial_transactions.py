@@ -89,6 +89,41 @@ class FinancialTransactionsTest(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("YYYY-MM-DD", response.get_json()["error"])
 
+    def test_financial_report_generates_performance_metrics_and_summaries(self):
+        database.create_transaction("2026-06-01", "income", "Dues", 500, "Member dues", "jira")
+        database.create_transaction("2026-06-02", "expense", "Venue", 100, "Room", "jira")
+        database.create_transaction("2026-06-03", "expense", "Catering", 75, "Snacks", "jira")
+        database.upsert_budget("Venue", 100, "2026")
+
+        report = database.financial_report()
+
+        self.assertEqual(report["transaction_count"], 3)
+        self.assertEqual(report["net_balance"], 325)
+        self.assertEqual(report["expense_ratio"], 35)
+        self.assertEqual(report["monthly"][0]["net"], 325)
+        self.assertEqual(report["top_expense_category"]["label"], "Venue")
+        self.assertEqual(report["largest_expense"]["category"], "Venue")
+        self.assertEqual(report["budgets"][0]["utilization"], 100)
+        self.assertEqual(report["budgets"][0]["status"], "over")
+        self.assertTrue(any("Net balance" in summary for summary in report["summaries"]))
+
+    def test_financial_report_api_and_csv_export_include_report_sections(self):
+        database.create_transaction("2026-06-01", "income", "Dues", 500, "Member dues", "jira")
+        database.create_transaction("2026-06-02", "expense", "Venue", 100, "Room", "jira")
+        database.upsert_budget("Venue", 120, "2026")
+        self.login_admin()
+
+        response = self.client.get("/api/financial/report")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("summaries", response.get_json())
+
+        csv_response = self.client.get("/api/financial/report.csv")
+        body = csv_response.get_data(as_text=True)
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertIn("summary,total_income,500.0,,,500.0", body)
+        self.assertIn("monthly,2026-06,500.0,100.0,400.0,", body)
+        self.assertIn("budget,Venue 2026,,100.0,,83.33", body)
+
 
 if __name__ == "__main__":
     unittest.main()

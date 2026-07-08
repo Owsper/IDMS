@@ -2319,7 +2319,11 @@ def api_financial_report():
 @admin_required
 def api_financial_report_csv():
     report = database.financial_report()
-    return csv_download("financial-report.csv", report["monthly"], ["label", "income", "expense"])
+    return csv_download(
+        "financial-report.csv",
+        database.financial_report_export_rows(report),
+        ["section", "label", "income", "expense", "net", "value"],
+    )
 
 
 @app.route("/activity-summary")
