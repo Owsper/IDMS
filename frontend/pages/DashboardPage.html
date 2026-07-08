@@ -864,6 +864,19 @@
             </article>
           </section>
 
+          <section class="stats-grid" aria-label="Activity summary">
+            {% for widget in activity.widgets %}
+              <article class="card stat-card">
+                <div class="stat-top">
+                  <span>{{ widget.label }}</span>
+                  <span class="stat-icon">{{ widget.module[:1] }}</span>
+                </div>
+                <div class="stat-number">{{ widget.value }}</div>
+                <p class="muted">{{ widget.detail }}</p>
+              </article>
+            {% endfor %}
+          </section>
+
           <section class="panel members-growth" aria-label="Members growth graph">
             <div class="panel-head">
               <h2 class="section-title">Members Growth</h2>

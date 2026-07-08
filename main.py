@@ -912,6 +912,7 @@ def dashboard():
     member_stats = get_member_statistics() if session.get("admin_username") else None
     member_growth = get_member_growth_history() if session.get("admin_username") else []
     import_stats = get_import_dashboard_stats() if session.get("admin_username") else None
+    activity = database.activity_summary("weekly") if session.get("admin_username") else None
     return render_template(
         "DashboardPage.html",
         user=user,
@@ -920,6 +921,7 @@ def dashboard():
         member_stats=member_stats,
         member_growth=member_growth,
         import_stats=import_stats,
+        activity=activity,
     )
 
 

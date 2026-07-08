@@ -2743,25 +2743,89 @@ def generate_budget_alerts(report=None):
     return {"count": len(created), "alerts": created}
 
 
+def activity_period_context(period="monthly"):
+    options = {
+        "daily": {"modifier": "-1 day", "days": 1, "label": "Last 24 hours"},
+        "weekly": {"modifier": "-7 days", "days": 7, "label": "Last 7 days"},
+        "monthly": {"modifier": "-30 days", "days": 30, "label": "Last 30 days"},
+    }
+    return options.get(period, options["monthly"])
+
+
 def activity_summary(period="monthly"):
-    modifier = {"daily": "-1 day", "weekly": "-7 days", "monthly": "-30 days"}.get(period, "-30 days")
+    context = activity_period_context(period)
+    modifier = context["modifier"]
     conn = get_connection()
     cursor = conn.cursor()
     stats = {
         "meetings": count_rows(cursor, "meetings", f"created_at >= datetime('now', '{modifier}')"),
         "votes": count_rows(cursor, "voting_events", f"created_at >= datetime('now', '{modifier}')"),
+        "votes_cast": count_rows(cursor, "votes", f"created_at >= datetime('now', '{modifier}')"),
         "documents": count_rows(cursor, "uploads", f"created_at >= datetime('now', '{modifier}')"),
+        "documents_approved": count_rows(cursor, "uploads", f"approved = 1 AND created_at >= datetime('now', '{modifier}')"),
         "transactions": count_rows(cursor, "financial_transactions", f"created_at >= datetime('now', '{modifier}')"),
     }
+    stats["total"] = sum(stats.values())
+
+    cursor.execute("""
+        SELECT module, COUNT(*) AS count
+        FROM activity_log
+        WHERE created_at >= datetime('now', ?)
+        GROUP BY module
+        ORDER BY count DESC, module
+    """, (modifier,))
+    modules = [row_to_dict(row) for row in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT date(created_at) AS label, COUNT(*) AS count
+        FROM activity_log
+        WHERE created_at >= datetime('now', ?)
+        GROUP BY date(created_at)
+        ORDER BY label
+    """, (modifier,))
+    timeline = [row_to_dict(row) for row in cursor.fetchall()]
+    timeline_max = max([row["count"] for row in timeline], default=0)
+
     cursor.execute("""
         SELECT module, action, detail, actor_name, created_at
         FROM activity_log
+        WHERE created_at >= datetime('now', ?)
         ORDER BY created_at DESC
         LIMIT 25
-    """)
+    """, (modifier,))
     feed = [row_to_dict(row) for row in cursor.fetchall()]
+
+    busiest_module = modules[0] if modules else None
+    highlights = []
+    if feed:
+        highlights.append(f"{len(feed)} recent activities were captured for {context['label'].lower()}.")
+    else:
+        highlights.append(f"No activities were captured for {context['label'].lower()}.")
+    if busiest_module:
+        highlights.append(f"{busiest_module['module']} is the most active area with {busiest_module['count']} logged actions.")
+    if stats["documents"] or stats["meetings"] or stats["votes"]:
+        highlights.append(
+            f"Core activity includes {stats['meetings']} meetings, {stats['votes']} voting events, and {stats['documents']} documents."
+        )
+
+    widgets = [
+        {"label": "Meetings", "value": stats["meetings"], "detail": "Scheduled in period", "module": "Meetings"},
+        {"label": "Voting Events", "value": stats["votes"], "detail": f"{stats['votes_cast']} votes cast", "module": "Voting"},
+        {"label": "Documents", "value": stats["documents"], "detail": f"{stats['documents_approved']} approved", "module": "Documents"},
+        {"label": "Recent Actions", "value": len(feed), "detail": context["label"], "module": "Activity"},
+    ]
     conn.close()
-    return {"period": period, "stats": stats, "feed": feed}
+    return {
+        "period": period if period in {"daily", "weekly", "monthly"} else "monthly",
+        "period_label": context["label"],
+        "stats": stats,
+        "modules": modules,
+        "timeline": timeline,
+        "timeline_max": timeline_max,
+        "feed": feed,
+        "highlights": highlights,
+        "widgets": widgets,
+    }
 
 
 def create_bug_report(title, severity, steps, expected, actual, reporter=""):
