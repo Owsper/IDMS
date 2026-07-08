@@ -1707,6 +1707,18 @@ def whatsapp_analytics():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
+        SELECT COUNT(*) AS total_messages,
+               COUNT(DISTINCT sender) AS participant_count,
+               MIN(sent_at) AS first_message_at,
+               MAX(sent_at) AS last_message_at
+        FROM whatsapp_messages
+    """)
+    summary = row_to_dict(cursor.fetchone()) or {}
+    total_messages = int(summary.get("total_messages") or 0)
+    participant_count = int(summary.get("participant_count") or 0)
+    summary["average_messages_per_participant"] = round(total_messages / participant_count, 2) if participant_count else 0
+
+    cursor.execute("""
         SELECT date(sent_at) AS label, COUNT(*) AS count
         FROM whatsapp_messages
         GROUP BY date(sent_at)
@@ -1721,6 +1733,25 @@ def whatsapp_analytics():
         LIMIT 10
     """)
     top_participants = [row_to_dict(row) for row in cursor.fetchall()]
+    for participant in top_participants:
+        participant["percentage"] = round((participant["count"] / total_messages) * 100, 2) if total_messages else 0
+
+    cursor.execute("""
+        SELECT sender AS label,
+               COUNT(*) AS message_count,
+               COUNT(DISTINCT date(sent_at)) AS active_days,
+               MIN(sent_at) AS first_message_at,
+               MAX(sent_at) AS last_message_at
+        FROM whatsapp_messages
+        GROUP BY sender
+        ORDER BY message_count DESC, sender
+        LIMIT 10
+    """)
+    active_participants = [row_to_dict(row) for row in cursor.fetchall()]
+    for participant in active_participants:
+        active_days = int(participant.get("active_days") or 0)
+        participant["average_per_active_day"] = round(participant["message_count"] / active_days, 2) if active_days else 0
+
     cursor.execute("""
         SELECT media_type AS label, COUNT(*) AS count
         FROM whatsapp_messages
@@ -1735,12 +1766,40 @@ def whatsapp_analytics():
         ORDER BY label
     """)
     peak_hours = [row_to_dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+        SELECT strftime('%w', sent_at) AS weekday, COUNT(*) AS count
+        FROM whatsapp_messages
+        GROUP BY strftime('%w', sent_at)
+        ORDER BY weekday
+    """)
+    weekday_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    weekdays = [
+        {"label": weekday_names[int(row["weekday"])], "count": row["count"]}
+        for row in cursor.fetchall()
+    ]
+    cursor.execute("""
+        SELECT id, sender, sent_at, message, media_type
+        FROM whatsapp_messages
+        ORDER BY sent_at DESC, id DESC
+        LIMIT 10
+    """)
+    recent_messages = [row_to_dict(row) for row in cursor.fetchall()]
+    busiest_day = max(per_day, key=lambda row: row["count"], default=None)
+    busiest_hour = max(peak_hours, key=lambda row: row["count"], default=None)
+    most_active_participant = top_participants[0] if top_participants else None
     conn.close()
     return {
+        "summary": summary,
         "per_day": per_day,
         "top_participants": top_participants,
+        "active_participants": active_participants,
         "media_types": media_types,
         "peak_hours": peak_hours,
+        "weekdays": weekdays,
+        "recent_messages": recent_messages,
+        "busiest_day": busiest_day,
+        "busiest_hour": busiest_hour,
+        "most_active_participant": most_active_participant,
     }
 
 

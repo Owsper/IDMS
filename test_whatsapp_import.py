@@ -63,6 +63,15 @@ class WhatsAppImportTest(unittest.TestCase):
             {"label": "audio", "count": 1},
             {"label": "text", "count": 1},
         ])
+        self.assertEqual(analytics["summary"]["total_messages"], 2)
+        self.assertEqual(analytics["summary"]["participant_count"], 2)
+        self.assertEqual(analytics["summary"]["average_messages_per_participant"], 1.0)
+        self.assertEqual(analytics["busiest_day"], {"label": "2026-02-13", "count": 2})
+        self.assertEqual(analytics["busiest_hour"], {"label": "08", "count": 2})
+        self.assertEqual(analytics["most_active_participant"]["label"], "Alice")
+        self.assertEqual(analytics["active_participants"][0]["message_count"], 1)
+        self.assertEqual(analytics["active_participants"][0]["average_per_active_day"], 1.0)
+        self.assertEqual(len(analytics["recent_messages"]), 2)
 
     def test_api_import_requires_admin_and_stores_messages(self):
         export = b"01/02/2026, 08:05 - Alice: Morning"
@@ -96,6 +105,29 @@ class WhatsAppImportTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("must be .txt", response.get_json()["error"])
+
+    def test_analytics_api_requires_admin_and_returns_metrics(self):
+        messages = main.parse_whatsapp_export(
+            "13/02/2026, 08:05 - Alice: Morning\n"
+            "13/02/2026, 09:06 - Alice: Update\n"
+            "14/02/2026, 10:07 - Bob: Hello",
+            "chat.txt",
+        )
+        database.store_whatsapp_messages(messages)
+
+        unauthenticated = self.client.get("/api/whatsapp/analytics")
+        self.assertEqual(unauthenticated.status_code, 302)
+
+        self.login_admin()
+        response = self.client.get("/api/whatsapp/analytics")
+        payload = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["summary"]["total_messages"], 3)
+        self.assertEqual(payload["top_participants"][0]["label"], "Alice")
+        self.assertEqual(payload["top_participants"][0]["percentage"], 66.67)
+        self.assertEqual(payload["active_participants"][0]["active_days"], 1)
+        self.assertTrue(any(row["label"] == "Friday" for row in payload["weekdays"]))
 
 
 if __name__ == "__main__":
