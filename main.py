@@ -2281,6 +2281,32 @@ def financial():
     return render_template("FinancialPage.html", user=current_user(), report=database.financial_report(), error=error, success=success)
 
 
+@app.route("/api/financial/transactions")
+@login_required
+@admin_required
+def api_financial_transactions():
+    return jsonify({"transactions": database.list_transactions(request.args.get("limit", 50))})
+
+
+@app.route("/api/financial/transactions", methods=["POST"])
+@login_required
+@admin_required
+def api_financial_create_transaction():
+    payload = request.get_json(silent=True) or {}
+    try:
+        transaction_id = database.create_transaction(
+            payload.get("transaction_date", ""),
+            payload.get("type", ""),
+            payload.get("category", ""),
+            payload.get("amount", 0),
+            payload.get("description", ""),
+            current_actor_name(),
+        )
+    except (TypeError, ValueError) as exc:
+        return json_response_error(str(exc))
+    return jsonify({"transaction_id": transaction_id, "transaction": database.get_transaction(transaction_id)}), 201
+
+
 @app.route("/api/financial/report")
 @login_required
 @admin_required

@@ -2,7 +2,7 @@ import json
 import re
 import sqlite3
 import bcrypt
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 DB_NAME = "main_db.db"
 DEFAULT_DOCUMENT_CATEGORIES = (
@@ -446,6 +446,9 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_financial_transactions_date ON financial_transactions(transaction_date)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_financial_transactions_type ON financial_transactions(type)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_financial_transactions_category ON financial_transactions(category COLLATE NOCASE)")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS budgets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2327,22 +2330,72 @@ def get_meeting_minutes(minutes_id):
 
 
 def create_transaction(transaction_date, tx_type, category, amount, description="", recorded_by=""):
+    transaction_date = (transaction_date or "").strip()
+    try:
+        datetime.strptime(transaction_date, "%Y-%m-%d")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Transaction date must use YYYY-MM-DD format.") from exc
+
+    tx_type = (tx_type or "").strip().lower()
     if tx_type not in {"income", "expense"}:
         raise ValueError("Transaction type must be income or expense.")
-    amount = float(amount)
+
+    category = (category or "").strip()
+    if not category:
+        raise ValueError("Category is required.")
+    if len(category) > 80:
+        raise ValueError("Category must be 80 characters or fewer.")
+
+    try:
+        amount = round(float(amount), 2)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Amount must be a valid number.") from exc
     if amount <= 0:
         raise ValueError("Amount must be positive.")
+
+    description = (description or "").strip()
+    if len(description) > 500:
+        raise ValueError("Description must be 500 characters or fewer.")
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO financial_transactions (transaction_date, type, category, amount, description, recorded_by)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (transaction_date, tx_type, category.strip(), amount, description.strip(), recorded_by))
+    """, (transaction_date, tx_type, category, amount, description, (recorded_by or "").strip()))
     tx_id = cursor.lastrowid
     conn.commit()
     conn.close()
     log_activity("Finance", "Transaction recorded", f"{tx_type} {category}", actor_name=recorded_by)
     return tx_id
+
+
+def get_transaction(transaction_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM financial_transactions WHERE id = ?", (transaction_id,))
+    row = row_to_dict(cursor.fetchone())
+    conn.close()
+    return row
+
+
+def list_transactions(limit=50):
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, 200))
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT *
+        FROM financial_transactions
+        ORDER BY transaction_date DESC, id DESC
+        LIMIT ?
+    """, (limit,))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
 
 
 def upsert_budget(category, allocated_amount, fiscal_period):
@@ -2406,6 +2459,7 @@ def financial_report():
         "monthly": monthly,
         "categories": categories,
         "budgets": budgets,
+        "transactions": list_transactions(25),
     }
 
 
