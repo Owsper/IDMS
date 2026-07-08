@@ -2,6 +2,7 @@ import json
 import re
 import sqlite3
 import bcrypt
+from datetime import timedelta
 
 DB_NAME = "main_db.db"
 DEFAULT_DOCUMENT_CATEGORIES = (
@@ -1579,6 +1580,30 @@ def get_voting_results(event_id):
     }
 
 
+MEETING_TYPES = {"general", "board", "committee", "training"}
+
+
+def normalize_meeting_invitees(invitees):
+    if invitees is None:
+        return []
+    if isinstance(invitees, str):
+        invitees = invitees.split(",")
+    if not isinstance(invitees, (list, tuple)):
+        raise ValueError("Invitees must be a list or comma-separated string.")
+    return [str(item).strip() for item in invitees if str(item).strip()]
+
+
+def get_meeting(meeting_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM meetings WHERE id = ?", (meeting_id,))
+    meeting = row_to_dict(cursor.fetchone())
+    if meeting:
+        meeting["invitees"] = _json_list(meeting.get("invitees"))
+    conn.close()
+    return meeting
+
+
 def store_whatsapp_messages(messages):
     if not messages:
         return 0
@@ -1653,10 +1678,24 @@ def whatsapp_analytics():
 
 
 def create_meeting(title, description, meeting_at, location, agenda, invitees, created_by="", meeting_type="general"):
-    if not title.strip():
+    title = (title or "").strip()
+    location = (location or "").strip()
+    agenda = (agenda or "").strip()
+    description = (description or "").strip()
+    meeting_type = (meeting_type or "general").strip().lower()
+    invitees = normalize_meeting_invitees(invitees)
+
+    if not title:
         raise ValueError("Meeting title is required.")
+    if meeting_type not in MEETING_TYPES:
+        raise ValueError("Meeting type must be general, board, committee, or training.")
+    if not hasattr(meeting_at, "isoformat"):
+        raise ValueError("Meeting date and time are required.")
     if meeting_at <= datetime_now():
         raise ValueError("Meeting date must be in the future.")
+    if meeting_at > datetime_now() + timedelta(days=730):
+        raise ValueError("Meeting date cannot be more than two years in the future.")
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -1664,14 +1703,14 @@ def create_meeting(title, description, meeting_at, location, agenda, invitees, c
         WHERE datetime(meeting_at) BETWEEN datetime(?, '-30 minutes') AND datetime(?, '+30 minutes')
           AND lower(location) = lower(?)
         LIMIT 1
-    """, (meeting_at.isoformat(timespec="seconds"), meeting_at.isoformat(timespec="seconds"), location.strip()))
-    if location.strip() and cursor.fetchone():
+    """, (meeting_at.isoformat(timespec="seconds"), meeting_at.isoformat(timespec="seconds"), location))
+    if location and cursor.fetchone():
         conn.close()
         raise ValueError("Another meeting is already scheduled near that time and location.")
     cursor.execute("""
         INSERT INTO meetings (title, description, meeting_at, location, agenda, invitees, meeting_type, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (title.strip(), description.strip(), meeting_at.isoformat(timespec="seconds"), location.strip(), agenda.strip(), json.dumps(invitees), meeting_type, created_by))
+    """, (title, description, meeting_at.isoformat(timespec="seconds"), location, agenda, json.dumps(invitees), meeting_type, created_by))
     meeting_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -1705,6 +1744,14 @@ def record_attendance(meeting_id, member_id, status):
         raise ValueError("Attendance status must be present, absent, or excused.")
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT id FROM meetings WHERE id = ?", (meeting_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise ValueError("Meeting not found.")
+    cursor.execute("SELECT id FROM users_data WHERE id = ?", (member_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise ValueError("Member not found.")
     cursor.execute("""
         INSERT INTO meeting_attendance (meeting_id, member_id, status)
         VALUES (?, ?, ?)
@@ -1736,12 +1783,22 @@ def meeting_attendance_summary():
 
 
 def add_meeting_minutes(meeting_id, title, content, filename="", uploaded_by=""):
+    title = (title or "").strip()
+    content = (content or "").strip()
+    if not title:
+        raise ValueError("Minutes title is required.")
+    if not content:
+        raise ValueError("Minutes content is required.")
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT id FROM meetings WHERE id = ?", (meeting_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise ValueError("Meeting not found.")
     cursor.execute("""
         INSERT INTO meeting_minutes (meeting_id, title, content, filename, uploaded_by)
         VALUES (?, ?, ?, ?, ?)
-    """, (meeting_id, title.strip(), content.strip(), filename, uploaded_by))
+    """, (meeting_id, title, content, filename, uploaded_by))
     conn.commit()
     conn.close()
     log_activity("Meetings", "Minutes saved", title, actor_name=uploaded_by)

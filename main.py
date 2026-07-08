@@ -1625,7 +1625,19 @@ def download_file(file_id):
 def parse_form_datetime(value):
     if not value:
         raise ValueError("Date and time are required.")
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).replace(tzinfo=None)
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError as exc:
+        raise ValueError("Date and time must be valid.") from exc
+
+
+def parse_optional_date(value, field_name):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).date().isoformat()
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a valid date.") from exc
 
 
 def current_actor_name():
@@ -1808,7 +1820,7 @@ def voting():
                     app.secret_key,
                 )
                 success = "Vote recorded securely."
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             error = str(exc)
     return render_template(
         "VotingPage.html",
@@ -1912,7 +1924,7 @@ def whatsapp_analytics_page():
             messages = parse_whatsapp_upload(request.files.get("file"))
             database.store_whatsapp_messages(messages)
             success = f"Imported {len(messages)} messages."
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             error = str(exc)
     return render_template("WhatsAppAnalyticsPage.html", user=current_user(), analytics=database.whatsapp_analytics(), error=error, success=success)
 
@@ -1986,16 +1998,33 @@ def meetings():
                     abort(403)
                 database.add_meeting_minutes(int(request.form.get("meeting_id")), request.form.get("title", ""), request.form.get("content", ""), uploaded_by=current_actor_name())
                 success = "Minutes saved."
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             error = str(exc)
     members = search_members(limit=100, offset=0)["members"] if session.get("admin_username") else []
-    return render_template("MeetingsPage.html", user=current_user(), meetings=database.list_meetings(), members=members, attendance=database.meeting_attendance_summary(), is_admin=bool(session.get("admin_username")), error=error, success=success)
+    return render_template(
+        "MeetingsPage.html",
+        user=current_user(),
+        meetings=database.list_meetings(),
+        members=members,
+        attendance=database.meeting_attendance_summary(),
+        is_admin=bool(session.get("admin_username")),
+        min_meeting_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M"),
+        error=error,
+        success=success,
+    )
 
 
 @app.route("/api/meetings")
 @login_required
 def api_meetings():
-    return jsonify({"meetings": database.list_meetings(request.args.get("start"), request.args.get("end"))})
+    try:
+        start = parse_optional_date(request.args.get("start"), "start")
+        end = parse_optional_date(request.args.get("end"), "end")
+        if start and end and start > end:
+            return json_response_error("start date must be before end date.")
+    except ValueError as exc:
+        return json_response_error(str(exc))
+    return jsonify({"meetings": database.list_meetings(start, end)})
 
 
 @app.route("/api/meetings", methods=["POST"])
@@ -2004,10 +2033,19 @@ def api_meetings():
 def api_meeting_create():
     payload = request.get_json(silent=True) or {}
     try:
-        meeting_id = database.create_meeting(payload.get("title", ""), payload.get("description", ""), parse_form_datetime(payload.get("meeting_at", "")), payload.get("location", ""), payload.get("agenda", ""), payload.get("invitees", []), current_actor_name(), payload.get("meeting_type", "general"))
-    except ValueError as exc:
+        meeting_id = database.create_meeting(
+            payload.get("title", ""),
+            payload.get("description", ""),
+            parse_form_datetime(payload.get("meeting_at", "")),
+            payload.get("location", ""),
+            payload.get("agenda", ""),
+            payload.get("invitees", []),
+            current_actor_name(),
+            payload.get("meeting_type", "general"),
+        )
+    except (TypeError, ValueError) as exc:
         return json_response_error(str(exc))
-    return jsonify({"meeting_id": meeting_id}), 201
+    return jsonify({"meeting_id": meeting_id, "meeting": database.get_meeting(meeting_id)}), 201
 
 
 @app.route("/api/meetings/attendance.csv")
