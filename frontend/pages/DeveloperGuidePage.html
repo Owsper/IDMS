@@ -1,139 +1,99 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pexel Developer Guide</title><style>@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),radial-gradient(circle at 25% 12%,rgba(124,58,237,.18),transparent 28%),#05070d;background-size:42px 42px;color:#f3f5ff;font-family:Inter,Arial}.topbar{min-height:70px;padding:18px 28px;border-bottom:1px solid rgba(129,72,255,.22);background:rgba(5,7,13,.86);display:flex;justify-content:space-between}.topbar h1,h2{font-family:Orbitron}.content{width:min(1040px,100%);margin:0 auto;padding:28px;display:grid;gap:18px}.panel{border:1px solid rgba(129,72,255,.28);border-radius:8px;background:rgba(15,20,32,.9);padding:22px}.panel p,.panel li{color:#b7c3e4;line-height:1.6;margin-top:8px}.panel ul{padding-left:20px}.code{white-space:pre-wrap;background:#0b1020;border:1px solid rgba(129,72,255,.22);border-radius:8px;padding:14px;color:#dbeafe;margin-top:12px}.button{min-height:40px;border-radius:7px;padding:10px 14px;border:1px solid rgba(129,72,255,.35);background:#1a1f2d;color:white;text-decoration:none;font-weight:900}
-    /* Pexel shared register theme */
-    :root {
-      --pexel-page-bg:
-        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
-        radial-gradient(circle at 55% 62%, rgba(124,58,237,.32), transparent 32%),
-        radial-gradient(circle at 70% 70%, rgba(14,165,233,.18), transparent 28%),
-        #11101e;
-      --pexel-surface: #0d1017;
-      --pexel-surface-2: #1a1f2d;
-      --pexel-surface-3: #22283a;
-      --pexel-border: #2b3152;
-      --pexel-text: #ffffff;
-      --pexel-muted: #8190b8;
-      --pexel-muted-2: #8ea0c8;
-      --pexel-accent: #7c3aed;
-      --pexel-accent-2: #8b5cf6;
-      --pexel-cyan: #06b6d4;
-    }
-    body {
-      background: var(--pexel-page-bg) !important;
-      background-size: 40px 40px, 40px 40px, auto, auto !important;
-      color: var(--pexel-text) !important;
-    }
-    .sidebar, .topbar, .right, .card, .panel, .wrap, .form-box, .table-wrap {
-      background-color: rgba(13,16,23,.94) !important;
-      border-color: var(--pexel-border) !important;
-    }
-    .brand-icon, .avatar {
-      background: linear-gradient(135deg, var(--pexel-accent), var(--pexel-accent-2)) !important;
-      color: var(--pexel-text) !important;
-    }
-    .brand, .logo.brand {
-      display: flex !important;
-      align-items: center !important;
-      gap: 12px !important;
-      color: var(--pexel-text) !important;
-      font-weight: 900 !important;
-      text-decoration: none !important;
-    }
-    .brand-icon {
-      width: 38px !important;
-      height: 38px !important;
-      border-radius: 10px !important;
-      display: grid !important;
-      place-items: center !important;
-      flex: 0 0 auto !important;
-      font-size: 20px !important;
-      font-weight: 900 !important;
-      line-height: 1 !important;
-      box-shadow: 0 0 26px rgba(124,58,255,.28) !important;
-    }
-    .brand > span, .logo.brand > span {
-      color: var(--pexel-text) !important;
-      font-weight: 900 !important;
-    }
-    .button.primary, .main-btn, button[type="submit"], .btn, .button.active {
-      background: linear-gradient(90deg, var(--pexel-accent), var(--pexel-accent-2)) !important;
-      color: var(--pexel-text) !important;
-    }
-    .button, .btn.secondary, .quick-action, input, textarea, select, .social-btn, .page-link, .code, .feed-item {
-      background-color: var(--pexel-surface-2) !important;
-      border-color: var(--pexel-border) !important;
-      color: var(--pexel-text) !important;
-    }
-    .muted, .subtitle, .bottom, .back, .account a, .nav a, label {
-      color: var(--pexel-muted) !important;
-    }
-    .nav a:hover, .nav a.active {
-      color: var(--pexel-text) !important;
-      background: rgba(124,58,237,.18) !important;
-      border-color: rgba(124,58,237,.45) !important;
-    }
-    th {
-      background-color: var(--pexel-surface-2) !important;
-      color: var(--pexel-cyan) !important;
-    }
-    input:focus, textarea:focus, select:focus {
-      border-color: var(--pexel-accent) !important;
-      box-shadow: 0 0 0 3px rgba(124,58,237,.18) !important;
-      outline: none !important;
-    }
-    .sidebar {
-      max-height: 100vh !important;
-      overflow: hidden !important;
-      display: flex !important;
-      flex-direction: column !important;
-    }
-    .sidebar > div:first-child {
-      min-height: 0 !important;
-      flex: 1 1 auto !important;
-      display: flex !important;
-      flex-direction: column !important;
-      overflow: hidden !important;
-    }
-    .sidebar .brand {
-      flex: 0 0 auto !important;
-    }
-    .sidebar .nav {
-      min-height: 0 !important;
-      flex: 1 1 auto !important;
-      align-content: flex-start !important;
-      overflow-y: auto !important;
-      overflow-x: hidden !important;
-      overscroll-behavior: contain !important;
-      padding-right: 4px !important;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(124,58,237,.65) rgba(13,16,23,.8);
-    }
-    .sidebar .nav::-webkit-scrollbar {
-      width: 8px;
-    }
-    .sidebar .nav::-webkit-scrollbar-track {
-      background: rgba(13,16,23,.8);
-    }
-    .sidebar .nav::-webkit-scrollbar-thumb {
-      background: rgba(124,58,237,.65);
-      border-radius: 999px;
-    }
-    .account {
-      flex: 0 0 auto !important;
-      background: rgba(13,16,23,.96) !important;
-      position: relative !important;
-      z-index: 2 !important;
-    }
-  
-  
-</style></head><body><header class="topbar"><h1>Developer Guide</h1><a class="button" href="{{ url_for('dashboard') }}">Dashboard</a></header><main class="content"><section class="panel"><h2>Architecture</h2><p>The IDMS uses Flask in <strong>main.py</strong>, SQLite accessors in <strong>database.py</strong>, static Jinja HTML pages in <strong>frontend/pages</strong>, and unittest-based regression tests at repository root. Data flow is browser form or JSON request to Flask route, database helper validation, SQLite write/read, then HTML or JSON response.</p></section><section class="panel"><h2>Database Schema</h2><div class="code">users_data -> votes, meeting_attendance, uploads
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pexel Developer Guide</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),radial-gradient(circle at 25% 12%,rgba(124,58,237,.18),transparent 28%),#05070d;background-size:42px 42px;color:#f3f5ff;font-family:Inter,Arial,sans-serif}
+    .topbar{min-height:70px;padding:18px 28px;border-bottom:1px solid #2b3152;background:rgba(13,16,23,.94);display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .topbar h1,h2{font-family:Orbitron,sans-serif}
+    .content{width:min(1080px,100%);margin:0 auto;padding:28px;display:grid;gap:18px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .panel{border:1px solid #2b3152;border-radius:8px;background:rgba(15,20,32,.92);padding:22px}
+    .panel p,.panel li{color:#b7c3e4;line-height:1.6;margin-top:8px}
+    .panel ul,.panel ol{padding-left:20px}
+    .code{white-space:pre-wrap;background:#0b1020;border:1px solid #2b3152;border-radius:8px;padding:14px;color:#dbeafe;margin-top:12px;overflow:auto}
+    .button{min-height:40px;border-radius:7px;padding:10px 14px;border:1px solid rgba(129,72,255,.35);background:#1a1f2d;color:white;text-decoration:none;font-weight:900}
+    @media(max-width:820px){.grid{grid-template-columns:1fr}.content{padding:18px}.topbar{display:grid}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Developer Guide</h1>
+    <a class="button" href="{{ url_for('dashboard') }}">Dashboard</a>
+  </header>
+  <main class="content">
+    <section class="panel">
+      <h2>Published Technical Documentation</h2>
+      <p>The maintained technical guide is published at <code>documentation/technical_documentation.md</code>. Update it whenever architecture, schema, API routes, validation rules, or maintenance workflows change.</p>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Architecture</h2>
+        <p>IDMS is a Flask application with SQLite persistence and server-rendered Jinja pages.</p>
+        <ul>
+          <li><strong>main.py:</strong> routes, auth decorators, request parsing, file responses, CSV exports.</li>
+          <li><strong>database.py:</strong> schema, migrations, validation, persistence, reports.</li>
+          <li><strong>frontend/pages:</strong> HTML templates.</li>
+          <li><strong>test_*.py:</strong> unittest regression suites using temporary databases.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Database Schema</h2>
+        <div class="code">users_data -> votes, meeting_attendance, uploads
+document_categories -> uploads
+auth_email_links -> registration/password reset
+import_jobs -> import_rows -> import_changes
+activity_log -> activity summaries
 voting_events -> voting_options -> votes
-voting_events -> eligibility_audit
-whatsapp_messages -> analytics queries
 meetings -> meeting_attendance, meeting_minutes
-financial_transactions -> financial_report
-budgets -> budget monitoring
+financial_transactions -> financial reports
+budgets -> budget_categories, budget_alerts
 notifications -> delivery/history log
-activity_log -> admin activity summary
-bug_reports -> bug workflow</div></section><section class="panel"><h2>Primary Endpoints</h2><ul><li>POST /api/voting/events, POST /api/voting/votes, GET /api/voting/events/&lt;id&gt;/results, GET /api/voting/events/&lt;id&gt;/results.csv</li><li>POST /api/whatsapp/import, GET /api/whatsapp/analytics</li><li>GET/POST /meetings, GET/POST /api/meetings, GET /api/meetings/attendance.csv</li><li>GET/POST /financial, GET /api/financial/report, GET /api/financial/report.csv</li><li>GET /api/admin/activity-summary, GET/POST /bugs, GET/POST /notifications</li></ul></section><section class="panel"><h2>Security Notes</h2><p>Admin-only routes use the existing <strong>admin_required</strong> decorator. Voting uses a unique event/member constraint to prevent duplicates and stores a bcrypt hash instead of plain ballot values. File import endpoints validate file type and parse only expected text formats.</p></section></main></body></html>
+bug_reports -> defect workflow</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Primary APIs</h2>
+        <ul>
+          <li>Voting: `/api/voting/events`, `/api/voting/votes`, results JSON/CSV.</li>
+          <li>Documents: `/api/documents`, file download routes.</li>
+          <li>Meetings: `/api/meetings`, attendance JSON/CSV, minutes APIs.</li>
+          <li>Finance: transactions, budgets, budget alerts, report JSON/CSV.</li>
+          <li>Admin: members, imports, activity summary.</li>
+          <li>Notifications: list and process due notifications.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Security</h2>
+        <ul>
+          <li>`login_required` protects authenticated pages and APIs.</li>
+          <li>`admin_required` protects admin workflows.</li>
+          <li>Member passwords are bcrypt hashed.</li>
+          <li>Email verification and reset links are signed tokens.</li>
+          <li>Downloads use secure filenames, private cache controls, and audit logging.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Maintenance Checklist</h2>
+      <ol>
+        <li>Add schema and migrations in `database.init_db()`.</li>
+        <li>Validate inputs in `database.py` helper functions.</li>
+        <li>Keep Flask routes thin and protected by the correct decorators.</li>
+        <li>Log activity for admin-visible workflows.</li>
+        <li>Add or update focused unittest coverage.</li>
+        <li>Update user and technical documentation.</li>
+        <li>Run `python -m unittest` before publishing.</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>
