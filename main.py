@@ -91,6 +91,7 @@ app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
 app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
 app.config["IMPORT_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "imports")
 app.config["IMPORT_ALLOWED_EXTENSIONS"] = {".csv", ".xlsx", ".json", ".sql", ".db", ".sqlite"}
+app.config["WHATSAPP_IMPORT_ALLOWED_EXTENSIONS"] = {".txt"}
 app.config["IMPORT_MAX_SIZE"] = 10 * 1024 * 1024
 app.config["IMPORT_ROLLBACK_MINUTES"] = 60
 app.config["IMPORT_BATCH_SIZE"] = 250
@@ -1632,43 +1633,132 @@ def current_actor_name():
     return user.get("username") or session.get("admin_username") or "system"
 
 
+WHATSAPP_TIMESTAMP_FORMATS = (
+    "%m/%d/%y %I:%M %p",
+    "%m/%d/%Y %I:%M %p",
+    "%d/%m/%y %I:%M %p",
+    "%d/%m/%Y %I:%M %p",
+    "%d/%m/%y %H:%M",
+    "%d/%m/%Y %H:%M",
+    "%m/%d/%y %H:%M",
+    "%m/%d/%Y %H:%M",
+)
+WHATSAPP_LINE_PATTERNS = (
+    re.compile(r"^\[(?P<date>\d{1,2}/\d{1,2}/\d{2,4}), (?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)\] (?P<sender>[^:]+): (?P<message>.*)$"),
+    re.compile(r"^(?P<date>\d{1,2}/\d{1,2}/\d{2,4}), (?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?) - (?P<sender>[^:]+): (?P<message>.*)$"),
+)
+WHATSAPP_SYSTEM_MARKERS = (
+    "messages and calls are end-to-end encrypted",
+    "this message was deleted",
+    "you deleted this message",
+)
+
+
+def parse_whatsapp_datetime(date_value, time_value):
+    normalized_time = time_value.upper().replace("\u202f", " ").replace(".", "").strip()
+    normalized_time = re.sub(r"\s+", " ", normalized_time)
+    for fmt in WHATSAPP_TIMESTAMP_FORMATS:
+        try:
+            return datetime.strptime(f"{date_value} {normalized_time}", fmt)
+        except ValueError:
+            pass
+    return None
+
+
+def clean_whatsapp_text(value):
+    value = (value or "").replace("\ufeff", "").replace("\u200e", "").replace("\u200f", "")
+    lines = [re.sub(r"\s+", " ", line).strip() for line in value.splitlines()]
+    return "\n".join(line for line in lines if line).strip()
+
+
+def classify_whatsapp_message(message):
+    lowered = message.lower()
+    if "image omitted" in lowered or "photo omitted" in lowered:
+        return "image"
+    if "video omitted" in lowered:
+        return "video"
+    if "audio omitted" in lowered or "voice message omitted" in lowered:
+        return "audio"
+    if "sticker omitted" in lowered:
+        return "sticker"
+    if "document omitted" in lowered or "file omitted" in lowered:
+        return "document"
+    if "contact card omitted" in lowered or "contact omitted" in lowered:
+        return "contact"
+    if "location:" in lowered:
+        return "location"
+    if "omitted" in lowered or "<media" in lowered:
+        return "media"
+    return "text"
+
+
 def parse_whatsapp_export(text, filename=""):
-    patterns = [
-        re.compile(r"^\[(?P<date>\d{1,2}/\d{1,2}/\d{2,4}), (?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?)\] (?P<sender>[^:]+): (?P<message>.*)$"),
-        re.compile(r"^(?P<date>\d{1,2}/\d{1,2}/\d{2,4}), (?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s?[AP]M)?) - (?P<sender>[^:]+): (?P<message>.*)$"),
-    ]
     messages = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip("\ufeff").strip()
-        if not line:
-            continue
-        match = next((pattern.match(line) for pattern in patterns if pattern.match(line)), None)
-        if not match:
-            continue
-        sender = match.group("sender").strip()
-        message = match.group("message").strip()
-        if not sender or not message or sender.lower() in {"messages and calls are end-to-end encrypted"}:
-            continue
-        date_value = match.group("date")
-        time_value = match.group("time").upper().replace("\u202f", " ")
-        parsed_at = None
-        for fmt in ("%m/%d/%y %I:%M %p", "%m/%d/%Y %I:%M %p", "%d/%m/%y %H:%M", "%d/%m/%Y %H:%M", "%m/%d/%y %H:%M", "%m/%d/%Y %H:%M"):
-            try:
-                parsed_at = datetime.strptime(f"{date_value} {time_value}", fmt)
-                break
-            except ValueError:
-                pass
-        if not parsed_at:
-            continue
+    current = None
+
+    def append_current():
+        if not current:
+            return
+        message = clean_whatsapp_text(current["message"])
+        sender = clean_whatsapp_text(current["sender"])
         lowered = message.lower()
-        media_type = "media" if "omitted" in lowered or "<media" in lowered else "text"
+        if not sender or not message:
+            return
+        if any(marker in lowered for marker in WHATSAPP_SYSTEM_MARKERS):
+            return
         messages.append({
             "sender": sender,
-            "sent_at": parsed_at.isoformat(timespec="seconds"),
+            "sent_at": current["sent_at"].isoformat(timespec="seconds"),
             "message": message,
-            "media_type": media_type,
+            "media_type": classify_whatsapp_message(message),
             "source_filename": filename,
         })
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip("\ufeff").rstrip()
+        if not line:
+            continue
+        match = next((pattern.match(line) for pattern in WHATSAPP_LINE_PATTERNS if pattern.match(line)), None)
+        if not match:
+            if any(marker in line.lower() for marker in WHATSAPP_SYSTEM_MARKERS):
+                continue
+            if current:
+                current["message"] = f"{current['message']}\n{line.strip()}"
+            continue
+
+        append_current()
+        sender = match.group("sender").strip()
+        message = match.group("message").strip()
+        parsed_at = parse_whatsapp_datetime(match.group("date"), match.group("time"))
+        if not parsed_at:
+            current = None
+            continue
+        current = {
+            "sender": sender,
+            "sent_at": parsed_at,
+            "message": message,
+        }
+
+    append_current()
+    return messages
+
+
+def parse_whatsapp_upload(uploaded):
+    if not uploaded or not uploaded.filename:
+        raise ValueError("Choose a WhatsApp .txt export.")
+
+    original_name = secure_filename(uploaded.filename)
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in app.config["WHATSAPP_IMPORT_ALLOWED_EXTENSIONS"]:
+        raise ValueError("WhatsApp imports must be .txt files.")
+
+    content = uploaded.read()
+    if len(content) > app.config["IMPORT_MAX_SIZE"]:
+        raise ValueError("File is too large.")
+
+    messages = parse_whatsapp_export(content.decode("utf-8", errors="replace"), original_name)
+    if not messages:
+        raise ValueError("No WhatsApp messages were found in this export.")
     return messages
 
 
@@ -1789,16 +1879,12 @@ def whatsapp_analytics_page():
     error = None
     success = None
     if request.method == "POST":
-        uploaded = request.files.get("file")
-        if not uploaded or not uploaded.filename:
-            error = "Choose a WhatsApp .txt export."
-        elif not uploaded.filename.lower().endswith(".txt"):
-            error = "WhatsApp imports must be .txt files."
-        else:
-            text = uploaded.read().decode("utf-8", errors="replace")
-            messages = parse_whatsapp_export(text, secure_filename(uploaded.filename))
+        try:
+            messages = parse_whatsapp_upload(request.files.get("file"))
             database.store_whatsapp_messages(messages)
             success = f"Imported {len(messages)} messages."
+        except ValueError as exc:
+            error = str(exc)
     return render_template("WhatsAppAnalyticsPage.html", user=current_user(), analytics=database.whatsapp_analytics(), error=error, success=success)
 
 
@@ -1806,10 +1892,10 @@ def whatsapp_analytics_page():
 @login_required
 @admin_required
 def api_whatsapp_import():
-    uploaded = request.files.get("file")
-    if not uploaded or not uploaded.filename:
-        return json_response_error("Choose a WhatsApp .txt export.")
-    messages = parse_whatsapp_export(uploaded.read().decode("utf-8", errors="replace"), secure_filename(uploaded.filename))
+    try:
+        messages = parse_whatsapp_upload(request.files.get("file"))
+    except ValueError as exc:
+        return json_response_error(str(exc))
     return jsonify({"imported": database.store_whatsapp_messages(messages)})
 
 

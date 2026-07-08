@@ -351,6 +351,8 @@ def init_db():
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_sent ON whatsapp_messages(sent_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_sender ON whatsapp_messages(sender)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_source ON whatsapp_messages(source_filename)")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS notifications (
@@ -1565,6 +1567,8 @@ def get_voting_results(event_id):
 
 
 def store_whatsapp_messages(messages):
+    if not messages:
+        return 0
     conn = get_connection()
     cursor = conn.cursor()
     cursor.executemany("""
@@ -1578,6 +1582,20 @@ def store_whatsapp_messages(messages):
     conn.close()
     log_activity("WhatsApp", "Import completed", f"{len(messages)} messages imported")
     return len(messages)
+
+
+def list_whatsapp_messages(limit=100):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT *
+        FROM whatsapp_messages
+        ORDER BY sent_at ASC, id ASC
+        LIMIT ?
+    """, (limit,))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
 
 
 def whatsapp_analytics():
@@ -1602,7 +1620,7 @@ def whatsapp_analytics():
         SELECT media_type AS label, COUNT(*) AS count
         FROM whatsapp_messages
         GROUP BY media_type
-        ORDER BY count DESC
+        ORDER BY count DESC, media_type
     """)
     media_types = [row_to_dict(row) for row in cursor.fetchall()]
     cursor.execute("""
