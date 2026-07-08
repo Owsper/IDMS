@@ -1640,6 +1640,39 @@ def parse_optional_date(value, field_name):
         raise ValueError(f"{field_name} must be a valid date.") from exc
 
 
+def parse_bool_arg(value):
+    return str(value or "").lower() in {"1", "true", "yes", "on"}
+
+
+def meeting_filter_context(source):
+    meeting_type = (source.get("type") or "").strip().lower()
+    if meeting_type and meeting_type not in database.MEETING_TYPES:
+        raise ValueError("Meeting type must be general, board, committee, or training.")
+    start = parse_optional_date(source.get("start"), "start")
+    end = parse_optional_date(source.get("end"), "end")
+    if start and end and start > end:
+        raise ValueError("start date must be before end date.")
+    return {
+        "start": start or "",
+        "end": end or "",
+        "type": meeting_type,
+        "q": (source.get("q") or "").strip(),
+        "include_past": parse_bool_arg(source.get("include_past")),
+    }
+
+
+def meeting_calendar_days(meetings):
+    days = []
+    by_day = {}
+    for meeting in meetings:
+        day_key = str(meeting["meeting_at"])[:10]
+        if day_key not in by_day:
+            by_day[day_key] = {"date": day_key, "meetings": []}
+            days.append(by_day[day_key])
+        by_day[day_key]["meetings"].append(meeting)
+    return days
+
+
 def current_actor_name():
     user = current_user() or {}
     return user.get("username") or session.get("admin_username") or "system"
@@ -1971,6 +2004,11 @@ def notifications_page():
 def meetings():
     error = None
     success = None
+    try:
+        filters = meeting_filter_context(request.args)
+    except ValueError as exc:
+        filters = {"start": "", "end": "", "type": "", "q": "", "include_past": False}
+        error = str(exc)
     if request.method == "POST":
         try:
             action = request.form.get("action")
@@ -2001,14 +2039,24 @@ def meetings():
         except (TypeError, ValueError) as exc:
             error = str(exc)
     members = search_members(limit=100, offset=0)["members"] if session.get("admin_username") else []
+    visible_meetings = database.list_meetings(
+        start=filters["start"],
+        end=filters["end"],
+        meeting_type=filters["type"],
+        query=filters["q"],
+        upcoming_only=not filters["include_past"],
+    )
     return render_template(
         "MeetingsPage.html",
         user=current_user(),
-        meetings=database.list_meetings(),
+        meetings=visible_meetings,
+        calendar_days=meeting_calendar_days(visible_meetings),
         members=members,
         attendance=database.meeting_attendance_summary(),
         is_admin=bool(session.get("admin_username")),
         min_meeting_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M"),
+        filters=filters,
+        meeting_types=sorted(database.MEETING_TYPES),
         error=error,
         success=success,
     )
@@ -2018,13 +2066,17 @@ def meetings():
 @login_required
 def api_meetings():
     try:
-        start = parse_optional_date(request.args.get("start"), "start")
-        end = parse_optional_date(request.args.get("end"), "end")
-        if start and end and start > end:
-            return json_response_error("start date must be before end date.")
+        filters = meeting_filter_context(request.args)
     except ValueError as exc:
         return json_response_error(str(exc))
-    return jsonify({"meetings": database.list_meetings(start, end)})
+    meetings = database.list_meetings(
+        start=filters["start"],
+        end=filters["end"],
+        meeting_type=filters["type"],
+        query=filters["q"],
+        upcoming_only=not filters["include_past"],
+    )
+    return jsonify({"meetings": meetings, "calendar_days": meeting_calendar_days(meetings), "filters": filters})
 
 
 @app.route("/api/meetings", methods=["POST"])

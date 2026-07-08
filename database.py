@@ -388,6 +388,7 @@ def init_db():
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_meetings_at ON meetings(meeting_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_meetings_type ON meetings(meeting_type)")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS meeting_attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1719,17 +1720,32 @@ def create_meeting(title, description, meeting_at, location, agenda, invitees, c
     return meeting_id
 
 
-def list_meetings(start=None, end=None):
+def list_meetings(start=None, end=None, meeting_type="", query="", upcoming_only=False):
     conn = get_connection()
     cursor = conn.cursor()
     clauses = []
     params = []
+    meeting_type = (meeting_type or "").strip().lower()
+    query = (query or "").strip()
+    if upcoming_only:
+        clauses.append("datetime(meeting_at) >= CURRENT_TIMESTAMP")
     if start:
         clauses.append("date(meeting_at) >= date(?)")
         params.append(start)
     if end:
         clauses.append("date(meeting_at) <= date(?)")
         params.append(end)
+    if meeting_type:
+        clauses.append("meeting_type = ?")
+        params.append(meeting_type)
+    if query:
+        clauses.append("""(
+            title LIKE ? COLLATE NOCASE OR
+            description LIKE ? COLLATE NOCASE OR
+            location LIKE ? COLLATE NOCASE OR
+            agenda LIKE ? COLLATE NOCASE
+        )""")
+        params.extend([f"%{query}%"] * 4)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     cursor.execute(f"SELECT * FROM meetings {where} ORDER BY meeting_at ASC", params)
     meetings = [row_to_dict(row) for row in cursor.fetchall()]

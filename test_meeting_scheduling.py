@@ -114,6 +114,43 @@ class MeetingSchedulingTest(unittest.TestCase):
         self.assertEqual([item["title"] for item in response.get_json()["meetings"]], ["First"])
         self.assertEqual(invalid.status_code, 400)
 
+    def test_calendar_page_groups_and_filters_visible_meetings(self):
+        database.create_meeting("Board Review", "Budget", self.now + timedelta(days=2), "Room 1", "Finance", ["Board"], "jira", "board")
+        database.create_meeting("Training Lab", "Practice", self.now + timedelta(days=3), "Lab", "Skills", ["Members"], "jira", "training")
+        self.login_member()
+
+        response = self.client.get("/meetings", query_string={"type": "board", "q": "budget"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Meeting Calendar", response.data)
+        self.assertIn(b"Board Review", response.data)
+        self.assertIn(b"Board", response.data)
+        self.assertNotIn(b"Training Lab", response.data)
+
+    def test_meetings_api_calendar_filters_and_default_upcoming_only(self):
+        future_id = database.create_meeting("Future Planning", "", self.now + timedelta(days=2), "Room 1", "", [], "jira")
+        past_id = database.create_meeting("Past Planning", "", self.now + timedelta(days=3), "Room 2", "", [], "jira")
+        conn = database.get_connection()
+        conn.execute(
+            "UPDATE meetings SET meeting_at = ? WHERE id = ?",
+            ((self.now - timedelta(days=3)).isoformat(timespec="seconds"), past_id),
+        )
+        conn.commit()
+        conn.close()
+        self.login_member()
+
+        upcoming = self.client.get("/api/meetings")
+        with_past = self.client.get("/api/meetings", query_string={"include_past": "1", "q": "Planning"})
+        invalid_type = self.client.get("/api/meetings", query_string={"type": "social"})
+
+        self.assertEqual([item["id"] for item in upcoming.get_json()["meetings"]], [future_id])
+        self.assertEqual(
+            [item["title"] for item in with_past.get_json()["meetings"]],
+            ["Past Planning", "Future Planning"],
+        )
+        self.assertEqual(with_past.get_json()["calendar_days"][0]["meetings"][0]["title"], "Past Planning")
+        self.assertEqual(invalid_type.status_code, 400)
+
     def test_attendance_and_minutes_validate_references(self):
         meeting_id = database.create_meeting("Planning", "", self.now + timedelta(days=2), "Room 1", "", [], "jira")
 
