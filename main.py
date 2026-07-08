@@ -2435,6 +2435,12 @@ def help_page():
     return render_template("HelpPage.html", user=current_user())
 
 
+@app.route("/user-manual")
+@login_required
+def user_manual_page():
+    return render_template("UserManualPage.html", user=current_user())
+
+
 @app.route("/developer-guide")
 @login_required
 @admin_required
