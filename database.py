@@ -459,6 +459,37 @@ def init_db():
             UNIQUE(category, fiscal_period)
         )
     """)
+    add_column_if_missing(cursor, "budgets", "warning_threshold", "REAL NOT NULL DEFAULT 80")
+    add_column_if_missing(cursor, "budgets", "critical_threshold", "REAL NOT NULL DEFAULT 100")
+    add_column_if_missing(cursor, "budgets", "is_active", "INTEGER NOT NULL DEFAULT 1")
+    add_column_if_missing(cursor, "budgets", "updated_at", "DATETIME")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS budget_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("""
+        INSERT OR IGNORE INTO budget_categories (name)
+        SELECT DISTINCT category FROM budgets WHERE trim(category) != ''
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS budget_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            budget_id INTEGER NOT NULL,
+            alert_level TEXT NOT NULL CHECK(alert_level IN ('watch', 'over')),
+            utilization REAL NOT NULL,
+            spent REAL NOT NULL,
+            allocated_amount REAL NOT NULL,
+            notification_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(budget_id, alert_level),
+            FOREIGN KEY(budget_id) REFERENCES budgets(id),
+            FOREIGN KEY(notification_id) REFERENCES notifications(id)
+        )
+    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS bug_reports (
@@ -1433,6 +1464,16 @@ NOTIFICATION_TEMPLATES = {
         "category": "event",
         "title": "{title}",
         "body": "{body}",
+    },
+    "budget_warning": {
+        "category": "budget",
+        "title": "Budget watch: {category}",
+        "body": "{category} is at {utilization}% of the {fiscal_period} budget.",
+    },
+    "budget_over": {
+        "category": "budget",
+        "title": "Budget exceeded: {category}",
+        "body": "{category} has spent {spent} against a {allocated_amount} budget for {fiscal_period}.",
     },
 }
 MEETING_REMINDER_OFFSETS_MINUTES = (1440, 60)
@@ -2483,19 +2524,63 @@ def financial_report_export_rows(report=None):
     return rows
 
 
-def upsert_budget(category, allocated_amount, fiscal_period):
-    amount = float(allocated_amount)
+def upsert_budget(category, allocated_amount, fiscal_period, warning_threshold=80, critical_threshold=100, is_active=1):
+    category = (category or "").strip()
+    fiscal_period = (fiscal_period or "").strip()
+    if not category:
+        raise ValueError("Budget category is required.")
+    if len(category) > 80:
+        raise ValueError("Budget category must be 80 characters or fewer.")
+    if not fiscal_period:
+        raise ValueError("Fiscal period is required.")
+    try:
+        amount = round(float(allocated_amount), 2)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Budget amount must be a valid number.") from exc
     if amount <= 0:
         raise ValueError("Budget amount must be positive.")
+    try:
+        warning_threshold = round(float(warning_threshold), 2)
+        critical_threshold = round(float(critical_threshold), 2)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Budget thresholds must be valid numbers.") from exc
+    if warning_threshold <= 0 or critical_threshold <= 0 or warning_threshold >= critical_threshold:
+        raise ValueError("Budget warning threshold must be lower than the critical threshold.")
+
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO budget_categories (name) VALUES (?)", (category,))
     cursor.execute("""
-        INSERT INTO budgets (category, allocated_amount, fiscal_period)
-        VALUES (?, ?, ?)
-        ON CONFLICT(category, fiscal_period) DO UPDATE SET allocated_amount = excluded.allocated_amount
-    """, (category.strip(), amount, fiscal_period.strip()))
+        INSERT INTO budgets (
+            category, allocated_amount, fiscal_period,
+            warning_threshold, critical_threshold, is_active, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(category, fiscal_period) DO UPDATE SET
+            allocated_amount = excluded.allocated_amount,
+            warning_threshold = excluded.warning_threshold,
+            critical_threshold = excluded.critical_threshold,
+            is_active = excluded.is_active,
+            updated_at = CURRENT_TIMESTAMP
+    """, (category, amount, fiscal_period, warning_threshold, critical_threshold, 1 if is_active else 0))
+    cursor.execute(
+        "SELECT id FROM budgets WHERE category = ? COLLATE NOCASE AND fiscal_period = ?",
+        (category, fiscal_period),
+    )
+    budget_id = cursor.fetchone()["id"]
     conn.commit()
     conn.close()
+    return budget_id
+
+
+def list_budget_categories(active_only=True):
+    conn = get_connection()
+    cursor = conn.cursor()
+    where = "WHERE is_active = 1" if active_only else ""
+    cursor.execute(f"SELECT * FROM budget_categories {where} ORDER BY name COLLATE NOCASE")
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
 
 
 def financial_report():
@@ -2544,13 +2629,15 @@ def financial_report():
     cursor.execute("SELECT COUNT(*) AS count FROM financial_transactions")
     transaction_count = cursor.fetchone()["count"]
     cursor.execute("""
-        SELECT b.category, b.fiscal_period, b.allocated_amount,
+        SELECT b.id, b.category, b.fiscal_period, b.allocated_amount,
+               b.warning_threshold, b.critical_threshold, b.is_active,
                COALESCE(SUM(t.amount), 0) AS spent
         FROM budgets b
         LEFT JOIN financial_transactions t
           ON lower(t.category) = lower(b.category)
          AND t.type = 'expense'
          AND strftime('%Y', t.transaction_date) = b.fiscal_period
+        WHERE b.is_active = 1
         GROUP BY b.id
         ORDER BY b.category
     """)
@@ -2559,9 +2646,11 @@ def financial_report():
     for budget in budgets:
         utilization = round((budget["spent"] / budget["allocated_amount"] * 100) if budget["allocated_amount"] else 0, 2)
         budget["utilization"] = utilization
-        if utilization >= 100:
+        budget["remaining"] = round(max(budget["allocated_amount"] - budget["spent"], 0), 2)
+        budget["overage"] = round(max(budget["spent"] - budget["allocated_amount"], 0), 2)
+        if utilization >= budget["critical_threshold"]:
             budget["status"] = "over"
-        elif utilization >= 80:
+        elif utilization >= budget["warning_threshold"]:
             budget["status"] = "watch"
         else:
             budget["status"] = "ok"
@@ -2582,11 +2671,76 @@ def financial_report():
         "budget_alert_count": len([budget for budget in budgets if budget["status"] in {"watch", "over"}]),
         "monthly": monthly,
         "categories": categories,
+        "budget_categories": list_budget_categories(),
         "budgets": budgets,
         "transactions": list_transactions(25),
     }
     report["summaries"] = financial_summary_items(report)
     return report
+
+
+def generate_budget_alerts(report=None):
+    report = report or financial_report()
+    created = []
+    for budget in report.get("budgets", []):
+        if budget.get("status") not in {"watch", "over"}:
+            continue
+        alert_level = budget["status"]
+        template_key = "budget_over" if alert_level == "over" else "budget_warning"
+        context = {
+            "budget_id": budget["id"],
+            "category": budget["category"],
+            "fiscal_period": budget["fiscal_period"],
+            "utilization": f"{budget['utilization']:.2f}",
+            "spent": f"{budget['spent']:.2f}",
+            "allocated_amount": f"{budget['allocated_amount']:.2f}",
+            "remaining": f"{budget['remaining']:.2f}",
+            "overage": f"{budget['overage']:.2f}",
+            "alert_level": alert_level,
+        }
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT id FROM budget_alerts WHERE budget_id = ? AND alert_level = ?",
+                (budget["id"], alert_level),
+            )
+            if cursor.fetchone():
+                continue
+            rendered = render_notification_template(template_key, context)
+            notification_id = create_notification(
+                rendered["category"],
+                rendered["title"],
+                rendered["body"],
+                template_key=template_key,
+                metadata=context,
+            )
+            cursor.execute("""
+                INSERT INTO budget_alerts (
+                    budget_id, alert_level, utilization, spent,
+                    allocated_amount, notification_id
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                budget["id"],
+                alert_level,
+                budget["utilization"],
+                budget["spent"],
+                budget["allocated_amount"],
+                notification_id,
+            ))
+            conn.commit()
+            created.append({
+                "budget_id": budget["id"],
+                "category": budget["category"],
+                "alert_level": alert_level,
+                "notification_id": notification_id,
+            })
+        except sqlite3.IntegrityError:
+            conn.rollback()
+        finally:
+            conn.close()
+    return {"count": len(created), "alerts": created}
 
 
 def activity_summary(period="monthly"):

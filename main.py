@@ -2274,7 +2274,13 @@ def financial():
                 database.create_transaction(request.form.get("transaction_date", ""), request.form.get("type", ""), request.form.get("category", ""), request.form.get("amount", 0), request.form.get("description", ""), current_actor_name())
                 success = "Transaction recorded."
             elif request.form.get("action") == "budget":
-                database.upsert_budget(request.form.get("category", ""), request.form.get("allocated_amount", 0), request.form.get("fiscal_period", ""))
+                database.upsert_budget(
+                    request.form.get("category", ""),
+                    request.form.get("allocated_amount", 0),
+                    request.form.get("fiscal_period", ""),
+                    request.form.get("warning_threshold", 80),
+                    request.form.get("critical_threshold", 100),
+                )
                 success = "Budget saved."
         except ValueError as exc:
             error = str(exc)
@@ -2305,6 +2311,42 @@ def api_financial_create_transaction():
     except (TypeError, ValueError) as exc:
         return json_response_error(str(exc))
     return jsonify({"transaction_id": transaction_id, "transaction": database.get_transaction(transaction_id)}), 201
+
+
+@app.route("/api/financial/budgets")
+@login_required
+@admin_required
+def api_financial_budgets():
+    report = database.financial_report()
+    return jsonify({"budgets": report["budgets"], "categories": database.list_budget_categories()})
+
+
+@app.route("/api/financial/budgets", methods=["POST"])
+@login_required
+@admin_required
+def api_financial_upsert_budget():
+    payload = request.get_json(silent=True) or {}
+    try:
+        budget_id = database.upsert_budget(
+            payload.get("category", ""),
+            payload.get("allocated_amount", 0),
+            payload.get("fiscal_period", ""),
+            payload.get("warning_threshold", 80),
+            payload.get("critical_threshold", 100),
+            payload.get("is_active", 1),
+        )
+    except (TypeError, ValueError) as exc:
+        return json_response_error(str(exc))
+    report = database.financial_report()
+    budget = next((item for item in report["budgets"] if item["id"] == budget_id), None)
+    return jsonify({"budget_id": budget_id, "budget": budget}), 201
+
+
+@app.route("/api/financial/budget-alerts", methods=["POST"])
+@login_required
+@admin_required
+def api_financial_budget_alerts():
+    return jsonify(database.generate_budget_alerts())
 
 
 @app.route("/api/financial/report")

@@ -124,6 +124,60 @@ class FinancialTransactionsTest(unittest.TestCase):
         self.assertIn("monthly,2026-06,500.0,100.0,400.0,", body)
         self.assertIn("budget,Venue 2026,,100.0,,83.33", body)
 
+    def test_budget_monitoring_categories_thresholds_and_alerts(self):
+        budget_id = database.upsert_budget("Venue", 100, "2026", warning_threshold=50, critical_threshold=90)
+        database.create_transaction("2026-06-02", "expense", "Venue", 75, "Room", "jira")
+
+        report = database.financial_report()
+        budget = report["budgets"][0]
+
+        self.assertEqual(budget["id"], budget_id)
+        self.assertEqual(budget["status"], "watch")
+        self.assertEqual(budget["remaining"], 25)
+        self.assertEqual(report["budget_categories"][0]["name"], "Venue")
+
+        first = database.generate_budget_alerts(report)
+        second = database.generate_budget_alerts(database.financial_report())
+
+        self.assertEqual(first["count"], 1)
+        self.assertEqual(first["alerts"][0]["alert_level"], "watch")
+        self.assertEqual(second["count"], 0)
+        notifications = database.list_notifications()
+        self.assertEqual(notifications[0]["category"], "budget")
+        self.assertIn("Budget watch", notifications[0]["title"])
+
+    def test_budget_monitoring_api_upserts_budgets_and_generates_alerts(self):
+        self.login_admin()
+        response = self.client.post(
+            "/api/financial/budgets",
+            json={
+                "category": "Catering",
+                "allocated_amount": 100,
+                "fiscal_period": "2026",
+                "warning_threshold": 60,
+                "critical_threshold": 80,
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.get_json()["budget"]["status"], "ok")
+
+        database.create_transaction("2026-07-01", "expense", "Catering", 85, "Food", "jira")
+        alerts = self.client.post("/api/financial/budget-alerts")
+
+        self.assertEqual(alerts.status_code, 200)
+        self.assertEqual(alerts.get_json()["alerts"][0]["alert_level"], "over")
+        budgets = self.client.get("/api/financial/budgets").get_json()
+        self.assertEqual(budgets["budgets"][0]["status"], "over")
+        self.assertEqual(budgets["categories"][0]["name"], "Catering")
+
+    def test_budget_monitoring_rejects_invalid_budget_setup(self):
+        with self.assertRaisesRegex(ValueError, "category"):
+            database.upsert_budget("", 100, "2026")
+        with self.assertRaisesRegex(ValueError, "valid number"):
+            database.upsert_budget("Venue", "bad", "2026")
+        with self.assertRaisesRegex(ValueError, "warning threshold"):
+            database.upsert_budget("Venue", 100, "2026", warning_threshold=100, critical_threshold=80)
+
 
 if __name__ == "__main__":
     unittest.main()
