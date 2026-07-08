@@ -2051,6 +2051,13 @@ def api_notifications():
     return jsonify({"notifications": database.list_notifications(limit=100, recipient_id=recipient_id)})
 
 
+@app.route("/api/notifications/process-due", methods=["POST"])
+@login_required
+@admin_required
+def api_process_due_notifications():
+    return jsonify(database.process_due_notifications())
+
+
 @app.route("/meetings", methods=["GET", "POST"])
 @login_required
 def meetings():

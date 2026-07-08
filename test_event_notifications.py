@@ -75,12 +75,11 @@ class EventNotificationsTest(unittest.TestCase):
 
         database.create_meeting("Planning", "", meeting_at, "Room 1", "Agenda", [], "jira")
         notifications = database.list_notifications(recipient_id=member["id"])
+        scheduled_notice = next(item for item in notifications if item["template_key"] == "meeting_scheduled")
 
-        self.assertEqual(len(notifications), 1)
-        self.assertEqual(notifications[0]["category"], "meeting")
-        self.assertEqual(notifications[0]["template_key"], "meeting_scheduled")
-        self.assertEqual(notifications[0]["status"], "scheduled")
-        self.assertEqual(notifications[0]["scheduled_for"], meeting_at.isoformat(timespec="seconds"))
+        self.assertEqual(scheduled_notice["category"], "meeting")
+        self.assertEqual(scheduled_notice["status"], "scheduled")
+        self.assertEqual(scheduled_notice["scheduled_for"], meeting_at.isoformat(timespec="seconds"))
 
     def test_manual_event_reminder_form_and_api_history(self):
         member = self.create_member("member", "member@example.com")

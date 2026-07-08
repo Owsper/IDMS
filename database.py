@@ -1395,12 +1395,18 @@ NOTIFICATION_TEMPLATES = {
         "title": "Meeting scheduled: {title}",
         "body": "{title} is scheduled for {meeting_at} at {location}.",
     },
+    "meeting_reminder": {
+        "category": "meeting",
+        "title": "Reminder: {title}",
+        "body": "{title} starts at {meeting_at} at {location}.",
+    },
     "manual_event_reminder": {
         "category": "event",
         "title": "{title}",
         "body": "{body}",
     },
 }
+MEETING_REMINDER_OFFSETS_MINUTES = (1440, 60)
 
 
 def render_notification_template(template_key, context=None):
@@ -1491,6 +1497,58 @@ def send_notification(template_key, context=None, recipient_ids=None, channel="i
             template_key=template_key,
             metadata=context or {},
         ))
+    return {"count": len(notification_ids), "notification_ids": notification_ids}
+
+
+def schedule_meeting_reminders(meeting_id, title, meeting_at, location, recipient_ids=None):
+    if not hasattr(meeting_at, "isoformat"):
+        raise ValueError("Meeting date and time are required.")
+    context = {
+        "meeting_id": meeting_id,
+        "title": title,
+        "meeting_at": meeting_at.isoformat(timespec="seconds"),
+        "location": location or "TBD",
+    }
+    reminder_ids = []
+    for minutes_before in MEETING_REMINDER_OFFSETS_MINUTES:
+        scheduled_at = meeting_at - timedelta(minutes=minutes_before)
+        if scheduled_at <= datetime_now():
+            continue
+        result = send_notification(
+            "meeting_reminder",
+            {**context, "minutes_before": minutes_before},
+            recipient_ids=recipient_ids,
+            scheduled_for=scheduled_at.isoformat(timespec="seconds"),
+        )
+        reminder_ids.extend(result["notification_ids"])
+    return {"count": len(reminder_ids), "notification_ids": reminder_ids}
+
+
+def process_due_notifications(now=None, limit=100):
+    now = now or datetime_now()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id
+        FROM notifications
+        WHERE status = 'scheduled'
+          AND scheduled_for IS NOT NULL
+          AND datetime(scheduled_for) <= datetime(?)
+        ORDER BY scheduled_for ASC, id ASC
+        LIMIT ?
+    """, (now.isoformat(timespec="seconds"), limit))
+    notification_ids = [row["id"] for row in cursor.fetchall()]
+    if notification_ids:
+        placeholders = ", ".join(["?"] * len(notification_ids))
+        cursor.execute(f"""
+            UPDATE notifications
+            SET status = 'sent',
+                sent_at = CURRENT_TIMESTAMP,
+                error_message = ''
+            WHERE id IN ({placeholders})
+        """, notification_ids)
+    conn.commit()
+    conn.close()
     return {"count": len(notification_ids), "notification_ids": notification_ids}
 
 
@@ -2012,12 +2070,14 @@ def create_meeting(title, description, meeting_at, location, agenda, invitees, c
     send_notification(
         "meeting_scheduled",
         {
+            "meeting_id": meeting_id,
             "title": title,
             "meeting_at": meeting_at.isoformat(timespec="seconds"),
             "location": location or "TBD",
         },
         scheduled_for=meeting_at.isoformat(timespec="seconds"),
     )
+    schedule_meeting_reminders(meeting_id, title, meeting_at, location)
     return meeting_id
 
 
