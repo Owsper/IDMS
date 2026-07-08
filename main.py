@@ -1673,6 +1673,23 @@ def meeting_calendar_days(meetings):
     return days
 
 
+def whatsapp_analytics_filters(source):
+    start = parse_optional_date(source.get("start"), "start")
+    end = parse_optional_date(source.get("end"), "end")
+    if start and end and start > end:
+        raise ValueError("start date must be before end date.")
+    try:
+        recent_limit = int(source.get("recent_limit") or 10)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("recent_limit must be a number.") from exc
+    return {
+        "start": start or "",
+        "end": end or "",
+        "participant": (source.get("participant") or "").strip(),
+        "recent_limit": max(1, min(recent_limit, 100)),
+    }
+
+
 def current_actor_name():
     user = current_user() or {}
     return user.get("username") or session.get("admin_username") or "system"
@@ -1962,6 +1979,11 @@ def api_voting_results_csv(event_id):
 def whatsapp_analytics_page():
     error = None
     success = None
+    try:
+        filters = whatsapp_analytics_filters(request.args)
+    except ValueError as exc:
+        filters = {"start": "", "end": "", "participant": "", "recent_limit": 10}
+        error = str(exc)
     if request.method == "POST":
         try:
             messages = parse_whatsapp_upload(request.files.get("file"))
@@ -1969,7 +1991,8 @@ def whatsapp_analytics_page():
             success = f"Imported {len(messages)} messages."
         except (TypeError, ValueError) as exc:
             error = str(exc)
-    return render_template("WhatsAppAnalyticsPage.html", user=current_user(), analytics=database.whatsapp_analytics(), error=error, success=success)
+    analytics = database.whatsapp_analytics(**filters)
+    return render_template("WhatsAppAnalyticsPage.html", user=current_user(), analytics=analytics, filters=filters, error=error, success=success)
 
 
 @app.route("/api/whatsapp/import", methods=["POST"])
@@ -1987,7 +2010,11 @@ def api_whatsapp_import():
 @login_required
 @admin_required
 def api_whatsapp_analytics():
-    return jsonify(database.whatsapp_analytics())
+    try:
+        filters = whatsapp_analytics_filters(request.args)
+    except ValueError as exc:
+        return json_response_error(str(exc))
+    return jsonify(database.whatsapp_analytics(**filters))
 
 
 @app.route("/notifications", methods=["GET", "POST"])

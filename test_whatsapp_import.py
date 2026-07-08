@@ -129,6 +129,57 @@ class WhatsAppImportTest(unittest.TestCase):
         self.assertEqual(payload["active_participants"][0]["active_days"], 1)
         self.assertTrue(any(row["label"] == "Friday" for row in payload["weekdays"]))
 
+    def test_analytics_dashboard_filters_data(self):
+        messages = main.parse_whatsapp_export(
+            "13/02/2026, 08:05 - Alice: Morning\n"
+            "13/02/2026, 09:06 - Bob: Update\n"
+            "14/02/2026, 10:07 - Bob: Follow up",
+            "chat.txt",
+        )
+        database.store_whatsapp_messages(messages)
+
+        analytics = database.whatsapp_analytics(
+            start="2026-02-14",
+            end="2026-02-14",
+            participant="Bob",
+            recent_limit=1,
+        )
+
+        self.assertEqual(analytics["summary"]["total_messages"], 1)
+        self.assertEqual(analytics["summary"]["participant_count"], 1)
+        self.assertEqual(analytics["per_day"], [{"label": "2026-02-14", "count": 1}])
+        self.assertEqual(analytics["top_participants"][0]["label"], "Bob")
+        self.assertEqual(len(analytics["recent_messages"]), 1)
+        self.assertEqual(analytics["filters"]["participant"], "Bob")
+        self.assertEqual({item["label"] for item in analytics["participants"]}, {"Alice", "Bob"})
+
+    def test_analytics_dashboard_page_and_api_filters(self):
+        messages = main.parse_whatsapp_export(
+            "13/02/2026, 08:05 - Alice: Morning\n"
+            "14/02/2026, 10:07 - Bob: Follow up",
+            "chat.txt",
+        )
+        database.store_whatsapp_messages(messages)
+        self.login_admin()
+
+        page = self.client.get(
+            "/whatsapp-analytics",
+            query_string={"start": "2026-02-14", "end": "2026-02-14", "participant": "Bob"},
+        )
+        api = self.client.get(
+            "/api/whatsapp/analytics",
+            query_string={"participant": "Bob", "recent_limit": "1"},
+        )
+        invalid = self.client.get("/api/whatsapp/analytics", query_string={"recent_limit": "many"})
+
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Analytics Dashboard", page.data)
+        self.assertIn(b"Bob", page.data)
+        self.assertEqual(api.status_code, 200)
+        self.assertEqual(api.get_json()["summary"]["total_messages"], 1)
+        self.assertEqual(len(api.get_json()["recent_messages"]), 1)
+        self.assertEqual(invalid.status_code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

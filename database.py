@@ -1703,16 +1703,31 @@ def list_whatsapp_messages(limit=100):
     return rows
 
 
-def whatsapp_analytics():
+def whatsapp_analytics(start=None, end=None, participant="", recent_limit=10):
     conn = get_connection()
     cursor = conn.cursor()
+    clauses = []
+    params = []
+    participant_filter = (participant or "").strip()
+    if start:
+        clauses.append("date(sent_at) >= date(?)")
+        params.append(start)
+    if end:
+        clauses.append("date(sent_at) <= date(?)")
+        params.append(end)
+    if participant_filter:
+        clauses.append("sender = ? COLLATE NOCASE")
+        params.append(participant_filter)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    recent_limit = max(1, min(int(recent_limit or 10), 100))
+
     cursor.execute("""
         SELECT COUNT(*) AS total_messages,
                COUNT(DISTINCT sender) AS participant_count,
                MIN(sent_at) AS first_message_at,
                MAX(sent_at) AS last_message_at
         FROM whatsapp_messages
-    """)
+        """ + where, params)
     summary = row_to_dict(cursor.fetchone()) or {}
     total_messages = int(summary.get("total_messages") or 0)
     participant_count = int(summary.get("participant_count") or 0)
@@ -1721,17 +1736,19 @@ def whatsapp_analytics():
     cursor.execute("""
         SELECT date(sent_at) AS label, COUNT(*) AS count
         FROM whatsapp_messages
+        """ + where + """
         GROUP BY date(sent_at)
         ORDER BY label
-    """)
+    """, params)
     per_day = [row_to_dict(row) for row in cursor.fetchall()]
     cursor.execute("""
         SELECT sender AS label, COUNT(*) AS count
         FROM whatsapp_messages
+        """ + where + """
         GROUP BY sender
         ORDER BY count DESC, sender
         LIMIT 10
-    """)
+    """, params)
     top_participants = [row_to_dict(row) for row in cursor.fetchall()]
     for participant in top_participants:
         participant["percentage"] = round((participant["count"] / total_messages) * 100, 2) if total_messages else 0
@@ -1743,10 +1760,11 @@ def whatsapp_analytics():
                MIN(sent_at) AS first_message_at,
                MAX(sent_at) AS last_message_at
         FROM whatsapp_messages
+        """ + where + """
         GROUP BY sender
         ORDER BY message_count DESC, sender
         LIMIT 10
-    """)
+    """, params)
     active_participants = [row_to_dict(row) for row in cursor.fetchall()]
     for participant in active_participants:
         active_days = int(participant.get("active_days") or 0)
@@ -1755,23 +1773,26 @@ def whatsapp_analytics():
     cursor.execute("""
         SELECT media_type AS label, COUNT(*) AS count
         FROM whatsapp_messages
+        """ + where + """
         GROUP BY media_type
         ORDER BY count DESC, media_type
-    """)
+    """, params)
     media_types = [row_to_dict(row) for row in cursor.fetchall()]
     cursor.execute("""
         SELECT strftime('%H', sent_at) AS label, COUNT(*) AS count
         FROM whatsapp_messages
+        """ + where + """
         GROUP BY strftime('%H', sent_at)
         ORDER BY label
-    """)
+    """, params)
     peak_hours = [row_to_dict(row) for row in cursor.fetchall()]
     cursor.execute("""
         SELECT strftime('%w', sent_at) AS weekday, COUNT(*) AS count
         FROM whatsapp_messages
+        """ + where + """
         GROUP BY strftime('%w', sent_at)
         ORDER BY weekday
-    """)
+    """, params)
     weekday_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     weekdays = [
         {"label": weekday_names[int(row["weekday"])], "count": row["count"]}
@@ -1780,10 +1801,17 @@ def whatsapp_analytics():
     cursor.execute("""
         SELECT id, sender, sent_at, message, media_type
         FROM whatsapp_messages
+        """ + where + """
         ORDER BY sent_at DESC, id DESC
-        LIMIT 10
-    """)
+        LIMIT ?
+    """, params + [recent_limit])
     recent_messages = [row_to_dict(row) for row in cursor.fetchall()]
+    cursor.execute("""
+        SELECT DISTINCT sender AS label
+        FROM whatsapp_messages
+        ORDER BY sender COLLATE NOCASE
+    """)
+    participants = [row_to_dict(row) for row in cursor.fetchall()]
     busiest_day = max(per_day, key=lambda row: row["count"], default=None)
     busiest_hour = max(peak_hours, key=lambda row: row["count"], default=None)
     most_active_participant = top_participants[0] if top_participants else None
@@ -1797,6 +1825,13 @@ def whatsapp_analytics():
         "peak_hours": peak_hours,
         "weekdays": weekdays,
         "recent_messages": recent_messages,
+        "participants": participants,
+        "filters": {
+            "start": start or "",
+            "end": end or "",
+            "participant": participant_filter,
+            "recent_limit": recent_limit,
+        },
         "busiest_day": busiest_day,
         "busiest_hour": busiest_hour,
         "most_active_participant": most_active_participant,
