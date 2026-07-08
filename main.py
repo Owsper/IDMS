@@ -1853,14 +1853,12 @@ def api_voting_cast_vote():
 
 @app.route("/api/voting/events/<int:event_id>/results")
 @login_required
+@admin_required
 def api_voting_results(event_id):
     try:
         results = database.get_voting_results(event_id)
     except ValueError as exc:
         return json_response_error(str(exc), status=404)
-    event_closed = datetime.utcnow() >= database.parse_db_datetime(results["event"]["end_at"])
-    if not event_closed and not session.get("admin_username"):
-        abort(403)
     return jsonify(results)
 
 
@@ -1868,8 +1866,39 @@ def api_voting_results(event_id):
 @login_required
 @admin_required
 def api_voting_results_csv(event_id):
-    results = database.get_voting_results(event_id)
-    return csv_download("voting-results.csv", results["options"], ["id", "label", "votes"])
+    try:
+        results = database.get_voting_results(event_id)
+    except ValueError as exc:
+        return json_response_error(str(exc), status=404)
+    event = results["event"]
+    rows = []
+    for option in results["options"]:
+        rows.append({
+            "event_id": event["id"],
+            "event_title": event["title"],
+            "option_id": option["id"],
+            "option_label": option["label"],
+            "votes": option["votes"],
+            "percentage": option["percentage"],
+            "winner": "yes" if option["winner"] else "no",
+            "total_votes": results["total_votes"],
+            "is_tie": "yes" if results["is_tie"] else "no",
+        })
+    return csv_download(
+        "voting-results.csv",
+        rows,
+        [
+            "event_id",
+            "event_title",
+            "option_id",
+            "option_label",
+            "votes",
+            "percentage",
+            "winner",
+            "total_votes",
+            "is_tie",
+        ],
+    )
 
 
 @app.route("/whatsapp-analytics", methods=["GET", "POST"])

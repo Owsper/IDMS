@@ -222,6 +222,7 @@
             {% if is_admin %}
             <div class="bars" data-results="{{ url_for('api_voting_results', event_id=event.id) }}">
               <a class="button" href="{{ url_for('api_voting_results_csv', event_id=event.id) }}">Export CSV</a>
+              <p class="muted" data-result-summary>Loading results...</p>
               <canvas id="chart-{{ event.id }}" height="110"></canvas>
             </div>
             {% endif %}
@@ -239,6 +240,9 @@
       if (!response.ok || !window.Chart) return;
       const data = await response.json();
       const canvas = box.querySelector("canvas");
+      const summary = box.querySelector("[data-result-summary]");
+      const winners = data.winner_labels.length ? data.winner_labels.join(", ") : "No winner yet";
+      summary.textContent = `${data.total_votes} votes counted. ${data.is_tie ? "Tie" : "Leader"}: ${winners}.`;
       new Chart(canvas, {type:"bar",data:{labels:data.options.map(o=>o.label),datasets:[{data:data.options.map(o=>o.votes),backgroundColor:["#7d39ff","#06b6d4","#10b981","#f59e0b"]}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
     });
   </script>

@@ -1562,8 +1562,21 @@ def get_voting_results(event_id):
     """, (event_id,))
     options = [row_to_dict(row) for row in cursor.fetchall()]
     total = sum(item["votes"] for item in options)
+    winning_votes = max((item["votes"] for item in options), default=0)
+    winners = []
+    for option in options:
+        option["percentage"] = round((option["votes"] / total) * 100, 2) if total else 0
+        option["winner"] = bool(total and option["votes"] == winning_votes)
+        if option["winner"]:
+            winners.append(option["label"])
     conn.close()
-    return {"event": event, "options": options, "total_votes": total}
+    return {
+        "event": event,
+        "options": options,
+        "total_votes": total,
+        "winner_labels": winners,
+        "is_tie": len(winners) > 1,
+    }
 
 
 def store_whatsapp_messages(messages):
