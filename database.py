@@ -1402,6 +1402,50 @@ def _json_list(value):
         return []
 
 
+ELIGIBILITY_STATUSES = {"verified", "any"}
+
+
+def normalize_voting_eligibility(eligibility):
+    eligibility = eligibility or {}
+    membership_status = (eligibility.get("membership_status") or "verified").strip().lower()
+    if membership_status not in ELIGIBILITY_STATUSES:
+        raise ValueError("Membership status rule must be verified or any.")
+
+    try:
+        min_membership_days = int(eligibility.get("min_membership_days") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Minimum membership days must be a number.") from exc
+    if min_membership_days < 0:
+        raise ValueError("Minimum membership days cannot be negative.")
+
+    allowed_roles = eligibility.get("allowed_roles") or []
+    if isinstance(allowed_roles, str):
+        allowed_roles = allowed_roles.split(",")
+    if not isinstance(allowed_roles, (list, tuple)):
+        raise ValueError("Allowed roles must be a list or comma-separated string.")
+    allowed_roles = [str(role).strip() for role in allowed_roles if str(role).strip()]
+
+    return {
+        "membership_status": membership_status,
+        "min_membership_days": min_membership_days,
+        "allowed_roles": allowed_roles,
+    }
+
+
+def get_eligibility_audit(limit=100):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT *
+        FROM eligibility_audit
+        ORDER BY checked_at DESC, id DESC
+        LIMIT ?
+    """, (limit,))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
 def create_voting_event(title, description, option_labels, start_at, end_at, created_by="", eligibility=None):
     title = (title or "").strip()
     option_labels = [label.strip() for label in option_labels if label and label.strip()]
@@ -1413,10 +1457,7 @@ def create_voting_event(title, description, option_labels, start_at, end_at, cre
         raise ValueError("Voting start date must be in the future.")
     if end_at <= start_at:
         raise ValueError("Voting end date must be after the start date.")
-    eligibility = eligibility or {}
-    allowed_roles = eligibility.get("allowed_roles") or []
-    if isinstance(allowed_roles, str):
-        allowed_roles = [role.strip() for role in allowed_roles.split(",") if role.strip()]
+    eligibility = normalize_voting_eligibility(eligibility)
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -1431,9 +1472,9 @@ def create_voting_event(title, description, option_labels, start_at, end_at, cre
         (description or "").strip(),
         start_at.isoformat(timespec="seconds"),
         end_at.isoformat(timespec="seconds"),
-        eligibility.get("membership_status", "verified"),
-        int(eligibility.get("min_membership_days") or 0),
-        json.dumps(allowed_roles),
+        eligibility["membership_status"],
+        eligibility["min_membership_days"],
+        json.dumps(eligibility["allowed_roles"]),
         created_by,
     ))
     event_id = cursor.lastrowid
@@ -1488,27 +1529,34 @@ def verify_vote_eligibility(event_id, user_id):
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM voting_events WHERE id = ?", (event_id,))
     event = row_to_dict(cursor.fetchone())
-    cursor.execute("SELECT * FROM users_data WHERE id = ?", (user_id,))
-    user = row_to_dict(cursor.fetchone())
+    user = None
+    if user_id is not None:
+        cursor.execute("SELECT * FROM users_data WHERE id = ?", (user_id,))
+        user = row_to_dict(cursor.fetchone())
     eligible = True
     reason = "Eligible"
+    rule = {}
     if not event:
         eligible, reason = False, "Voting event not found."
     elif not user:
         eligible, reason = False, "Member not found."
     else:
         now = datetime_now()
+        rule = {
+            "membership_status": event["eligibility_status"],
+            "min_membership_days": int(event.get("min_membership_days") or 0),
+            "allowed_roles": _json_list(event.get("allowed_roles")),
+        }
         if now < parse_db_datetime(event["start_at"]) or now >= parse_db_datetime(event["end_at"]):
             eligible, reason = False, "Voting is not active for this event."
         elif event["eligibility_status"] == "verified" and int(user.get("is_verified", 0)) != 1:
             eligible, reason = False, "Only verified members can vote in this event."
         else:
-            roles = _json_list(event.get("allowed_roles"))
+            roles = rule["allowed_roles"]
             if roles and user.get("role") not in roles and user.get("team_role") not in roles:
                 eligible, reason = False, "Your role is not eligible for this vote."
-            min_days = int(event.get("min_membership_days") or 0)
+            min_days = rule["min_membership_days"]
             if eligible and min_days:
-                from datetime import timedelta
                 created = parse_db_datetime(user["created_at"])
                 if created > now - timedelta(days=min_days):
                     eligible, reason = False, f"Membership must be at least {min_days} days old."
@@ -1518,7 +1566,24 @@ def verify_vote_eligibility(event_id, user_id):
     """, (event_id, user_id, int(eligible), reason))
     conn.commit()
     conn.close()
-    return {"eligible": eligible, "reason": reason}
+    return {
+        "eligible": eligible,
+        "reason": reason,
+        "event_id": event_id,
+        "user_id": user_id,
+        "rule": rule,
+    }
+
+
+def log_vote_eligibility_denial(event_id, user_id, reason):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO eligibility_audit (event_id, user_id, eligible, reason)
+        VALUES (?, ?, 0, ?)
+    """, (event_id, user_id, reason))
+    conn.commit()
+    conn.close()
 
 
 def cast_vote(event_id, option_id, user_id, secret=""):
@@ -1530,6 +1595,7 @@ def cast_vote(event_id, option_id, user_id, secret=""):
     cursor.execute("SELECT id FROM voting_options WHERE id = ? AND event_id = ?", (option_id, event_id))
     if not cursor.fetchone():
         conn.close()
+        log_vote_eligibility_denial(event_id, user_id, "Selected option is not valid for this event.")
         raise ValueError("Select a valid voting option.")
     vote_hash = bcrypt.hashpw(f"{event_id}:{option_id}:{user_id}:{secret}".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     try:

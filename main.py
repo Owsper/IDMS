@@ -1888,12 +1888,22 @@ def api_voting_create_event():
 @app.route("/api/voting/votes", methods=["POST"])
 @login_required
 def api_voting_cast_vote():
+    if not session.get("user_id"):
+        return json_response_error("Only members can vote.", status=403)
     payload = request.get_json(silent=True) or {}
     try:
-        database.cast_vote(int(payload.get("event_id")), int(payload.get("option_id")), session.get("user_id"), app.secret_key)
+        database.cast_vote(int(payload.get("event_id")), int(payload.get("option_id")), session["user_id"], app.secret_key)
     except (TypeError, ValueError) as exc:
         return json_response_error(str(exc))
     return jsonify({"status": "recorded"})
+
+
+@app.route("/api/voting/events/<int:event_id>/eligibility")
+@login_required
+def api_voting_eligibility(event_id):
+    if not session.get("user_id"):
+        return json_response_error("Only members can check voting eligibility.", status=403)
+    return jsonify(database.verify_vote_eligibility(event_id, session["user_id"]))
 
 
 @app.route("/api/voting/events/<int:event_id>/results")
