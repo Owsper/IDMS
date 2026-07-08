@@ -1404,6 +1404,7 @@ def profile():
         skills = request.form.get("skills", "").strip()
         team_role = request.form.get("team_role", "").strip()
         profile_picture = request.form.get("profile_picture", "").strip()
+        notification_opt_in = 1 if request.form.get("notification_opt_in") == "1" else 0
 
         if not full_name or not username or not email:
             error_message = "Full name, username, and email are required."
@@ -1423,6 +1424,7 @@ def profile():
                 skills,
                 team_role or "Developer",
                 profile_picture,
+                notification_opt_in,
             )
             success_message = "Profile updated successfully."
             user = current_user()

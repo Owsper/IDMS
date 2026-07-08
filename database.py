@@ -675,7 +675,7 @@ def user_login(email, password):
     return user
 
 
-def update_user_profile(user_id, full_name, username, email, bio, skills, team_role, profile_picture):
+def update_user_profile(user_id, full_name, username, email, bio, skills, team_role, profile_picture, notification_opt_in=1):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -687,6 +687,7 @@ def update_user_profile(user_id, full_name, username, email, bio, skills, team_r
             skills = ?,
             team_role = ?,
             profile_picture = ?,
+            notification_opt_in = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
     """, (
@@ -697,6 +698,7 @@ def update_user_profile(user_id, full_name, username, email, bio, skills, team_r
         skills.strip(),
         team_role.strip(),
         profile_picture.strip(),
+        1 if notification_opt_in else 0,
         user_id,
     ))
     conn.commit()
@@ -895,8 +897,12 @@ def save_upload_metadata(
         user_id, original_filename, stored_filename, mime_type, size, sha256,
         int(approved), approved_by, category_row["name"], category_row["id"]
     ))
+    upload_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    if int(approved):
+        notify_document_uploaded(upload_id)
+    return upload_id
 
 
 def get_uploads_for_user(user_id, limit=50):
@@ -1400,6 +1406,11 @@ NOTIFICATION_TEMPLATES = {
         "title": "Reminder: {title}",
         "body": "{title} starts at {meeting_at} at {location}.",
     },
+    "document_uploaded": {
+        "category": "document",
+        "title": "New document: {title}",
+        "body": "{title} was added to {category}.",
+    },
     "manual_event_reminder": {
         "category": "event",
         "title": "{title}",
@@ -1498,6 +1509,20 @@ def send_notification(template_key, context=None, recipient_ids=None, channel="i
             metadata=context or {},
         ))
     return {"count": len(notification_ids), "notification_ids": notification_ids}
+
+
+def notify_document_uploaded(upload_id):
+    document = get_upload_by_id(upload_id)
+    if not document or int(document.get("approved", 0)) != 1:
+        return {"count": 0, "notification_ids": []}
+    return send_notification(
+        "document_uploaded",
+        {
+            "document_id": document["id"],
+            "title": document["original_filename"],
+            "category": document.get("category") or "General",
+        },
+    )
 
 
 def schedule_meeting_reminders(meeting_id, title, meeting_at, location, recipient_ids=None):
