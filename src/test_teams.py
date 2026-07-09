@@ -284,25 +284,87 @@ class TeamsFlowTest(unittest.TestCase):
         page_response = self.client.get(f"/teams/{team_id}")
         self.assertIn(b"I uploaded the first concept sheet.", page_response.data)
         self.assertIn(b"Team Chat", page_response.data)
-        self.assertIn(b'class="chat-row own"', page_response.data)
-        self.assertIn(b"Press Ctrl+Enter to send", page_response.data)
+        self.assertIn(b'data-stat="member_count">2</strong>', page_response.data)
+        self.assertIn(b'data-stat="message_count">1</strong>', page_response.data)
+        self.assertIn(b'data-stat="unread_message_count">0</strong>', page_response.data)
+        self.assertIn(b"chat-row own", page_response.data)
+        self.assertIn(b'id="fileToggle"', page_response.data)
+        self.assertIn(b'id="fileChoice"', page_response.data)
+        self.assertIn(b'Use + to attach a file.', page_response.data)
+        self.assertNotIn(b"<h2>Your Teams</h2>", page_response.data)
+        self.assertNotIn(b"<h2>Team Files</h2>", page_response.data)
+        self.assertNotIn(b"Peak Chat Hour", page_response.data)
+        self.assertNotIn(b"Most Active", page_response.data)
+        self.assertNotIn(b"Least Active", page_response.data)
+        notifications = database.list_notifications(recipient_id=self.owner["id"])
+        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications[0]["category"], "team_message")
+        self.assertEqual(notifications[0]["metadata"]["team_id"], team_id)
+        self.assertEqual(notifications[0]["metadata"]["sender_id"], self.artist["id"])
+        self.assertEqual(database.list_notifications(recipient_id=self.artist["id"]), [])
+
+        self.login(self.owner["id"])
+        owner_notifications = self.client.get("/api/notifications").get_json()["notifications"]
+        self.assertEqual(len(owner_notifications), 1)
+        self.assertIn("New message in Asset Forge", owner_notifications[0]["title"])
+        owner_status = self.client.get(f"/api/teams/{team_id}/status").get_json()
+        self.assertEqual(owner_status["analytics"]["unread_message_count"], 0)
+        self.assertEqual(owner_status["messages"][-1]["message"], "I uploaded the first concept sheet.")
+        self.assertTrue(owner_status["messages"][-1]["is_unread"])
+        self.assertEqual(self.client.get("/api/notifications").get_json()["notifications"], [])
+        owner_page_response = self.client.get(f"/teams/{team_id}")
+        self.assertIn(b'data-stat="unread_message_count">0</strong>', owner_page_response.data)
+        self.assertIn(b"Peak Chat Hour", owner_page_response.data)
+        self.assertIn(b"Most Active", owner_page_response.data)
+        self.assertIn(b"Least Active", owner_page_response.data)
+        self.assertIn(b"Pixel Artist", owner_page_response.data)
+        self.assertIn(b"Owner Dev", owner_page_response.data)
+        self.assertNotIn(b"New message in Asset Forge", self.client.get("/notifications").data)
+
+        reply_response = self.client.post(
+            f"/teams/{team_id}",
+            data={
+                "action": "post_message",
+                "message": "Looks good from owner.",
+            },
+        )
+        self.assertEqual(reply_response.status_code, 302)
+        self.login(self.artist["id"])
+        artist_notifications = self.client.get("/api/notifications").get_json()["notifications"]
+        self.assertEqual(len(artist_notifications), 1)
+        self.assertEqual(artist_notifications[0]["metadata"]["sender_id"], self.owner["id"])
+        artist_status = self.client.get(f"/api/teams/{team_id}/status").get_json()
+        self.assertEqual(artist_status["analytics"]["unread_message_count"], 0)
+        self.assertEqual(artist_status["messages"][-1]["message"], "Looks good from owner.")
+        self.assertTrue(artist_status["messages"][-1]["is_unread"])
+        self.assertEqual(self.client.get("/api/notifications").get_json()["notifications"], [])
+        artist_page_response = self.client.get(f"/teams/{team_id}")
+        self.assertIn(b"Looks good from owner.", artist_page_response.data)
+        self.assertIn(b'data-stat="unread_message_count">0</strong>', artist_page_response.data)
 
         upload_response = self.client.post(
             f"/teams/{team_id}",
             data={
                 "action": "upload_file",
-                "team_file": (io.BytesIO(b"concept notes"), "concept.txt"),
+                "team_file": (io.BytesIO(b"PK zip bytes"), "build.zip"),
             },
             content_type="multipart/form-data",
         )
         self.assertEqual(upload_response.status_code, 302)
         files = database.list_team_files(team_id)
         self.assertEqual(len(files), 1)
-        self.assertEqual(files[0]["original_filename"], "concept.txt")
+        self.assertEqual(files[0]["original_filename"], "build.zip")
+        messages = database.list_team_messages(team_id)
+        self.assertEqual(messages[-1]["file_id"], files[0]["id"])
+        self.assertEqual(messages[-1]["attachment_name"], "build.zip")
+        upload_page_response = self.client.get(f"/teams/{team_id}")
+        self.assertIn(b"Uploaded build.zip", upload_page_response.data)
+        self.assertIn(b"build.zip", upload_page_response.data)
+        self.assertIn(f"/team-files/{files[0]['id']}".encode(), upload_page_response.data)
 
         download_response = self.client.get(f"/team-files/{files[0]['id']}")
         self.assertEqual(download_response.status_code, 200)
-        self.assertEqual(download_response.data, b"concept notes")
+        self.assertEqual(download_response.data, b"PK zip bytes")
         download_response.close()
 
     def test_member_can_leave_team_but_cannot_delete_it(self):
@@ -338,6 +400,22 @@ class TeamsFlowTest(unittest.TestCase):
         self.assertEqual(leave_response.status_code, 302)
         self.assertFalse(database.user_is_team_member(team_id, self.artist["id"]))
         self.assertEqual(database.get_dashboard_stats(self.artist["id"])["teams_joined"], 0)
+        conn = database.get_connection()
+        membership = conn.execute(
+            "SELECT status FROM team_members WHERE team_id = ? AND user_id = ?",
+            (team_id, self.artist["id"]),
+        ).fetchone()
+        conn.close()
+        self.assertEqual(membership["status"], "left")
+
+        rejoin_response = self.client.post(
+            "/join-team",
+            data={"team_id": str(team_id)},
+        )
+        self.assertEqual(rejoin_response.status_code, 302)
+        self.assertTrue(database.user_is_team_member(team_id, self.artist["id"]))
+        self.assertEqual(database.get_dashboard_stats(self.artist["id"])["teams_joined"], 1)
+        self.assertEqual(len(database.get_team_members(team_id)), 2)
 
     def test_team_leader_can_delete_team(self):
         team_id = database.create_team(self.owner["id"], "Leader Ops", "Leader managed")

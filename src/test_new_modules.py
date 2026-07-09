@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import database
 import main
@@ -34,7 +34,7 @@ class NewModulesTest(unittest.TestCase):
             session["admin_username"] = "jira"
 
     def test_voting_event_creation_validation_and_duplicate_vote_prevention(self):
-        now = datetime.utcnow().replace(microsecond=0)
+        now = database.datetime_now()
         with self.assertRaisesRegex(ValueError, "future"):
             database.create_voting_event("Past", "", ["A", "B"], now - timedelta(days=1), now + timedelta(days=1))
         event_id = database.create_voting_event(
@@ -59,7 +59,7 @@ class NewModulesTest(unittest.TestCase):
         self.assertEqual(database.get_voting_results(event_id)["total_votes"], 1)
 
     def test_voting_api_restricts_results_for_member_before_close(self):
-        now = datetime.utcnow().replace(microsecond=0)
+        now = database.datetime_now()
         event_id = database.create_voting_event("Open Vote", "", ["A", "B"], now + timedelta(seconds=1), now + timedelta(days=1), "jira")
         conn = database.get_connection()
         conn.execute("UPDATE voting_events SET start_at = ? WHERE id = ?", ((now - timedelta(minutes=1)).isoformat(timespec="seconds"), event_id))
@@ -67,6 +67,41 @@ class NewModulesTest(unittest.TestCase):
         conn.close()
         self.login_member()
         self.assertEqual(self.client.get(f"/api/voting/events/{event_id}/results").status_code, 403)
+
+    def test_admin_can_remove_voting_event(self):
+        now = database.datetime_now()
+        event_id = database.create_voting_event("Remove Me", "", ["A", "B"], now + timedelta(seconds=1), now + timedelta(days=1), "jira")
+        conn = database.get_connection()
+        conn.execute("UPDATE voting_events SET start_at = ? WHERE id = ?", ((now - timedelta(minutes=1)).isoformat(timespec="seconds"), event_id))
+        option_id = conn.execute("SELECT id FROM voting_options WHERE event_id = ? LIMIT 1", (event_id,)).fetchone()["id"]
+        conn.commit()
+        conn.close()
+        database.cast_vote(event_id, option_id, self.member["id"], "secret")
+
+        self.login_admin()
+        page = self.client.get("/voting")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Remove", page.data)
+        self.assertIn(b"Remove this voting event?", page.data)
+        self.assertIn(b'class=\"button danger\"', page.data)
+
+        response = self.client.post("/voting", data={"action": "delete", "event_id": str(event_id)})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Voting event removed.", response.data)
+        self.assertEqual(database.list_voting_events(), [])
+        with self.assertRaisesRegex(ValueError, "not found"):
+            database.get_voting_results(event_id)
+
+    def test_member_cannot_remove_voting_event(self):
+        now = database.datetime_now()
+        event_id = database.create_voting_event("Protected Vote", "", ["A", "B"], now + timedelta(seconds=1), now + timedelta(days=1), "jira")
+        self.login_member()
+
+        response = self.client.post("/voting", data={"action": "delete", "event_id": str(event_id)})
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(len(database.list_voting_events()), 1)
 
     def test_whatsapp_import_parser_and_analytics(self):
         text = "\n".join([
@@ -83,7 +118,7 @@ class NewModulesTest(unittest.TestCase):
         self.assertTrue(any(row["label"] == "media" for row in analytics["media_types"]))
 
     def test_meeting_scheduling_attendance_and_minutes(self):
-        meeting_at = datetime.utcnow().replace(microsecond=0) + timedelta(days=2)
+        meeting_at = database.datetime_now() + timedelta(days=2)
         meeting_id = database.create_meeting("Planning", "", meeting_at, "Room 1", "Agenda", [], "jira")
         with self.assertRaisesRegex(ValueError, "already scheduled"):
             database.create_meeting("Conflict", "", meeting_at + timedelta(minutes=10), "Room 1", "", [], "jira")

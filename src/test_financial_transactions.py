@@ -58,6 +58,7 @@ class FinancialTransactionsTest(unittest.TestCase):
                     database.create_transaction(transaction_date, tx_type, category, amount)
 
     def test_financial_transaction_api_requires_admin_and_returns_created_row(self):
+        database.create_transaction("2026-07-01", "income", "Dues", 200, "Member dues", "jira")
         payload = {
             "transaction_date": "2026-07-08",
             "type": "expense",
@@ -78,6 +79,28 @@ class FinancialTransactionsTest(unittest.TestCase):
         list_response = self.client.get("/api/financial/transactions")
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(list_response.get_json()["transactions"][0]["id"], data["transaction_id"])
+
+    def test_expense_cannot_make_net_balance_negative(self):
+        database.create_transaction("2026-07-01", "income", "Dues", 50, "Member dues", "jira")
+        self.login_admin()
+
+        response = self.client.post(
+            "/api/financial/transactions",
+            json={
+                "transaction_date": "2026-07-08",
+                "type": "expense",
+                "category": "Venue",
+                "amount": 150,
+                "description": "Room rental",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("available net balance", response.get_json()["error"])
+        report = database.financial_report()
+        self.assertEqual(report["total_income"], 50)
+        self.assertEqual(report["total_expense"], 0)
+        self.assertEqual(report["net_balance"], 50)
 
     def test_financial_transaction_api_returns_validation_errors(self):
         self.login_admin()
@@ -126,6 +149,7 @@ class FinancialTransactionsTest(unittest.TestCase):
 
     def test_budget_monitoring_categories_thresholds_and_alerts(self):
         budget_id = database.upsert_budget("Venue", 100, "2026", warning_threshold=50, critical_threshold=90)
+        database.create_transaction("2026-06-01", "income", "Dues", 100, "Member dues", "jira")
         database.create_transaction("2026-06-02", "expense", "Venue", 75, "Room", "jira")
 
         report = database.financial_report()
@@ -161,6 +185,7 @@ class FinancialTransactionsTest(unittest.TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.get_json()["budget"]["status"], "ok")
 
+        database.create_transaction("2026-07-01", "income", "Dues", 100, "Member dues", "jira")
         database.create_transaction("2026-07-01", "expense", "Catering", 85, "Food", "jira")
         alerts = self.client.post("/api/financial/budget-alerts")
 

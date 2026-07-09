@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import database
 import main
@@ -15,7 +15,7 @@ class EventNotificationsTest(unittest.TestCase):
         database.init_db()
         main.app.config.update(TESTING=True)
         self.client = main.app.test_client()
-        self.now = datetime.utcnow().replace(microsecond=0)
+        self.now = database.datetime_now()
 
     def tearDown(self):
         os.remove(self.db_path)

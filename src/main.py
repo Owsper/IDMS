@@ -98,6 +98,7 @@ app.config["GAME_SUBMISSIONS_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"]
 app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
 app.config["GAME_SUBMISSION_MAX_SIZE"] = GAME_SUBMISSION_MAX_SIZE
 app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
+app.config["TEAM_FILE_ALLOWED_EXTENSIONS"] = None
 app.config["GAME_SUBMISSION_ALLOWED_EXTENSIONS"] = app.config["ALLOWED_EXTENSIONS"] | {".zip", ".html", ".js", ".css", ".json", ".mp4", ".webm"}
 app.config["IMPORT_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "imports")
 app.config["IMPORT_ALLOWED_EXTENSIONS"] = {".csv", ".xlsx", ".json", ".sql", ".db", ".sqlite"}
@@ -1249,7 +1250,9 @@ def team_detail(team_id):
                         "Copy the link below and send it manually."
                     )
             elif action == "post_message":
-                database.create_team_message(team_id, user["id"], request.form.get("message", ""))
+                message_text = request.form.get("message", "")
+                message_id = database.create_team_message(team_id, user["id"], message_text)
+                database.notify_team_message(team_id, user["id"], message_id, message_text)
                 return redirect(url_for("team_detail", team_id=team_id))
             elif action == "upload_file":
                 uploaded = request.files.get("team_file")
@@ -1257,7 +1260,8 @@ def team_detail(team_id):
                     raise ValueError("Choose a file to upload.")
                 original_name = secure_filename(uploaded.filename)
                 ext = os.path.splitext(original_name)[1].lower()
-                if ext not in app.config["ALLOWED_EXTENSIONS"]:
+                allowed_extensions = app.config.get("TEAM_FILE_ALLOWED_EXTENSIONS")
+                if allowed_extensions is not None and ext not in allowed_extensions:
                     raise ValueError(f"Invalid file type: {ext}")
                 content = uploaded.read()
                 if len(content) > app.config["PER_FILE_MAX_SIZE"]:
@@ -1265,7 +1269,7 @@ def team_detail(team_id):
                 stored_name = f"{uuid.uuid4().hex}{ext}"
                 with open(os.path.join(app.config["TEAM_FILES_FOLDER"], stored_name), "wb") as out:
                     out.write(content)
-                database.create_team_file(
+                file_id = database.create_team_file(
                     team_id,
                     user["id"],
                     original_name,
@@ -1273,6 +1277,9 @@ def team_detail(team_id):
                     uploaded.mimetype or mimetypes.guess_type(original_name)[0] or "application/octet-stream",
                     len(content),
                 )
+                message_text = request.form.get("message", "").strip() or f"Uploaded {original_name}"
+                message_id = database.create_team_message(team_id, user["id"], message_text, file_id=file_id)
+                database.notify_team_message(team_id, user["id"], message_id, message_text)
                 return redirect(url_for("team_detail", team_id=team_id))
             else:
                 error = "Unsupported team action."
@@ -1286,6 +1293,9 @@ def team_detail(team_id):
 
     team = database.get_team(team_id)
     membership = database.get_team_membership(team_id, user["id"])
+    unread_message_ids = database.unread_team_message_ids(team_id, user["id"])
+    if unread_message_ids:
+        database.mark_team_message_notifications_read(team_id, user["id"])
     return render_template(
         "TeamDetailPage.html",
         user=user,
@@ -1295,6 +1305,8 @@ def team_detail(team_id):
         teams=database.list_user_teams(user["id"]),
         members=database.get_team_members(team_id),
         messages=database.list_team_messages(team_id),
+        team_analytics=database.team_channel_analytics(team_id, user["id"]),
+        unread_message_ids=unread_message_ids,
         files=database.list_team_files(team_id),
         error=error,
         success=success,
@@ -1317,6 +1329,33 @@ def download_team_file(file_id):
         as_attachment=True,
         download_name=team_file["original_filename"],
     )
+
+
+@app.route("/api/teams/<int:team_id>/status")
+@login_required
+def api_team_channel_status(team_id):
+    user = current_user()
+    if session.get("admin_username") or not database.user_is_team_member(team_id, user["id"]):
+        abort(403)
+
+    unread_message_ids = database.unread_team_message_ids(team_id, user["id"])
+    if request.args.get("mark_read", "1") == "1" and unread_message_ids:
+        database.mark_team_message_notifications_read(team_id, user["id"])
+
+    messages = []
+    for message in database.list_team_messages(team_id):
+        item = dict(message)
+        item["is_own"] = int(message["user_id"]) == int(user["id"])
+        item["is_unread"] = message["id"] in unread_message_ids
+        item["attachment_url"] = url_for("download_team_file", file_id=message["file_id"]) if message.get("file_id") else ""
+        messages.append(item)
+
+    return jsonify({
+        "analytics": database.team_channel_analytics(team_id, user["id"]),
+        "messages": messages,
+        "unread_message_ids": sorted(unread_message_ids),
+        "can_manage_team": database.user_can_manage_team(team_id, user["id"]),
+    })
 
 
 @app.route("/api/teams/member-search")
@@ -2374,6 +2413,14 @@ def voting():
                     app.secret_key,
                 )
                 success = "Vote recorded securely."
+            elif request.form.get("action") == "delete":
+                if not session.get("admin_username"):
+                    abort(403)
+                database.delete_voting_event(
+                    int(request.form.get("event_id", "")),
+                    actor_name=current_actor_name(),
+                )
+                success = "Voting event removed."
         except (TypeError, ValueError) as exc:
             error = str(exc)
     return render_template(
@@ -2544,7 +2591,7 @@ def notifications_page():
         except ValueError as exc:
             error = str(exc)
     recipient_id = None if session.get("admin_username") else session.get("user_id")
-    rows = database.list_notifications(limit=100, recipient_id=recipient_id)
+    rows = database.list_notifications(limit=100, recipient_id=recipient_id, unread_only=recipient_id is not None)
     return render_template("NotificationsPage.html", user=current_user(), notifications=rows, is_admin=bool(session.get("admin_username")), error=error, success=success)
 
 
@@ -2552,7 +2599,7 @@ def notifications_page():
 @login_required
 def api_notifications():
     recipient_id = None if session.get("admin_username") else session.get("user_id")
-    return jsonify({"notifications": database.list_notifications(limit=100, recipient_id=recipient_id)})
+    return jsonify({"notifications": database.list_notifications(limit=100, recipient_id=recipient_id, unread_only=recipient_id is not None)})
 
 
 @app.route("/api/notifications/process-due", methods=["POST"])

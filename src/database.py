@@ -261,11 +261,13 @@ def init_db():
             team_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             message TEXT NOT NULL,
+            file_id INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(team_id) REFERENCES teams(id),
             FOREIGN KEY(user_id) REFERENCES users_data(id)
         )
     """)
+    add_column_if_missing(cursor, "team_messages", "file_id", "INTEGER")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_messages_team ON team_messages(team_id, created_at)")
 
     cursor.execute("""
@@ -1252,19 +1254,41 @@ def join_team(team_id, user_id):
     team = get_team(team_id)
     if not team:
         raise ValueError("Team not found.")
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT OR IGNORE INTO team_members (team_id, user_id, role, status)
-        VALUES (?, ?, 'Member', 'active')
-    """, (team_id, user_id))
-    joined = cursor.rowcount == 1
-    conn.commit()
-    conn.close()
-    if not joined:
+    if not activate_team_membership(team_id, user_id):
         raise ValueError("You are already on this team.")
     log_activity("teams", "joined", f"Joined team {team['name']}.", actor_id=user_id)
     return get_team(team_id)
+
+
+def activate_team_membership(team_id, user_id, role="Member"):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT status
+        FROM team_members
+        WHERE team_id = ? AND user_id = ?
+    """, (team_id, user_id))
+    membership = cursor.fetchone()
+    conn = cursor.connection
+    if membership and membership["status"] == "active":
+        conn.close()
+        return False
+    if membership:
+        cursor.execute("""
+            UPDATE team_members
+            SET status = 'active',
+                role = ?,
+                joined_at = CURRENT_TIMESTAMP
+            WHERE team_id = ? AND user_id = ?
+        """, (role, team_id, user_id))
+    else:
+        cursor.execute("""
+            INSERT INTO team_members (team_id, user_id, role, status)
+            VALUES (?, ?, ?, 'active')
+        """, (team_id, user_id, role))
+    conn.commit()
+    conn.close()
+    return True
 
 
 def search_team_candidates(query, current_user_id, limit=8):
@@ -1423,9 +1447,27 @@ def accept_team_invite(token, user_id):
             raise ValueError("This team invite has expired.")
 
     cursor.execute("""
-        INSERT OR IGNORE INTO team_members (team_id, user_id, role, status)
-        VALUES (?, ?, 'Member', 'active')
+        SELECT status
+        FROM team_members
+        WHERE team_id = ? AND user_id = ?
     """, (invite["team_id"], user_id))
+    membership = cursor.fetchone()
+    if membership and membership["status"] == "active":
+        conn.close()
+        raise ValueError("You are already on this team.")
+    if membership:
+        cursor.execute("""
+            UPDATE team_members
+            SET status = 'active',
+                role = 'Member',
+                joined_at = CURRENT_TIMESTAMP
+            WHERE team_id = ? AND user_id = ?
+        """, (invite["team_id"], user_id))
+    else:
+        cursor.execute("""
+            INSERT INTO team_members (team_id, user_id, role, status)
+            VALUES (?, ?, 'Member', 'active')
+        """, (invite["team_id"], user_id))
     cursor.execute("""
         UPDATE team_invites
         SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP
@@ -1437,9 +1479,9 @@ def accept_team_invite(token, user_id):
     return get_team(invite["team_id"])
 
 
-def create_team_message(team_id, user_id, message):
+def create_team_message(team_id, user_id, message, file_id=None):
     message = (message or "").strip()
-    if not message:
+    if not message and not file_id:
         raise ValueError("Message is required.")
     if len(message) > 1000:
         raise ValueError("Message must be 1000 characters or fewer.")
@@ -1449,22 +1491,68 @@ def create_team_message(team_id, user_id, message):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO team_messages (team_id, user_id, message)
-        VALUES (?, ?, ?)
-    """, (team_id, user_id, message))
+        INSERT INTO team_messages (team_id, user_id, message, file_id)
+        VALUES (?, ?, ?, ?)
+    """, (team_id, user_id, message, file_id))
     message_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return message_id
 
 
+def notify_team_message(team_id, sender_id, message_id, message):
+    team = get_team(team_id)
+    if not team:
+        return {"count": 0, "notification_ids": []}
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.notification_opt_in
+        FROM team_members AS tm
+        JOIN users_data AS u ON u.id = tm.user_id
+        WHERE tm.team_id = ?
+          AND tm.status = 'active'
+          AND tm.user_id != ?
+          AND COALESCE(u.notification_opt_in, 1) = 1
+    """, (team_id, sender_id))
+    recipients = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    sender = get_user_by_id(sender_id) or {}
+    sender_name = sender.get("full_name") or sender.get("username") or "A teammate"
+    preview = (message or "").strip()
+    if len(preview) > 160:
+        preview = f"{preview[:157]}..."
+
+    notification_ids = []
+    for recipient in recipients:
+        notification_ids.append(create_notification(
+            "team_message",
+            f"New message in {team['name']}",
+            f"{sender_name}: {preview}",
+            recipient_id=recipient["id"],
+            template_key="team_message_created",
+            metadata={
+                "team_id": team_id,
+                "team_name": team["name"],
+                "message_id": message_id,
+                "sender_id": sender_id,
+            },
+        ))
+    return {"count": len(notification_ids), "notification_ids": notification_ids}
+
+
 def list_team_messages(team_id, limit=50):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT tm.*, u.username, u.full_name, u.profile_picture
+        SELECT tm.*, u.username, u.full_name, u.profile_picture,
+               tf.original_filename AS attachment_name,
+               tf.size AS attachment_size
         FROM team_messages AS tm
         JOIN users_data AS u ON u.id = tm.user_id
+        LEFT JOIN team_files AS tf ON tf.id = tm.file_id
         WHERE tm.team_id = ?
         ORDER BY tm.created_at DESC, tm.id DESC
         LIMIT ?
@@ -1472,6 +1560,115 @@ def list_team_messages(team_id, limit=50):
     rows = [row_to_dict(row) for row in cursor.fetchall()]
     conn.close()
     return list(reversed(rows))
+
+
+def team_channel_analytics(team_id, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT COUNT(*) AS count
+        FROM team_members
+        WHERE team_id = ? AND status = 'active'
+    """, (team_id,))
+    member_count = cursor.fetchone()["count"]
+    cursor.execute("SELECT COUNT(*) AS count FROM team_messages WHERE team_id = ?", (team_id,))
+    message_count = cursor.fetchone()["count"]
+    cursor.execute("""
+        SELECT COUNT(*) AS count
+        FROM notifications
+        WHERE recipient_id = ?
+          AND category = 'team_message'
+          AND read_at IS NULL
+          AND json_extract(metadata, '$.team_id') = ?
+    """, (user_id, team_id))
+    unread_message_count = cursor.fetchone()["count"]
+    cursor.execute("""
+        SELECT strftime('%H', created_at) AS hour, COUNT(*) AS count
+        FROM team_messages
+        WHERE team_id = ?
+        GROUP BY strftime('%H', created_at)
+        ORDER BY count DESC, hour ASC
+        LIMIT 1
+    """, (team_id,))
+    peak_hour = row_to_dict(cursor.fetchone())
+    cursor.execute("""
+        SELECT tm.user_id, u.username, u.full_name, COUNT(msg.id) AS message_count
+        FROM team_members AS tm
+        JOIN users_data AS u ON u.id = tm.user_id
+        LEFT JOIN team_messages AS msg
+          ON msg.team_id = tm.team_id
+         AND msg.user_id = tm.user_id
+        WHERE tm.team_id = ? AND tm.status = 'active'
+        GROUP BY tm.user_id
+        ORDER BY message_count DESC, lower(COALESCE(NULLIF(u.full_name, ''), u.username)) ASC
+        LIMIT 1
+    """, (team_id,))
+    most_active_member = row_to_dict(cursor.fetchone())
+    cursor.execute("""
+        SELECT tm.user_id, u.username, u.full_name, COUNT(msg.id) AS message_count
+        FROM team_members AS tm
+        JOIN users_data AS u ON u.id = tm.user_id
+        LEFT JOIN team_messages AS msg
+          ON msg.team_id = tm.team_id
+         AND msg.user_id = tm.user_id
+        WHERE tm.team_id = ? AND tm.status = 'active'
+        GROUP BY tm.user_id
+        ORDER BY message_count ASC, lower(COALESCE(NULLIF(u.full_name, ''), u.username)) ASC
+        LIMIT 1
+    """, (team_id,))
+    least_active_member = row_to_dict(cursor.fetchone())
+    conn.close()
+    if peak_hour:
+        hour = int(peak_hour["hour"] or 0)
+        peak_hour["label"] = f"{hour:02d}:00"
+    for member in (most_active_member, least_active_member):
+        if member:
+            member["label"] = member.get("full_name") or member.get("username") or "Unknown"
+    return {
+        "member_count": member_count,
+        "message_count": message_count,
+        "unread_message_count": unread_message_count,
+        "peak_chat_hour": peak_hour,
+        "most_active_member": most_active_member,
+        "least_active_member": least_active_member,
+    }
+
+
+def unread_team_message_ids(team_id, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT json_extract(metadata, '$.message_id') AS message_id
+        FROM notifications
+        WHERE recipient_id = ?
+          AND category = 'team_message'
+          AND read_at IS NULL
+          AND json_extract(metadata, '$.team_id') = ?
+    """, (user_id, team_id))
+    message_ids = {
+        int(row["message_id"])
+        for row in cursor.fetchall()
+        if row["message_id"] is not None
+    }
+    conn.close()
+    return message_ids
+
+
+def mark_team_message_notifications_read(team_id, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE notifications
+        SET read_at = CURRENT_TIMESTAMP
+        WHERE recipient_id = ?
+          AND category = 'team_message'
+          AND read_at IS NULL
+          AND json_extract(metadata, '$.team_id') = ?
+    """, (user_id, team_id))
+    count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return count
 
 
 def create_team_file(team_id, user_id, original_filename, stored_filename, mime_type="", size=0):
@@ -2294,7 +2491,7 @@ def create_notification(category, title, body, recipient_id=None, channel="in-ap
     title = (title or "").strip()
     body = (body or "").strip()
     channel = (channel or "in-app").strip().lower()
-    if category not in {"event", "meeting", "document", "budget", "voting", "bug", "support"}:
+    if category not in {"event", "meeting", "document", "budget", "voting", "bug", "support", "team_message"}:
         raise ValueError("Choose a valid notification category.")
     if channel not in {"in-app", "email"}:
         raise ValueError("Choose a valid notification channel.")
@@ -2411,7 +2608,7 @@ def process_due_notifications(now=None, limit=100):
     return {"count": len(notification_ids), "notification_ids": notification_ids}
 
 
-def list_notifications(limit=100, recipient_id=None):
+def list_notifications(limit=100, recipient_id=None, unread_only=False):
     conn = get_connection()
     cursor = conn.cursor()
     clauses = []
@@ -2419,6 +2616,8 @@ def list_notifications(limit=100, recipient_id=None):
     if recipient_id is not None:
         clauses.append("(recipient_id = ? OR recipient_id IS NULL)")
         params.append(recipient_id)
+    if unread_only:
+        clauses.append("read_at IS NULL")
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     cursor.execute(f"""
         SELECT *
@@ -2541,7 +2740,7 @@ def create_voting_event(title, description, option_labels, start_at, end_at, cre
 
 def datetime_now():
     from datetime import datetime
-    return datetime.utcnow().replace(microsecond=0)
+    return datetime.now().replace(microsecond=0)
 
 
 def parse_db_datetime(value):
@@ -2552,7 +2751,12 @@ def parse_db_datetime(value):
 def list_voting_events(include_closed=True, user_id=None):
     conn = get_connection()
     cursor = conn.cursor()
-    where = "" if include_closed else "WHERE datetime(e.start_at) <= CURRENT_TIMESTAMP AND datetime(e.end_at) > CURRENT_TIMESTAMP"
+    params = [user_id or -1]
+    where = ""
+    if not include_closed:
+        where = "WHERE datetime(e.start_at) <= datetime(?) AND datetime(e.end_at) > datetime(?)"
+        now = datetime_now().isoformat(timespec="seconds")
+        params.extend([now, now])
     cursor.execute(f"""
         SELECT e.*,
                COUNT(DISTINCT o.id) AS option_count,
@@ -2564,7 +2768,7 @@ def list_voting_events(include_closed=True, user_id=None):
         {where}
         GROUP BY e.id
         ORDER BY e.start_at DESC
-    """, (user_id or -1,))
+    """, params)
     events = [row_to_dict(row) for row in cursor.fetchall()]
     for event in events:
         cursor.execute("SELECT id, label FROM voting_options WHERE event_id = ? ORDER BY position, id", (event["id"],))
@@ -2572,6 +2776,25 @@ def list_voting_events(include_closed=True, user_id=None):
         event["allowed_roles"] = _json_list(event.get("allowed_roles"))
     conn.close()
     return events
+
+
+def delete_voting_event(event_id, actor_name=""):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT title FROM voting_events WHERE id = ?", (event_id,))
+    event = cursor.fetchone()
+    if not event:
+        conn.close()
+        raise ValueError("Voting event not found.")
+    title = event["title"]
+    cursor.execute("DELETE FROM eligibility_audit WHERE event_id = ?", (event_id,))
+    cursor.execute("DELETE FROM votes WHERE event_id = ?", (event_id,))
+    cursor.execute("DELETE FROM voting_options WHERE event_id = ?", (event_id,))
+    cursor.execute("DELETE FROM voting_events WHERE id = ?", (event_id,))
+    conn.commit()
+    conn.close()
+    log_activity("Voting", "Event deleted", title, actor_name=actor_name)
+    return True
 
 
 def verify_vote_eligibility(event_id, user_id):
@@ -3175,6 +3398,18 @@ def create_transaction(transaction_date, tx_type, category, amount, description=
 
     conn = get_connection()
     cursor = conn.cursor()
+    if tx_type == "expense":
+        cursor.execute("""
+            SELECT
+                COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expense
+            FROM financial_transactions
+        """)
+        totals = cursor.fetchone()
+        available_balance = round((totals["income"] or 0) - (totals["expense"] or 0), 2)
+        if amount > available_balance:
+            conn.close()
+            raise ValueError("Expense cannot exceed the available net balance.")
     cursor.execute("""
         INSERT INTO financial_transactions (transaction_date, type, category, amount, description, recorded_by)
         VALUES (?, ?, ?, ?, ?, ?)

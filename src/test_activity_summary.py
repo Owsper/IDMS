@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import database
 import main
@@ -25,7 +25,7 @@ class ActivitySummaryTest(unittest.TestCase):
             session["admin_username"] = "jira"
 
     def seed_activity(self):
-        now = datetime.utcnow().replace(microsecond=0)
+        now = database.datetime_now()
         database.create_meeting("Planning", "", now + timedelta(days=2), "Room 1", "Agenda", [], "jira")
         database.create_voting_event("Board Vote", "", ["A", "B"], now + timedelta(days=1), now + timedelta(days=2), "jira")
         database.save_upload_metadata(None, "guide.pdf", "guide.pdf", "application/pdf", 100, "abc", approved=0)
