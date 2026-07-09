@@ -10,5 +10,6 @@ git_comm.txt
 database/*__pycache__
 clean.py
 __pycache__/
+/*secure_uploads
 
 
