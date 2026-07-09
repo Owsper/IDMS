@@ -250,6 +250,313 @@
       gap: 22px;
     }
 
+    .dashboard-home {
+      display: grid;
+      gap: 22px;
+    }
+
+    .content.sidebar-frame-active .dashboard-home {
+      display: none;
+    }
+
+    .sidebar-content-panel {
+      display: none;
+      min-height: calc(100vh - 126px);
+      border-radius: 8px;
+    }
+
+    .content.sidebar-frame-active .sidebar-content-panel {
+      display: block;
+    }
+
+    .sidebar-content-panel > .page,
+    .sidebar-content-panel > .content {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 0;
+      display: grid;
+      gap: 22px;
+    }
+
+    .sidebar-content-panel .profile-header,
+    .sidebar-content-panel .hero,
+    .sidebar-content-panel .panel,
+    .sidebar-content-panel .card,
+    .sidebar-content-panel .empty,
+    .sidebar-content-panel .copy-box,
+    .sidebar-content-panel .team-card,
+    .sidebar-content-panel .member-card,
+    .sidebar-content-panel .candidate,
+    .sidebar-content-panel .file-card,
+    .sidebar-content-panel .submission-card,
+    .sidebar-content-panel .team-result,
+    .sidebar-content-panel .info-item,
+    .sidebar-content-panel .stat,
+    .sidebar-content-panel .activity,
+    .sidebar-content-panel .datebox {
+      border-radius: 8px;
+      border: 1px solid rgba(129, 72, 255, 0.24);
+      background: rgba(15, 20, 32, 0.9);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+    }
+
+    .sidebar-content-panel .profile-header,
+    .sidebar-content-panel .hero {
+      padding: 28px;
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .sidebar-content-panel .panel,
+    .sidebar-content-panel .card {
+      padding: 22px;
+    }
+
+    .sidebar-content-panel .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      align-items: start;
+    }
+
+    .sidebar-content-panel .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .sidebar-content-panel .form-group.full {
+      grid-column: 1 / -1;
+    }
+
+    .sidebar-content-panel .stack,
+    .sidebar-content-panel .info-list,
+    .sidebar-content-panel .team-list,
+    .sidebar-content-panel .member-list,
+    .sidebar-content-panel .search-results,
+    .sidebar-content-panel .team-search-results,
+    .sidebar-content-panel .message-list,
+    .sidebar-content-panel .file-list,
+    .sidebar-content-panel .submission-list,
+    .sidebar-content-panel .calendar,
+    .sidebar-content-panel .calendar-items,
+    .sidebar-content-panel form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .sidebar-content-panel .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .sidebar-content-panel .team-card,
+    .sidebar-content-panel .submission-card,
+    .sidebar-content-panel .team-result,
+    .sidebar-content-panel .info-item,
+    .sidebar-content-panel .stat,
+    .sidebar-content-panel .empty {
+      padding: 14px;
+      box-shadow: none;
+      background: #1a1f2d;
+    }
+
+    .sidebar-content-panel .member-card,
+    .sidebar-content-panel .candidate {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      box-shadow: none;
+      background: #1a1f2d;
+    }
+
+    .sidebar-content-panel .candidate {
+      width: 100%;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .sidebar-content-panel .team-card,
+    .sidebar-content-panel .file-card a,
+    .sidebar-content-panel .quick-action {
+      text-decoration: none;
+    }
+
+    .sidebar-content-panel h1,
+    .sidebar-content-panel h2,
+    .sidebar-content-panel .section-title {
+      font-family: "Orbitron", sans-serif;
+      color: #fff;
+      letter-spacing: 0;
+    }
+
+    .sidebar-content-panel h1 {
+      font-size: clamp(26px, 3vw, 36px);
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .sidebar-content-panel h2,
+    .sidebar-content-panel .section-title {
+      font-size: 17px;
+      margin-bottom: 14px;
+    }
+
+    .sidebar-content-panel label,
+    .sidebar-content-panel .field span,
+    .sidebar-content-panel .info-item span {
+      display: block;
+      color: #8ea0c8;
+      font-size: 13px;
+      font-weight: 900;
+      margin-bottom: 7px;
+    }
+
+    .sidebar-content-panel .field span,
+    .sidebar-content-panel .info-item span {
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 12px;
+    }
+
+    .sidebar-content-panel input,
+    .sidebar-content-panel textarea,
+    .sidebar-content-panel select,
+    .sidebar-content-panel .input {
+      width: 100%;
+      min-height: 42px;
+      background: #1a1f2d;
+      border: 1px solid rgba(129, 72, 255, 0.35);
+      color: white;
+      border-radius: 7px;
+      padding: 0 14px;
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .sidebar-content-panel textarea {
+      min-height: 104px;
+      resize: vertical;
+      padding-top: 12px;
+      line-height: 1.5;
+    }
+
+    .sidebar-content-panel input:focus,
+    .sidebar-content-panel textarea:focus,
+    .sidebar-content-panel select:focus {
+      border-color: #8c48ff;
+      box-shadow: 0 0 0 3px rgba(124, 57, 255, 0.18);
+    }
+
+    .sidebar-content-panel .button,
+    .sidebar-content-panel .btn,
+    .sidebar-content-panel button[type="submit"] {
+      min-height: 40px;
+      border-radius: 7px;
+      padding: 0 14px;
+      border: 1px solid rgba(129, 72, 255, 0.35);
+      background: #1a1f2d;
+      color: white;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .sidebar-content-panel .button.primary,
+    .sidebar-content-panel button[type="submit"],
+    .sidebar-content-panel .btn.primary {
+      border: none;
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      box-shadow: 0 0 24px rgba(124, 58, 255, 0.24);
+    }
+
+    .sidebar-content-panel .form-actions,
+    .sidebar-content-panel .team-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .sidebar-content-panel .message,
+    .sidebar-content-panel .alert {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .sidebar-content-panel .success,
+    .sidebar-content-panel .alert.ok {
+      color: #55f0b3;
+      background: rgba(0, 227, 159, 0.11);
+      border: 1px solid rgba(0, 227, 159, 0.25);
+    }
+
+    .sidebar-content-panel .error,
+    .sidebar-content-panel .alert.err {
+      color: #ff8aa0;
+      background: rgba(255, 75, 110, 0.12);
+      border: 1px solid rgba(255, 75, 110, 0.28);
+    }
+
+    .sidebar-content-panel .table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .sidebar-content-panel .table th,
+    .sidebar-content-panel .table td {
+      border-bottom: 1px solid rgba(129, 72, 255, 0.18);
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .sidebar-content-panel .table th {
+      color: #8ea0c8;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+
+    .sidebar-content-panel .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      font-weight: 900;
+    }
+
+    .sidebar-content-panel .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .sidebar-content-panel.loading,
+    .sidebar-content-panel.error {
+      padding: 22px;
+      border: 1px solid rgba(129, 72, 255, 0.24);
+      background: rgba(15, 20, 32, 0.9);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+      color: #8293c4;
+      font-weight: 800;
+    }
+
     .welcome {
       padding: 28px;
       border: 1px solid rgba(129, 72, 255, 0.28);
@@ -594,6 +901,22 @@
         padding: 18px;
       }
 
+      .sidebar-content-panel {
+        min-height: calc(100vh - 150px);
+      }
+
+      .sidebar-content-panel .profile-header,
+      .sidebar-content-panel .hero {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .sidebar-content-panel .grid,
+      .sidebar-content-panel .form-grid,
+      .sidebar-content-panel .stats {
+        grid-template-columns: 1fr;
+      }
+
       .stats-grid,
       .stats-grid.admin-stats,
       .quick-grid {
@@ -752,6 +1075,15 @@
             <a href="{{ url_for('meetings') }}">Meetings</a>
             <a href="{{ url_for('list_files') }}">Documents</a>
           </div>
+          <div class="nav-section">
+            <div class="nav-label">Teams</div>
+            <a href="{{ url_for('teams_page') }}">Create Team</a>
+            {% for team in sidebar_teams %}
+              <a href="{{ url_for('team_detail', team_id=team.id) }}">{{ team.name }}</a>
+            {% else %}
+              <a href="{{ url_for('teams_page') }}">No teams yet</a>
+            {% endfor %}
+          </div>
           {% if user.role == 'Admin' %}
           <div class="nav-section">
             <div class="nav-label">Admin</div>
@@ -786,14 +1118,15 @@
 
     <main class="main">
       <header class="topbar">
-        <h1>Dashboard</h1>
+        <h1 id="dashboardTitle">Dashboard</h1>
         <div class="top-actions">
           <a class="button" href="{{ url_for('profile') }}">Edit Profile</a>
-          <a class="button primary" href="#submit">Submit Game</a>
+          <a class="button primary" href="{{ url_for('submit_game') }}">Submit Game</a>
         </div>
       </header>
 
-      <div class="content">
+      <div class="content" id="dashboardContent">
+        <div class="dashboard-home" id="dashboardHome">
         <section class="welcome">
           <div>
             <p class="eyebrow">Spring Jam workspace</p>
@@ -935,15 +1268,15 @@
                 <strong>Edit Profile</strong>
                 <span>Update your bio, skills, and role.</span>
               </a>
-              <a class="quick-action" id="teams" href="#">
+              <a class="quick-action" id="teams" href="{{ url_for('teams_page') }}">
                 <strong>Create Team</strong>
                 <span>Start a new jam squad.</span>
               </a>
-              <a class="quick-action" href="#">
+              <a class="quick-action" href="{{ url_for('join_team_page') }}">
                 <strong>Join Team</strong>
                 <span>Find collaborators for the jam.</span>
               </a>
-              <a class="quick-action" id="submit" href="#">
+              <a class="quick-action" id="submit" href="{{ url_for('submit_game') }}">
                 <strong>Submit Game</strong>
                 <span>Add your build, screenshots, and links.</span>
               </a>
@@ -997,9 +1330,221 @@
             {% endfor %}
           </div>
         </section>
+        </div>
+
+        <section class="sidebar-content-panel" id="sidebarContentPanel" aria-label="Selected sidebar content"></section>
       </div>
     </main>
   </div>
+
+  <script>
+    const dashboardContent = document.getElementById("dashboardContent");
+    const dashboardHome = document.getElementById("dashboardHome");
+    const dashboardTitle = document.getElementById("dashboardTitle");
+    const sidebarContentPanel = document.getElementById("sidebarContentPanel");
+    const sidebarLinks = Array.from(document.querySelectorAll(".sidebar .nav a"));
+    const dashboardPath = "{{ url_for('dashboard') }}";
+    const loadedExternalScripts = new Set();
+
+    function setActiveSidebarLink(activeLink) {
+      sidebarLinks.forEach((link) => {
+        link.classList.toggle("active", link === activeLink);
+      });
+    }
+
+    function showDashboardHome(activeLink) {
+      if (!dashboardContent || !sidebarContentPanel) return;
+      sidebarContentPanel.replaceChildren();
+      sidebarContentPanel.className = "sidebar-content-panel";
+      dashboardContent.classList.remove("sidebar-frame-active");
+      dashboardTitle.textContent = "Dashboard";
+      setActiveSidebarLink(activeLink || sidebarLinks.find((link) => link.getAttribute("href") === dashboardPath));
+      history.replaceState(null, "", dashboardPath);
+    }
+
+    function loadExternalScript(src) {
+      if (!src || loadedExternalScripts.has(src)) {
+        return Promise.resolve();
+      }
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = () => {
+          loadedExternalScripts.add(src);
+          resolve();
+        };
+        script.onerror = reject;
+        document.body.appendChild(script);
+      });
+    }
+
+    function extractPageContent(doc) {
+      const content =
+        doc.querySelector("main .content") ||
+        doc.querySelector(".main .content") ||
+        doc.querySelector("main .page") ||
+        doc.querySelector(".page") ||
+        doc.querySelector("main");
+      if (!content) {
+        return null;
+      }
+      const clone = content.cloneNode(true);
+      clone.querySelectorAll(".sidebar, .topbar, .brand, .nav-actions, script").forEach((node) => node.remove());
+      return clone;
+    }
+
+    function findMatchingBrace(css, openIndex) {
+      let depth = 0;
+      for (let index = openIndex; index < css.length; index += 1) {
+        if (css[index] === "{") depth += 1;
+        if (css[index] === "}") depth -= 1;
+        if (depth === 0) return index;
+      }
+      return css.length - 1;
+    }
+
+    function scopeSelectorList(selectorText, scope) {
+      return selectorText.split(",").map((selector) => {
+        const trimmed = selector.trim();
+        if (!trimmed) return "";
+        if (trimmed === "html" || trimmed === "body" || trimmed === ":root") {
+          return scope;
+        }
+        if (trimmed.startsWith("html ") || trimmed.startsWith("body ")) {
+          return `${scope} ${trimmed.replace(/^(html|body)\s+/, "")}`;
+        }
+        if (trimmed.startsWith(scope)) {
+          return trimmed;
+        }
+        return `${scope} ${trimmed}`;
+      }).filter(Boolean).join(", ");
+    }
+
+    function isPageRootSelectorList(selectorText) {
+      return selectorText.split(",").every((selector) => {
+        const trimmed = selector.trim();
+        return trimmed === "html" || trimmed === "body" || trimmed === ":root";
+      });
+    }
+
+    function removePageBackgroundDeclarations(cssText) {
+      return cssText
+        .replace(/(^|;)\s*background(?:-color|-image|-size|-position|-repeat|-attachment)?\s*:[^;]+;?/gi, "$1")
+        .replace(/(^|;)\s*min-height\s*:[^;]+;?/gi, "$1");
+    }
+
+    function scopeCssBlock(css, scope) {
+      let output = "";
+      let cursor = 0;
+      while (cursor < css.length) {
+        const openIndex = css.indexOf("{", cursor);
+        if (openIndex === -1) {
+          output += css.slice(cursor);
+          break;
+        }
+        const selectorText = css.slice(cursor, openIndex).trim();
+        const closeIndex = findMatchingBrace(css, openIndex);
+        const bodyText = css.slice(openIndex + 1, closeIndex);
+        if (selectorText.startsWith("@media") || selectorText.startsWith("@supports")) {
+          output += `${selectorText}{${scopeCssBlock(bodyText, scope)}}`;
+        } else if (selectorText.startsWith("@keyframes") || selectorText.startsWith("@font-face")) {
+          output += `${selectorText}{${bodyText}}`;
+        } else if (selectorText.startsWith("@")) {
+          output += `${selectorText}{${bodyText}}`;
+        } else {
+          const scopedBodyText = isPageRootSelectorList(selectorText) ? removePageBackgroundDeclarations(bodyText) : bodyText;
+          output += `${scopeSelectorList(selectorText, scope)}{${scopedBodyText}}`;
+        }
+        cursor = closeIndex + 1;
+      }
+      return output;
+    }
+
+    function scopedPageStyles(doc) {
+      const scope = ".sidebar-content-panel";
+      return Array.from(doc.querySelectorAll("style")).map((style) => {
+        const css = style.textContent.replace(/@import[^;]+;/g, "");
+        return scopeCssBlock(css, scope);
+      }).join("\n");
+    }
+
+    async function runEmbeddedScripts(doc) {
+      const scripts = Array.from(doc.querySelectorAll("script"));
+      for (const script of scripts) {
+        if (script.src) {
+          await loadExternalScript(script.src);
+          continue;
+        }
+        if (!script.textContent.trim()) {
+          continue;
+        }
+        const inline = document.createElement("script");
+        inline.textContent = `(function(){\n${script.textContent}\n})();`;
+        document.body.appendChild(inline);
+        inline.remove();
+      }
+    }
+
+    async function showSidebarContent(link) {
+      if (!dashboardContent || !sidebarContentPanel || !link) return;
+      const href = link.getAttribute("href");
+      dashboardContent.classList.add("sidebar-frame-active");
+      dashboardTitle.textContent = link.textContent.trim() || "Dashboard";
+      setActiveSidebarLink(link);
+      history.replaceState(null, "", `${dashboardPath}#${encodeURIComponent(href)}`);
+      sidebarContentPanel.className = "sidebar-content-panel loading";
+      sidebarContentPanel.textContent = "Loading...";
+
+      try {
+        const response = await fetch(href, { credentials: "same-origin" });
+        if (!response.ok) {
+          throw new Error("Page request failed.");
+        }
+        const html = await response.text();
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const extracted = extractPageContent(doc);
+        if (!extracted) {
+          throw new Error("Page content was not found.");
+        }
+        sidebarContentPanel.className = "sidebar-content-panel";
+        const scopedStyles = document.createElement("style");
+        scopedStyles.textContent = scopedPageStyles(doc);
+        sidebarContentPanel.replaceChildren(scopedStyles, extracted);
+        await runEmbeddedScripts(doc);
+      } catch (error) {
+        sidebarContentPanel.className = "sidebar-content-panel error";
+        sidebarContentPanel.textContent = "This page could not be loaded in the dashboard. Open it directly from the link instead.";
+      }
+    }
+
+    sidebarLinks.forEach((link) => {
+      link.addEventListener("click", (event) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+          return;
+        }
+
+        const href = link.getAttribute("href");
+        if (!href || href.startsWith("#")) {
+          return;
+        }
+
+        event.preventDefault();
+        if (href === dashboardPath) {
+          showDashboardHome(link);
+        } else {
+          showSidebarContent(link);
+        }
+      });
+    });
+
+    const requestedSidebarPage = decodeURIComponent((window.location.hash || "").replace(/^#/, ""));
+    if (requestedSidebarPage) {
+      const matchingLink = sidebarLinks.find((link) => link.getAttribute("href") === requestedSidebarPage);
+      if (matchingLink && requestedSidebarPage !== dashboardPath) {
+        showSidebarContent(matchingLink);
+      }
+    }
+  </script>
 
   {% if user.role == 'Admin' %}
     <script>

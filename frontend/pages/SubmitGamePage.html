@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pexel Submit Game</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { min-height: 100vh; background: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px), radial-gradient(circle at 28% 8%, rgba(124,58,237,.2), transparent 27%), radial-gradient(circle at 78% 6%, rgba(6,182,212,.12), transparent 22%), #05070d; background-size: 42px 42px, 42px 42px, auto, auto; color: #f3f5ff; font-family: "Inter", Arial, sans-serif; }
+    a { color: inherit; }
+    .topbar { min-height: 70px; padding: 18px 28px; border-bottom: 1px solid rgba(129,72,255,.22); background: rgba(5,7,13,.9); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 4; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; text-decoration: none; font-size: 20px; }
+    .brand-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #7d39ff, #9a45ff); box-shadow: 0 0 26px rgba(124,58,255,.28); }
+    .nav-actions { display: flex; gap: 10px; align-items: center; }
+    .button { min-height: 40px; border-radius: 7px; padding: 0 14px; border: 1px solid rgba(129,72,255,.35); background: #1a1f2d; color: white; display: inline-flex; justify-content: center; align-items: center; gap: 8px; text-decoration: none; font-size: 14px; font-weight: 900; cursor: pointer; }
+    .button.primary { border: none; background: linear-gradient(135deg, #7d39ff, #8d45ff); box-shadow: 0 0 24px rgba(124,58,255,.24); }
+    .button:disabled { cursor: not-allowed; opacity: .55; }
+    .page { width: min(1120px, 100%); margin: 0 auto; padding: 28px; display: grid; gap: 22px; }
+    .hero, .panel { border-radius: 8px; border: 1px solid rgba(129,72,255,.24); background: rgba(15,20,32,.9); box-shadow: 0 12px 28px rgba(0,0,0,.16); }
+    .hero { padding: 28px; display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+    h1, h2 { font-family: "Orbitron", sans-serif; }
+    h1 { font-size: clamp(26px, 3vw, 36px); margin-bottom: 6px; }
+    h2 { font-size: 17px; margin-bottom: 18px; }
+    .muted { color: #8293c4; line-height: 1.6; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr); gap: 22px; align-items: start; }
+    .panel { padding: 22px; }
+    form, .stack, .contributor-list, .search-results, .submission-list { display: grid; gap: 14px; }
+    .message { padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 800; }
+    .success { color: #55f0b3; background: rgba(0,227,159,.11); border: 1px solid rgba(0,227,159,.25); }
+    .error { color: #ff8aa0; background: rgba(255,75,110,.12); border: 1px solid rgba(255,75,110,.28); }
+    label { display: block; color: #8ea0c8; font-size: 14px; margin-bottom: 8px; }
+    input, textarea, select { width: 100%; min-height: 42px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.35); color: white; border-radius: 7px; padding: 0 14px; font: inherit; font-size: 14px; outline: none; }
+    textarea { min-height: 108px; resize: vertical; padding-top: 12px; line-height: 1.5; }
+    input:focus, textarea:focus, select:focus { border-color: #8c48ff; box-shadow: 0 0 0 3px rgba(124,57,255,.18); }
+    .segmented { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .option { min-height: 54px; padding: 12px; border-radius: 8px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.22); cursor: pointer; display: grid; gap: 4px; }
+    .option input { width: auto; min-height: 0; margin-right: 8px; }
+    .option strong { color: white; }
+    .option span { color: #8293c4; font-size: 12px; }
+    .team-fields.hidden, .contributor-tools.hidden { display: none; }
+    .candidate, .contributor-chip, .submission-card, .empty { padding: 14px; border-radius: 8px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.22); }
+    .candidate { width: 100%; color: inherit; text-align: left; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+    .candidate:hover { border-color: #8c48ff; background: rgba(124,58,237,.12); }
+    .contributor-chip { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+    .remove-contributor { width: 32px; min-height: 32px; padding: 0; }
+    .role-pill { width: fit-content; padding: 8px 12px; border-radius: 999px; color: #c7b7ff; background: rgba(124,58,237,.16); border: 1px solid rgba(124,58,237,.42); font-size: 12px; font-weight: 900; white-space: nowrap; }
+    .empty { border-style: dashed; color: #8293c4; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .submission-card { display: grid; gap: 7px; }
+    @media (max-width: 880px) { .hero, .topbar { align-items: flex-start; flex-direction: column; } .grid { grid-template-columns: 1fr; } .nav-actions, .button, .form-actions { width: 100%; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a href="{{ url_for('dashboard') }}" class="brand"><div class="brand-icon">P</div><span>Pexel</span></a>
+    <nav class="nav-actions" aria-label="Submit game navigation">
+      <a class="button" href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a class="button" href="{{ url_for('teams_page') }}">Teams</a>
+      <a class="button" href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+  </header>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <h1>Submit Game</h1>
+        <p class="muted">Submit solo builds individually, or attach a team build and assign contributors from your team.</p>
+      </div>
+      <span class="role-pill">{{ submissions|length }} submission{{ '' if submissions|length == 1 else 's' }}</span>
+    </section>
+    {% if success %}<div class="message success">{{ success }}</div>{% endif %}
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+    <section class="grid">
+      <section class="panel">
+        <h2>New Submission</h2>
+        <form method="POST" enctype="multipart/form-data" id="submissionForm" novalidate>
+          <div>
+            <label>Submission type</label>
+            <div class="segmented">
+              <label class="option">
+                <span><input type="radio" name="submission_type" value="individual" checked> <strong>Individual</strong></span>
+                <span>Stored as your individual submission.</span>
+              </label>
+              <label class="option">
+                <span><input type="radio" name="submission_type" value="team"> <strong>Team</strong></span>
+                <span>Assign contributors from a team.</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label for="title">Game title</label>
+            <input id="title" name="title" type="text" maxlength="120" placeholder="Neon Dungeon Sprint" required>
+          </div>
+          <div>
+            <label for="description">Description</label>
+            <textarea id="description" name="description" maxlength="1000" placeholder="Pitch, controls, engine, and what judges should know"></textarea>
+          </div>
+          <div class="team-fields hidden" id="teamFields">
+            <label for="team_id">Team</label>
+            <select id="team_id" name="team_id">
+              <option value="">Choose team</option>
+              {% for team in teams %}
+                <option value="{{ team.id }}">{{ team.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="contributor-tools hidden" id="contributorTools">
+            <input type="hidden" name="contributor_ids" id="contributor_ids">
+            <label for="contributorSearch">Search contributors</label>
+            <input id="contributorSearch" type="search" autocomplete="off" placeholder="Search team members to add">
+            <p class="muted">Contributors must be active members of the selected team.</p>
+            <div class="search-results" id="contributorResults"></div>
+            <div class="contributor-list" id="contributorList">
+              <div class="empty">No contributors added yet.</div>
+            </div>
+          </div>
+          <div>
+            <label for="game_files">Game files</label>
+            <input id="game_files" name="game_files" type="file" multiple required>
+            <p class="muted">Upload a playable build or source package. ZIP files up to 10 GB are supported.</p>
+          </div>
+          <div class="form-actions">
+            <button class="button primary" type="submit">Submit Game</button>
+          </div>
+        </form>
+      </section>
+      <aside class="panel">
+        <h2>Your Submissions</h2>
+        <div class="submission-list">
+          {% for submission in submissions %}
+            <article class="submission-card">
+              <strong>{{ submission.title }}</strong>
+              <p class="muted">{{ submission.submission_type|title }}{% if submission.team_name %} - {{ submission.team_name }}{% endif %}</p>
+              <p class="muted">Contributors: {{ submission.contributor_names or 'Individual submission' }}</p>
+              <span class="role-pill">{{ submission.file_count }} file{{ '' if submission.file_count == 1 else 's' }}</span>
+            </article>
+          {% else %}
+            <div class="empty">No submissions yet.</div>
+          {% endfor %}
+        </div>
+      </aside>
+    </section>
+  </main>
+  <script>
+    const typeInputs = Array.from(document.querySelectorAll('input[name="submission_type"]'));
+    const teamFields = document.getElementById("teamFields");
+    const contributorTools = document.getElementById("contributorTools");
+    const teamSelect = document.getElementById("team_id");
+    const contributorSearch = document.getElementById("contributorSearch");
+    const contributorResults = document.getElementById("contributorResults");
+    const contributorList = document.getElementById("contributorList");
+    const contributorIdsInput = document.getElementById("contributor_ids");
+    const contributors = new Map();
+    let contributorTimer = null;
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, function (char) {
+        return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"}[char];
+      });
+    }
+
+    function syncMode() {
+      const mode = typeInputs.find((input) => input.checked)?.value || "individual";
+      const isTeam = mode === "team";
+      teamFields.classList.toggle("hidden", !isTeam);
+      contributorTools.classList.toggle("hidden", !isTeam);
+      if (!isTeam) {
+        contributors.clear();
+        renderContributors();
+      }
+    }
+
+    function renderContributors() {
+      const ids = Array.from(contributors.keys());
+      contributorIdsInput.value = ids.join(",");
+      if (!ids.length) {
+        contributorList.innerHTML = '<div class="empty">No contributors added yet.</div>';
+        return;
+      }
+      contributorList.innerHTML = ids.map((id) => {
+        const member = contributors.get(id);
+        return `
+          <div class="contributor-chip">
+            <div>
+              <strong>${escapeHtml(member.full_name || member.username)}</strong>
+              <p class="muted">@${escapeHtml(member.username)} - ${escapeHtml(member.team_role || "Contributor")}</p>
+            </div>
+            <button class="button remove-contributor" type="button" data-id="${id}">X</button>
+          </div>
+        `;
+      }).join("");
+      contributorList.querySelectorAll(".remove-contributor").forEach((button) => {
+        button.addEventListener("click", () => {
+          contributors.delete(button.dataset.id);
+          renderContributors();
+        });
+      });
+    }
+
+    function renderContributorResults(members) {
+      if (!members.length) {
+        contributorResults.innerHTML = '<div class="empty">No matching team members.</div>';
+        return;
+      }
+      contributorResults.innerHTML = members.map((member) => `
+        <button class="candidate" type="button" data-id="${member.id}">
+          <div>
+            <strong>${escapeHtml(member.full_name || member.username)}</strong>
+            <p class="muted">@${escapeHtml(member.username)} - ${escapeHtml(member.email)}</p>
+          </div>
+          <span class="role-pill">${escapeHtml(member.team_role || "Contributor")}</span>
+        </button>
+      `).join("");
+      contributorResults.querySelectorAll(".candidate").forEach((button, index) => {
+        button.addEventListener("click", () => {
+          const member = members[index];
+          contributors.set(String(member.id), member);
+          contributorSearch.value = "";
+          contributorResults.innerHTML = "";
+          renderContributors();
+        });
+      });
+    }
+
+    async function searchContributors() {
+      const teamId = teamSelect.value;
+      const query = contributorSearch.value.trim();
+      if (!teamId || query.length < 2) {
+        contributorResults.innerHTML = "";
+        return;
+      }
+      const response = await fetch(`{{ url_for('api_submission_contributor_search') }}?team_id=${encodeURIComponent(teamId)}&q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        contributorResults.innerHTML = '<div class="empty">Contributor search is unavailable.</div>';
+        return;
+      }
+      const data = await response.json();
+      renderContributorResults(data.members || []);
+    }
+
+    typeInputs.forEach((input) => input.addEventListener("change", syncMode));
+    teamSelect.addEventListener("change", () => {
+      contributors.clear();
+      renderContributors();
+      contributorResults.innerHTML = "";
+    });
+    contributorSearch.addEventListener("input", () => {
+      window.clearTimeout(contributorTimer);
+      contributorTimer = window.setTimeout(searchContributors, 220);
+    });
+    syncMode();
+  </script>
+</body>
+</html>

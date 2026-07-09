@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pexel Team Workspace</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { min-height: 100vh; background: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px), radial-gradient(circle at 28% 8%, rgba(124,58,237,.2), transparent 27%), radial-gradient(circle at 78% 6%, rgba(6,182,212,.12), transparent 22%), #05070d; background-size: 42px 42px, 42px 42px, auto, auto; color: #f3f5ff; font-family: "Inter", Arial, sans-serif; }
+    a { color: inherit; }
+    .topbar { min-height: 70px; padding: 18px 28px; border-bottom: 1px solid rgba(129,72,255,.22); background: rgba(5,7,13,.9); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 4; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; text-decoration: none; font-size: 20px; }
+    .brand-icon, .avatar { display: grid; place-items: center; color: white; background: linear-gradient(135deg, #7d39ff, #9a45ff); box-shadow: 0 0 26px rgba(124,58,255,.28); }
+    .brand-icon { width: 38px; height: 38px; border-radius: 10px; }
+    .nav-actions { display: flex; gap: 10px; align-items: center; }
+    .button { min-height: 40px; border-radius: 7px; padding: 0 14px; border: 1px solid rgba(129,72,255,.35); background: #1a1f2d; color: white; display: inline-flex; justify-content: center; align-items: center; gap: 8px; text-decoration: none; font-size: 14px; font-weight: 900; cursor: pointer; }
+    .button.primary { border: none; background: linear-gradient(135deg, #7d39ff, #8d45ff); box-shadow: 0 0 24px rgba(124,58,255,.24); }
+    .button.danger { border-color: rgba(255,75,110,.45); background: rgba(255,75,110,.14); color: #ff9aad; }
+    .page { width: min(1180px, 100%); margin: 0 auto; padding: 28px; display: grid; gap: 22px; }
+    .hero, .panel { border-radius: 8px; border: 1px solid rgba(129,72,255,.24); background: rgba(15,20,32,.9); box-shadow: 0 12px 28px rgba(0,0,0,.16); }
+    .hero { padding: 28px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+    h1, h2 { font-family: "Orbitron", sans-serif; }
+    h1 { font-size: clamp(26px, 3vw, 36px); margin-bottom: 6px; }
+    h2 { font-size: 17px; margin-bottom: 18px; }
+    .muted { color: #8293c4; line-height: 1.6; }
+    .role-pill { width: fit-content; padding: 8px 12px; border-radius: 999px; color: #c7b7ff; background: rgba(124,58,237,.16); border: 1px solid rgba(124,58,237,.42); font-size: 12px; font-weight: 900; white-space: nowrap; }
+    .grid { display: grid; grid-template-columns: minmax(300px, .8fr) minmax(0, 1.2fr); gap: 22px; align-items: start; }
+    .panel { padding: 22px; }
+    .stack, .team-list, .member-list, .search-results, .message-list, .file-list, form { display: grid; gap: 14px; }
+    .team-card, .member-card, .candidate, .copy-box, .file-card, .empty { padding: 14px; border-radius: 8px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.22); }
+    .team-card { display: grid; gap: 5px; text-decoration: none; }
+    .team-card.active, .team-card:hover, .candidate:hover { border-color: #8c48ff; background: rgba(124,58,237,.12); }
+    .member-card, .candidate { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+    .candidate { width: 100%; color: inherit; text-align: left; cursor: pointer; }
+    .avatar { width: 42px; height: 42px; border-radius: 50%; overflow: hidden; font-weight: 900; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .identity { min-width: 0; }
+    .identity strong { display: block; color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .identity span { display: block; color: #8293c4; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .message { padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 800; }
+    .success { color: #55f0b3; background: rgba(0,227,159,.11); border: 1px solid rgba(0,227,159,.25); }
+    .error { color: #ff8aa0; background: rgba(255,75,110,.12); border: 1px solid rgba(255,75,110,.28); }
+    label { display: block; color: #8ea0c8; font-size: 14px; margin-bottom: 8px; }
+    input, textarea { width: 100%; min-height: 42px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.35); color: white; border-radius: 7px; padding: 0 14px; font: inherit; font-size: 14px; outline: none; }
+    textarea { min-height: 96px; resize: vertical; padding-top: 12px; line-height: 1.5; }
+    input:focus, textarea:focus { border-color: #8c48ff; box-shadow: 0 0 0 3px rgba(124,57,255,.18); }
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .team-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .team-actions form { display: block; }
+    .copy-box { display: grid; gap: 8px; overflow-wrap: anywhere; }
+    .copy-box code { color: #b8f4ff; font-size: 13px; line-height: 1.5; }
+    .empty { border-style: dashed; color: #8293c4; }
+    .chat-panel { padding: 0; overflow: hidden; }
+    .chat-head { padding: 18px 22px; border-bottom: 1px solid rgba(129,72,255,.22); display: flex; justify-content: space-between; gap: 14px; align-items: center; background: rgba(9,13,24,.56); }
+    .chat-head h2 { margin-bottom: 4px; }
+    .chat-feed { min-height: 320px; max-height: 520px; overflow-y: auto; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; background: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px), rgba(8,12,22,.72); background-size: 36px 36px; scroll-behavior: smooth; }
+    .chat-row { display: flex; gap: 10px; align-items: flex-end; max-width: min(82%, 680px); }
+    .chat-row.own { align-self: flex-end; flex-direction: row-reverse; }
+    .chat-row.other { align-self: flex-start; }
+    .chat-bubble { padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.22); display: grid; gap: 6px; min-width: 0; }
+    .chat-row.own .chat-bubble { border-radius: 14px 14px 4px 14px; background: linear-gradient(135deg, rgba(124,58,237,.82), rgba(76,117,255,.72)); border-color: rgba(184,244,255,.2); }
+    .chat-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: #b8c6eb; font-size: 12px; }
+    .chat-row.own .chat-meta { color: rgba(255,255,255,.82); }
+    .chat-name { color: #fff; font-weight: 900; }
+    .chat-text { color: #f3f5ff; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .chat-composer { padding: 16px 22px 20px; border-top: 1px solid rgba(129,72,255,.22); background: rgba(13,16,23,.94); }
+    .composer-box { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+    .composer-box textarea { min-height: 48px; max-height: 160px; resize: none; padding: 13px 14px; border-radius: 10px; line-height: 1.45; }
+    .composer-help { margin-top: 8px; color: #7080aa; font-size: 12px; }
+    .file-card { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+    .file-card a { color: #b8f4ff; font-weight: 900; text-decoration: none; overflow-wrap: anywhere; }
+    @media (max-width: 880px) { .hero, .topbar { align-items: flex-start; flex-direction: column; } .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 620px) { .page { padding: 18px; } .nav-actions, .button, .form-actions { width: 100%; } .member-card, .candidate { grid-template-columns: 42px minmax(0, 1fr); } .member-card .role-pill, .candidate .role-pill { grid-column: 1 / -1; } .chat-row { max-width: 100%; } .composer-box { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a href="{{ url_for('dashboard') }}" class="brand"><div class="brand-icon">P</div><span>Pexel</span></a>
+    <nav class="nav-actions" aria-label="Team navigation">
+      <a class="button" href="{{ url_for('teams_page') }}">Create Team</a>
+      <a class="button" href="{{ url_for('join_team_page') }}">Join Team</a>
+      <a class="button" href="{{ url_for('dashboard') }}">Dashboard</a>
+    </nav>
+  </header>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <h1>{{ team.name }}</h1>
+        <p class="muted">{{ team.description or 'No team description yet.' }}</p>
+      </div>
+      <div class="team-actions">
+        <span class="role-pill">{{ members|length }} member{{ '' if members|length == 1 else 's' }}</span>
+        {% if team.owner_id != user.id %}
+          <form method="POST" onsubmit="return confirm('Leave this team? You will lose access to its chat and files.');">
+            <input type="hidden" name="action" value="leave_team">
+            <button class="button" type="submit">Leave Team</button>
+          </form>
+        {% endif %}
+        {% if can_manage_team %}
+          <form method="POST" onsubmit="return confirm('Delete this team permanently? This removes team chat, invites, members, and files.');">
+            <input type="hidden" name="action" value="delete_team">
+            <button class="button danger" type="submit">Delete Team</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>
+    {% if success %}<div class="message success">{{ success }}</div>{% endif %}
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+    {% if invite_link %}<div class="copy-box"><strong>Invite link</strong><code>{{ invite_link }}</code></div>{% endif %}
+    <section class="grid">
+      <aside class="stack">
+        <section class="panel">
+          <h2>Your Teams</h2>
+          <div class="team-list">
+            {% for item in teams %}
+              <a class="team-card {% if item.id == team.id %}active{% endif %}" href="{{ url_for('team_detail', team_id=item.id) }}">
+                <strong>{{ item.name }}</strong>
+                <span class="muted">{{ item.member_count }} member{{ '' if item.member_count == 1 else 's' }} · {{ item.member_role }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Members</h2>
+          <div class="member-list">
+            {% for member in members %}
+              <article class="member-card">
+                <div class="avatar">
+                  {% if member.profile_picture %}<img src="{{ member.profile_picture }}" alt="{{ member.full_name or member.username }}">{% else %}{{ (member.full_name or member.username or 'U')[:2].upper() }}{% endif %}
+                </div>
+                <div class="identity">
+                  <strong>{{ member.full_name or member.username }}</strong>
+                  <span>@{{ member.username }} · {{ member.email }}</span>
+                </div>
+                <span class="role-pill">{{ member.role }} · {{ member.team_role or 'Developer' }}</span>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Invite Member</h2>
+          {% if can_manage_team %}
+            <form method="POST" id="inviteForm" novalidate>
+              <input type="hidden" name="action" value="invite_member">
+              <input type="hidden" name="invitee_id" id="invitee_id">
+              <div>
+                <label for="memberSearch">Search members</label>
+                <input id="memberSearch" name="member_search" type="search" autocomplete="off" placeholder="Type 2 or more characters">
+                <p class="muted">Search by name, username, email, skill, or role. Select a result to enable the invite button.</p>
+              </div>
+              <div class="search-results" id="searchResults"></div>
+              <div class="form-actions"><button class="button primary" type="submit" id="inviteButton" disabled>Send Invite</button></div>
+            </form>
+          {% else %}
+            <div class="empty">Only the team creator or a team leader can search and send invites for this team.</div>
+          {% endif %}
+        </section>
+      </aside>
+      <section class="stack">
+        <section class="panel chat-panel">
+          <div class="chat-head">
+            <div><h2>Team Chat</h2><p class="muted">{{ messages|length }} message{{ '' if messages|length == 1 else 's' }}</p></div>
+            <span class="role-pill">{{ team.name }}</span>
+          </div>
+          <div class="chat-feed" id="teamChatFeed" aria-live="polite">
+            {% for message in messages %}
+              {% set is_own_message = message.user_id == user.id %}
+              <article class="chat-row {{ 'own' if is_own_message else 'other' }}">
+                <div class="avatar">{% if message.profile_picture %}<img src="{{ message.profile_picture }}" alt="{{ message.full_name or message.username }}">{% else %}{{ (message.full_name or message.username or 'U')[:2].upper() }}{% endif %}</div>
+                <div class="chat-bubble">
+                  <div class="chat-meta"><span class="chat-name">{{ 'You' if is_own_message else (message.full_name or message.username) }}</span><span>{{ message.created_at }}</span></div>
+                  <p class="chat-text">{{ message.message }}</p>
+                </div>
+              </article>
+            {% else %}
+              <div class="empty">No messages yet. Start with a short plan, question, or update.</div>
+            {% endfor %}
+          </div>
+          <form class="chat-composer" method="POST" id="teamChatForm" novalidate>
+            <input type="hidden" name="action" value="post_message">
+            <label for="message">Message</label>
+            <div class="composer-box">
+              <textarea id="message" name="message" maxlength="1000" placeholder="Write a message to {{ team.name }}" required></textarea>
+              <button class="button primary" type="submit">Send</button>
+            </div>
+            <p class="composer-help">Press Ctrl+Enter to send. Keep it kind, clear, and useful for the team.</p>
+          </form>
+        </section>
+        <section class="panel">
+          <h2>Team Files</h2>
+          <form method="POST" enctype="multipart/form-data" novalidate>
+            <input type="hidden" name="action" value="upload_file">
+            <div>
+              <label for="team_file">Upload file</label>
+              <input id="team_file" name="team_file" type="file" required>
+            </div>
+            <div class="form-actions"><button class="button primary" type="submit">Upload File</button></div>
+          </form>
+          <br>
+          <div class="file-list">
+            {% for file in files %}
+              <article class="file-card">
+                <div><a href="{{ url_for('download_team_file', file_id=file.id) }}">{{ file.original_filename }}</a><p class="muted">{{ file.full_name or file.username }} · {{ file.created_at }}</p></div>
+                <span class="role-pill">{{ (file.size / 1024)|round(1) }} KB</span>
+              </article>
+            {% else %}
+              <div class="empty">No files uploaded yet.</div>
+            {% endfor %}
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+  <script>
+    const searchInput = document.getElementById("memberSearch");
+    const results = document.getElementById("searchResults");
+    const inviteeInput = document.getElementById("invitee_id");
+    const inviteButton = document.getElementById("inviteButton");
+    let searchTimer = null;
+    function avatarFor(member) {
+      if (member.profile_picture) return `<img src="${member.profile_picture}" alt="${member.full_name || member.username}">`;
+      return (member.full_name || member.username || "U").slice(0, 2).toUpperCase();
+    }
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, function (char) {
+        return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"}[char];
+      });
+    }
+    function renderMembers(members) {
+      if (!results) return;
+      if (!members.length) {
+        results.innerHTML = '<div class="empty">No verified members found.</div>';
+        return;
+      }
+      results.innerHTML = members.map((member) => `
+        <button class="candidate" type="button" data-id="${member.id}" data-name="${escapeHtml(member.full_name || member.username)}">
+          <div class="avatar">${avatarFor(member)}</div>
+          <div class="identity"><strong>${escapeHtml(member.full_name || member.username)}</strong><span>@${escapeHtml(member.username)} · ${escapeHtml(member.email)}</span></div>
+          <span class="role-pill">${escapeHtml(member.team_role || "Developer")}</span>
+        </button>
+      `).join("");
+      results.querySelectorAll(".candidate").forEach((button) => {
+        button.addEventListener("click", () => {
+          inviteeInput.value = button.dataset.id;
+          inviteButton.disabled = false;
+          searchInput.value = button.dataset.name;
+          results.innerHTML = "";
+        });
+      });
+    }
+    async function searchMembers() {
+      const query = searchInput.value.trim();
+      inviteeInput.value = "";
+      inviteButton.disabled = true;
+      if (query.length < 2) {
+        results.innerHTML = "";
+        return;
+      }
+      const response = await fetch(`{{ url_for('api_team_member_search') }}?q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        results.innerHTML = '<div class="empty">Search is unavailable.</div>';
+        return;
+      }
+      const data = await response.json();
+      renderMembers(data.members || []);
+    }
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(searchMembers, 220);
+      });
+    }
+    const chatFeed = document.getElementById("teamChatFeed");
+    const chatForm = document.getElementById("teamChatForm");
+    const messageInput = document.getElementById("message");
+    if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+    if (messageInput) {
+      messageInput.addEventListener("input", () => {
+        messageInput.style.height = "auto";
+        messageInput.style.height = `${Math.min(messageInput.scrollHeight, 160)}px`;
+      });
+      messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && event.ctrlKey && chatForm) {
+          event.preventDefault();
+          chatForm.requestSubmit();
+        }
+      });
+    }
+  </script>
+</body>
+</html>

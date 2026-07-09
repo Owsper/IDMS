@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pexel Join Team</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { min-height: 100vh; background: linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px), radial-gradient(circle at 28% 8%, rgba(124,58,237,.2), transparent 27%), radial-gradient(circle at 78% 6%, rgba(6,182,212,.12), transparent 22%), #05070d; background-size: 42px 42px, 42px 42px, auto, auto; color: #f3f5ff; font-family: "Inter", Arial, sans-serif; }
+    .topbar { min-height: 70px; padding: 18px 28px; border-bottom: 1px solid rgba(129,72,255,.22); background: rgba(5,7,13,.9); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 4; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; text-decoration: none; color: white; font-size: 20px; }
+    .brand-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #7d39ff, #9a45ff); box-shadow: 0 0 26px rgba(124,58,255,.28); }
+    .nav-actions { display: flex; gap: 10px; align-items: center; }
+    .button { min-height: 40px; border-radius: 7px; padding: 0 14px; border: 1px solid rgba(129,72,255,.35); background: #1a1f2d; color: white; display: inline-flex; justify-content: center; align-items: center; gap: 8px; text-decoration: none; font-size: 14px; font-weight: 900; cursor: pointer; }
+    .button.primary { border: none; background: linear-gradient(135deg, #7d39ff, #8d45ff); box-shadow: 0 0 24px rgba(124,58,255,.24); }
+    .page { width: min(780px, 100%); margin: 0 auto; padding: 28px; display: grid; gap: 22px; }
+    .hero, .panel { border-radius: 8px; border: 1px solid rgba(129,72,255,.24); background: rgba(15,20,32,.9); box-shadow: 0 12px 28px rgba(0,0,0,.16); }
+    .hero, .panel { padding: 28px; }
+    h1, h2 { font-family: "Orbitron", sans-serif; }
+    h1 { font-size: clamp(26px, 3vw, 36px); margin-bottom: 6px; }
+    h2 { font-size: 17px; margin-bottom: 18px; }
+    .muted { color: #8293c4; line-height: 1.6; }
+    .message { padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 800; }
+    .error { color: #ff8aa0; background: rgba(255,75,110,.12); border: 1px solid rgba(255,75,110,.28); }
+    label { display: block; color: #8ea0c8; font-size: 14px; margin-bottom: 8px; }
+    input { width: 100%; min-height: 42px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.35); color: white; border-radius: 7px; padding: 0 14px; font: inherit; font-size: 14px; outline: none; }
+    input:focus { border-color: #8c48ff; box-shadow: 0 0 0 3px rgba(124,57,255,.18); }
+    .team-search-results { display: grid; gap: 10px; margin-top: 14px; }
+    .team-result, .empty { padding: 14px; border-radius: 8px; background: #1a1f2d; border: 1px solid rgba(129,72,255,.22); }
+    .team-result { display: grid; gap: 10px; }
+    .team-result-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .role-pill { width: fit-content; padding: 8px 12px; border-radius: 999px; color: #c7b7ff; background: rgba(124,58,237,.16); border: 1px solid rgba(124,58,237,.42); font-size: 12px; font-weight: 900; white-space: nowrap; }
+    .empty { border-style: dashed; color: #8293c4; }
+    @media (max-width: 720px) { .topbar { align-items: flex-start; flex-direction: column; } .nav-actions, .button { width: 100%; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a href="{{ url_for('dashboard') }}" class="brand"><div class="brand-icon">P</div><span>Pexel</span></a>
+    <nav class="nav-actions" aria-label="Join team navigation">
+      <a class="button" href="{{ url_for('teams_page') }}">Create Team</a>
+      <a class="button" href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a class="button" href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+  </header>
+  <main class="page">
+    <section class="hero">
+      <h1>Join Team</h1>
+      <p class="muted">Search by team name only, then join the team workspace.</p>
+    </section>
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+    <section class="panel">
+      <h2>Find Team</h2>
+      <label for="teamSearch">Team name</label>
+      <input id="teamSearch" name="team_search" type="search" autocomplete="off" placeholder="Type a team name">
+      <p class="muted">Only team names are searched. Descriptions, members, and skills are ignored.</p>
+      <div class="team-search-results" id="teamSearchResults"></div>
+    </section>
+  </main>
+  <script>
+    const teamSearchInput = document.getElementById("teamSearch");
+    const teamSearchResults = document.getElementById("teamSearchResults");
+    let teamSearchTimer = null;
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, function (char) {
+        return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"}[char];
+      });
+    }
+    function renderTeams(teams) {
+      if (!teams.length) {
+        teamSearchResults.innerHTML = '<div class="empty">No joinable teams found by that name.</div>';
+        return;
+      }
+      teamSearchResults.innerHTML = teams.map((team) => `
+        <article class="team-result">
+          <div class="team-result-head">
+            <div>
+              <strong>${escapeHtml(team.name)}</strong>
+              <p class="muted">${escapeHtml(team.description || "No description yet.")}</p>
+            </div>
+            <span class="role-pill">${Number(team.member_count || 0)} member${Number(team.member_count || 0) === 1 ? "" : "s"}</span>
+          </div>
+          <p class="muted">Owner: ${escapeHtml(team.owner_full_name || team.owner_username || "Unknown")}</p>
+          <form method="POST">
+            <input type="hidden" name="team_id" value="${team.id}">
+            <button class="button primary" type="submit">Join Team</button>
+          </form>
+        </article>
+      `).join("");
+    }
+    async function searchTeams() {
+      const query = teamSearchInput.value.trim();
+      if (query.length < 2) {
+        teamSearchResults.innerHTML = "";
+        return;
+      }
+      const response = await fetch(`{{ url_for('api_team_search') }}?q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        teamSearchResults.innerHTML = '<div class="empty">Team search is unavailable.</div>';
+        return;
+      }
+      const data = await response.json();
+      renderTeams(data.teams || []);
+    }
+    teamSearchInput.addEventListener("input", () => {
+      window.clearTimeout(teamSearchTimer);
+      teamSearchTimer = window.setTimeout(searchTeams, 220);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pexel Team Invite</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh; display: grid; place-items: center; padding: 24px; color: #f3f5ff;
+      font-family: "Inter", Arial, sans-serif;
+      background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        radial-gradient(circle at 55% 62%, rgba(124,58,237,.32), transparent 32%),
+        radial-gradient(circle at 70% 70%, rgba(14,165,233,.18), transparent 28%),
+        #11101e;
+      background-size: 40px 40px, 40px 40px, auto, auto;
+    }
+    .card {
+      width: min(480px, 100%); padding: 30px; border-radius: 8px;
+      background: rgba(13,16,23,.94); border: 1px solid #2b3152;
+      box-shadow: 0 25px 60px rgba(0,0,0,.45), 0 0 40px rgba(124,58,237,.10);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; font-weight: 900; font-size: 20px; }
+    .brand-icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+    h1 { font-family: "Orbitron", sans-serif; font-size: 26px; margin-bottom: 10px; }
+    .muted { color: #8190b8; line-height: 1.6; margin-bottom: 22px; }
+    .message { padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 800; margin-bottom: 18px; }
+    .success { color: #55f0b3; background: rgba(0,227,159,.11); border: 1px solid rgba(0,227,159,.25); }
+    .error { color: #ff8aa0; background: rgba(255,75,110,.12); border: 1px solid rgba(255,75,110,.28); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .button {
+      min-height: 40px; border-radius: 7px; padding: 0 14px; border: 1px solid rgba(129,72,255,.35);
+      background: #1a1f2d; color: white; display: inline-flex; justify-content: center; align-items: center;
+      gap: 8px; text-decoration: none; font-size: 14px; font-weight: 900;
+    }
+    .button.primary { border: none; background: linear-gradient(135deg, #7d39ff, #8d45ff); }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><div class="brand-icon">P</div><span>Pexel</span></div>
+    <h1>{{ team.name if team else (invite.team_name if invite else 'Team Invite') }}</h1>
+    {% if success %}<div class="message success">{{ success }}</div>{% endif %}
+    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+    {% if invite %}
+      <p class="muted">
+        Invited by {{ invite.inviter_full_name or invite.inviter_username }}.
+      </p>
+    {% endif %}
+    <div class="actions">
+      <a class="button primary" href="{{ url_for('team_detail', team_id=team.id) if team else url_for('teams_page') }}">Open Team</a>
+      <a class="button" href="{{ url_for('dashboard') }}">Dashboard</a>
+    </div>
+  </main>
+</body>
+</html>
