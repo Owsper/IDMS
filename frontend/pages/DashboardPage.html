@@ -610,7 +610,7 @@
     }
 
     .stats-grid.admin-stats {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .card,
@@ -877,7 +877,7 @@
       }
 
       .stats-grid.admin-stats {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .grid-two {
@@ -1074,6 +1074,9 @@
             <a href="{{ url_for('voting') }}">Voting</a>
             <a href="{{ url_for('meetings') }}">Meetings</a>
             <a href="{{ url_for('list_files') }}">Documents</a>
+            {% if user.role != 'Admin' %}
+              <a href="{{ url_for('bugs_page') }}">Report Bug / Support</a>
+            {% endif %}
           </div>
           <div class="nav-section">
             <div class="nav-label">Teams</div>
@@ -1144,6 +1147,14 @@
                 <span class="stat-icon">M</span>
               </div>
               <div class="stat-number" data-member-stat="total_members">{{ member_stats.total_members }}</div>
+            </article>
+
+            <article class="card stat-card">
+              <div class="stat-top">
+                <span>Total Teams</span>
+                <span class="stat-icon">T</span>
+              </div>
+              <div class="stat-number" data-member-stat="total_teams">{{ member_stats.total_teams }}</div>
             </article>
 
             <article class="card stat-card">
@@ -1378,7 +1389,23 @@
       });
     }
 
-    function extractPageContent(doc) {
+    function normalizeLoadedPageActions(clone, pageUrl) {
+      clone.querySelectorAll("form").forEach((form) => {
+        const action = form.getAttribute("action");
+        if (!action || action.trim() === "") {
+          form.setAttribute("action", pageUrl);
+        }
+      });
+      clone.querySelectorAll("a[href]").forEach((anchor) => {
+        const href = anchor.getAttribute("href");
+        if (!href || href.startsWith("#") || href.startsWith("http") || href.startsWith("mailto:")) {
+          return;
+        }
+        anchor.setAttribute("href", new URL(href, window.location.origin).pathname);
+      });
+    }
+
+    function extractPageContent(doc, pageUrl) {
       const content =
         doc.querySelector("main .content") ||
         doc.querySelector(".main .content") ||
@@ -1390,6 +1417,7 @@
       }
       const clone = content.cloneNode(true);
       clone.querySelectorAll(".sidebar, .topbar, .brand, .nav-actions, script").forEach((node) => node.remove());
+      normalizeLoadedPageActions(clone, pageUrl);
       return clone;
     }
 
@@ -1502,7 +1530,7 @@
         }
         const html = await response.text();
         const doc = new DOMParser().parseFromString(html, "text/html");
-        const extracted = extractPageContent(doc);
+        const extracted = extractPageContent(doc, href);
         if (!extracted) {
           throw new Error("Page content was not found.");
         }

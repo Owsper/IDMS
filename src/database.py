@@ -628,7 +628,7 @@ def init_db():
             steps TEXT NOT NULL,
             expected TEXT NOT NULL,
             actual TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'Open',
+            status TEXT NOT NULL DEFAULT 'Pending',
             reporter TEXT NOT NULL DEFAULT '',
             resolution_notes TEXT NOT NULL DEFAULT '',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -943,6 +943,7 @@ def get_member_statistics():
 
     stats = {
         "total_members": count_rows(cursor, "users_data"),
+        "total_teams": count_rows(cursor, "teams"),
         "new_members_this_month": 0,
         "active_members": 0,
     }
@@ -2293,7 +2294,7 @@ def create_notification(category, title, body, recipient_id=None, channel="in-ap
     title = (title or "").strip()
     body = (body or "").strip()
     channel = (channel or "in-app").strip().lower()
-    if category not in {"event", "meeting", "document", "budget", "voting"}:
+    if category not in {"event", "meeting", "document", "budget", "voting", "bug", "support"}:
         raise ValueError("Choose a valid notification category.")
     if channel not in {"in-app", "email"}:
         raise ValueError("Choose a valid notification channel.")
@@ -3604,7 +3605,7 @@ def activity_summary(period="monthly"):
 
 BUG_SEVERITIES = {"Critical", "High", "Medium", "Low"}
 BUG_PRIORITIES = {"Critical", "High", "Medium", "Low"}
-BUG_STATUSES = {"Open", "In Progress", "Fixed", "Verified"}
+BUG_STATUSES = {"Pending", "Open", "In Progress", "Fixed", "Verified"}
 BUG_REPRODUCIBILITY = {"Always", "Sometimes", "Rarely", "Unknown"}
 
 
@@ -3642,9 +3643,9 @@ def create_bug_report(
     cursor.execute("""
         INSERT INTO bug_reports (
             title, severity, priority, module, environment, build_version,
-            reproducibility, steps, expected, actual, reporter, assigned_to
+            reproducibility, steps, expected, actual, reporter, assigned_to, status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')
     """, (
         title,
         severity,
@@ -3662,6 +3663,14 @@ def create_bug_report(
     bug_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    create_notification(
+        "bug",
+        f"New bug/support report: {title}",
+        f"{(reporter or 'A user').strip() or 'A user'} reported {module or 'General'}: {steps[:180]}",
+        recipient_id=None,
+        template_key="bug_report_created",
+        metadata={"bug_id": bug_id, "title": title, "reporter": (reporter or "").strip()},
+    )
     return bug_id
 
 
@@ -3677,7 +3686,8 @@ def bug_tracker_summary():
     conn.close()
     return {
         "total": total,
-        "open": by_status.get("Open", 0),
+        "pending": by_status.get("Pending", 0) + by_status.get("Open", 0),
+        "open": by_status.get("Pending", 0) + by_status.get("Open", 0),
         "in_progress": by_status.get("In Progress", 0),
         "fixed": by_status.get("Fixed", 0),
         "verified": by_status.get("Verified", 0),

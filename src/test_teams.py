@@ -64,8 +64,122 @@ class TeamsFlowTest(unittest.TestCase):
         self.assertIn(b"scopeCssBlock", response.data)
         self.assertIn(b"scopedPageStyles", response.data)
         self.assertIn(b"removePageBackgroundDeclarations", response.data)
+        self.assertIn(b"normalizeLoadedPageActions", response.data)
+        self.assertIn(b'form.setAttribute("action", pageUrl)', response.data)
         self.assertIn(b"sidebarContentPanel.replaceChildren(scopedStyles, extracted)", response.data)
         self.assertNotIn(b"<iframe", response.data)
+
+    def test_user_bug_support_report_notifies_admin(self):
+        self.login(self.artist["id"])
+
+        dashboard_response = self.client.get("/dashboard")
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertIn(b"Report Bug / Support", dashboard_response.data)
+        self.assertIn(b'href="/bugs"', dashboard_response.data)
+
+        report_response = self.client.post(
+            "/bugs",
+            data={
+                "action": "create",
+                "title": "Sidebar button failed",
+                "severity": "Medium",
+                "priority": "High",
+                "module": "Dashboard",
+                "environment": "Chrome",
+                "build_version": "local",
+                "reproducibility": "Always",
+                "steps": "Click the sidebar support button.",
+                "expected": "Support form opens.",
+                "actual": "Nothing happens.",
+            },
+        )
+        self.assertEqual(report_response.status_code, 200)
+        self.assertIn(b"Pending", report_response.data)
+
+        bugs = database.list_bug_reports()
+        self.assertEqual(len(bugs), 1)
+        self.assertEqual(bugs[0]["status"], "Pending")
+        self.assertEqual(bugs[0]["title"], "Sidebar button failed")
+
+        notifications = database.list_notifications()
+        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications[0]["category"], "bug")
+        self.assertEqual(notifications[0]["metadata"]["bug_id"], bugs[0]["id"])
+        self.assertIn("Sidebar button failed", notifications[0]["title"])
+
+        self.login(self.owner["id"])
+        conn = database.get_connection()
+        conn.execute("UPDATE users_data SET role = 'Admin' WHERE id = ?", (self.owner["id"],))
+        conn.commit()
+        conn.close()
+        with self.client.session_transaction() as session:
+            session["admin_username"] = "owner@example.com"
+
+        notification_response = self.client.get("/notifications")
+        self.assertEqual(notification_response.status_code, 200)
+        self.assertIn(b"New bug/support report: Sidebar button failed", notification_response.data)
+
+        fixed_response = self.client.post(
+            "/bugs",
+            data={
+                "action": "status",
+                "bug_id": str(bugs[0]["id"]),
+                "status": "Fixed",
+                "assigned_to": "Owner Dev",
+                "fix_notes": "Restored the sidebar action.",
+                "resolution_notes": "Fixed in dashboard navigation.",
+            },
+        )
+        self.assertEqual(fixed_response.status_code, 200)
+        self.assertEqual(database.list_bug_reports()[0]["status"], "Fixed")
+
+    def test_dashboard_post_bug_form_fallback_avoids_method_not_allowed(self):
+        self.login(self.artist["id"])
+
+        response = self.client.post(
+            "/dashboard",
+            data={
+                "action": "create",
+                "title": "Injected form fallback",
+                "severity": "Low",
+                "priority": "Low",
+                "module": "Dashboard",
+                "environment": "Browser",
+                "build_version": "local",
+                "reproducibility": "Sometimes",
+                "steps": "Submit the injected bug form.",
+                "expected": "Report is saved.",
+                "actual": "Dashboard accepted the fallback post.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/dashboard#/bugs", response.headers["Location"])
+        bugs = database.list_bug_reports()
+        self.assertEqual(len(bugs), 1)
+        self.assertEqual(bugs[0]["title"], "Injected form fallback")
+
+    def test_admin_dashboard_shows_total_teams(self):
+        database.create_team(self.owner["id"], "Admin Visible Team", "Count me")
+        self.login(self.owner["id"])
+        conn = database.get_connection()
+        conn.execute("UPDATE users_data SET role = 'Admin' WHERE id = ?", (self.owner["id"],))
+        conn.commit()
+        conn.close()
+        with self.client.session_transaction() as session:
+            session["admin_username"] = "owner@example.com"
+
+        stats = database.get_member_statistics()
+        self.assertEqual(stats["total_teams"], 1)
+
+        response = self.client.get("/dashboard")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Total Teams", response.data)
+        self.assertIn(b'data-member-stat="total_teams">1</div>', response.data)
+
+        api_response = self.client.get("/api/admin/member-stats")
+        self.assertEqual(api_response.status_code, 200)
+        self.assertEqual(api_response.get_json()["total_teams"], 1)
 
     def test_admin_pages_use_consistent_dashboard_background(self):
         self.login(self.owner["id"])

@@ -1033,10 +1033,28 @@ def reset_password(token):
     return render_template("PasswordResetPage.html", mode="reset", error=error)
 
 
-@app.route("/dashboard")
+@app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
     user = current_user()
+    if request.method == "POST":
+        if request.form.get("action") == "create" and request.form.get("steps") and request.form.get("expected") and request.form.get("actual"):
+            database.create_bug_report(
+                request.form.get("title", ""),
+                request.form.get("severity", "Medium"),
+                request.form.get("steps", ""),
+                request.form.get("expected", ""),
+                request.form.get("actual", ""),
+                current_actor_name(),
+                priority=request.form.get("priority") or request.form.get("severity", "Medium"),
+                module=request.form.get("module", "General"),
+                environment=request.form.get("environment", ""),
+                build_version=request.form.get("build_version", ""),
+                reproducibility=request.form.get("reproducibility", "Unknown"),
+                assigned_to=request.form.get("assigned_to", ""),
+            )
+            return redirect(f"{url_for('dashboard')}#{url_for('bugs_page')}")
+        abort(405)
     stats = get_dashboard_stats(user["id"])
     activities = get_recent_activity(user["id"])
     sidebar_teams = database.list_user_teams(user["id"]) if not session.get("admin_username") else []

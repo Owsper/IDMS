@@ -38,7 +38,7 @@
     {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
     <section class="stats">
-      <article class="card"><p class="muted">Open</p><div class="metric">{{ summary.open }}</div></article>
+      <article class="card"><p class="muted">Pending</p><div class="metric">{{ summary.pending }}</div></article>
       <article class="card"><p class="muted">In Progress</p><div class="metric">{{ summary.in_progress }}</div></article>
       <article class="card"><p class="muted">Fixed</p><div class="metric">{{ summary.fixed }}</div></article>
       <article class="card"><p class="muted">Verified</p><div class="metric">{{ summary.verified }}</div></article>
@@ -47,7 +47,7 @@
     <div class="grid">
       <form class="panel" method="POST">
         <input type="hidden" name="action" value="create">
-        <h2 class="section-title">Report Bug</h2>
+        <h2 class="section-title">Report Bug / Support</h2>
         <input class="input" name="title" placeholder="Short title" required>
         <select name="severity">
           <option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option>
@@ -97,7 +97,7 @@
                 <input type="hidden" name="action" value="status">
                 <input type="hidden" name="bug_id" value="{{ bug.id }}">
                 <select name="status">
-                  {% for status in ['Open','In Progress','Fixed','Verified'] %}
+                  {% for status in ['Pending','In Progress','Fixed','Verified'] %}
                     <option {% if bug.status == status %}selected{% endif %}>{{ status }}</option>
                   {% endfor %}
                 </select>
