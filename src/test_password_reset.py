@@ -208,8 +208,8 @@ class PasswordResetFlowTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'id="password" type="password"', response.data)
         self.assertIn(b'id="confirm_password" type="password"', response.data)
-        self.assertIn(b'data-target="password"', response.data)
-        self.assertIn(b'data-target="confirm_password"', response.data)
+        self.assertIn(b"togglePassword()", response.data)
+        self.assertIn(b"toggleConfirmPassword()", response.data)
 
     def test_new_password_is_validated(self):
         with patch.object(main, "send_transactional_email", return_value={"sent": True, "detail": "sent"}):

@@ -201,6 +201,135 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_team_role ON users_data(team_role)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_verified ON users_data(is_verified)")
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS teams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            owner_id INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME,
+            FOREIGN KEY(owner_id) REFERENCES users_data(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_teams_owner ON teams(owner_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_teams_name ON teams(name COLLATE NOCASE)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS team_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            role TEXT NOT NULL DEFAULT 'Member',
+            status TEXT NOT NULL DEFAULT 'active',
+            joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(team_id) REFERENCES teams(id),
+            FOREIGN KEY(user_id) REFERENCES users_data(id),
+            UNIQUE(team_id, user_id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS team_invites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL,
+            inviter_id INTEGER NOT NULL,
+            invitee_id INTEGER,
+            email TEXT NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            invite_link TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',
+            email_status TEXT NOT NULL DEFAULT 'not_sent',
+            error_message TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            accepted_at DATETIME,
+            expires_at DATETIME,
+            FOREIGN KEY(team_id) REFERENCES teams(id),
+            FOREIGN KEY(inviter_id) REFERENCES users_data(id),
+            FOREIGN KEY(invitee_id) REFERENCES users_data(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_invites_team ON team_invites(team_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_invites_invitee ON team_invites(invitee_id, status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_invites_token ON team_invites(token)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS team_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(team_id) REFERENCES teams(id),
+            FOREIGN KEY(user_id) REFERENCES users_data(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_messages_team ON team_messages(team_id, created_at)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS team_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            original_filename TEXT NOT NULL,
+            stored_filename TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT '',
+            size INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(team_id) REFERENCES teams(id),
+            FOREIGN KEY(user_id) REFERENCES users_data(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_team_files_team ON team_files(team_id, created_at)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            submission_type TEXT NOT NULL CHECK(submission_type IN ('individual', 'team')),
+            user_id INTEGER NOT NULL,
+            team_id INTEGER,
+            contributor_names TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users_data(id),
+            FOREIGN KEY(team_id) REFERENCES teams(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_submissions_team ON submissions(team_id)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS submission_contributors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            submission_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            contributor_name TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(submission_id) REFERENCES submissions(id),
+            FOREIGN KEY(user_id) REFERENCES users_data(id),
+            UNIQUE(submission_id, user_id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_submission_contributors_submission ON submission_contributors(submission_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_submission_contributors_user ON submission_contributors(user_id)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS submission_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            submission_id INTEGER NOT NULL,
+            original_filename TEXT NOT NULL,
+            stored_filename TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT '',
+            size INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(submission_id) REFERENCES submissions(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_submission_files_submission ON submission_files(submission_id)")
+
     if table_exists(cursor, "auth_magic_links") and not table_exists(cursor, "auth_email_links"):
         cursor.execute("ALTER TABLE auth_magic_links RENAME TO auth_email_links")
 
@@ -781,24 +910,25 @@ def get_dashboard_stats(user_id):
     cursor = conn.cursor()
 
     stats = {
-        "teams_joined": count_rows(cursor, "team_members", "user_id = ?", (user_id,)),
+        "teams_joined": count_rows(cursor, "team_members", "user_id = ? AND status = 'active'", (user_id,)),
         "games_submitted": 0,
         "votes_cast": count_rows(cursor, "votes", "user_id = ?", (user_id,)),
         "upcoming_events": 0,
     }
 
     if table_exists(cursor, "submissions"):
-        if column_exists(cursor, "submissions", "user_id"):
-            stats["games_submitted"] = count_rows(cursor, "submissions", "user_id = ?", (user_id,))
-        elif table_exists(cursor, "team_members") and column_exists(cursor, "submissions", "team_id"):
+        if table_exists(cursor, "team_members") and column_exists(cursor, "submissions", "team_id"):
             cursor.execute("""
-                SELECT COUNT(*) AS total
+                SELECT COUNT(DISTINCT id) AS total
                 FROM submissions
-                WHERE team_id IN (
-                    SELECT team_id FROM team_members WHERE user_id = ?
-                )
-            """, (user_id,))
+                WHERE user_id = ?
+                   OR team_id IN (
+                       SELECT team_id FROM team_members WHERE user_id = ? AND status = 'active'
+                   )
+            """, (user_id, user_id))
             stats["games_submitted"] = cursor.fetchone()["total"]
+        elif column_exists(cursor, "submissions", "user_id"):
+            stats["games_submitted"] = count_rows(cursor, "submissions", "user_id = ?", (user_id,))
 
     if table_exists(cursor, "events"):
         stats["upcoming_events"] = count_rows(cursor, "events", "date >= CURRENT_TIMESTAMP")
@@ -917,6 +1047,640 @@ def get_recent_activity(user_id):
 
     conn.close()
     return activities[:5]
+
+
+def create_team(owner_id, name, description=""):
+    name = (name or "").strip()
+    description = (description or "").strip()
+    if not 2 <= len(name) <= 80:
+        raise ValueError("Team name must be between 2 and 80 characters.")
+    if len(description) > 500:
+        raise ValueError("Team description must be 500 characters or fewer.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO teams (name, description, owner_id)
+        VALUES (?, ?, ?)
+    """, (name, description, owner_id))
+    team_id = cursor.lastrowid
+    cursor.execute("""
+        INSERT OR IGNORE INTO team_members (team_id, user_id, role, status)
+        VALUES (?, ?, 'Owner', 'active')
+    """, (team_id, owner_id))
+    conn.commit()
+    conn.close()
+    log_activity("teams", "created", f"Created team {name}.", actor_id=owner_id)
+    return team_id
+
+
+def get_team(team_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT t.*, u.username AS owner_username, u.full_name AS owner_full_name
+        FROM teams AS t
+        JOIN users_data AS u ON u.id = t.owner_id
+        WHERE t.id = ?
+    """, (team_id,))
+    team = row_to_dict(cursor.fetchone())
+    conn.close()
+    return team
+
+
+def list_user_teams(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT t.*, tm.role AS member_role, tm.joined_at,
+               COUNT(all_members.id) AS member_count
+        FROM teams AS t
+        JOIN team_members AS tm ON tm.team_id = t.id
+        LEFT JOIN team_members AS all_members
+          ON all_members.team_id = t.id AND all_members.status = 'active'
+        WHERE tm.user_id = ? AND tm.status = 'active'
+        GROUP BY t.id, tm.role, tm.joined_at
+        ORDER BY t.created_at DESC, t.id DESC
+    """, (user_id,))
+    teams = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return teams
+
+
+def get_team_members(team_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT tm.*, u.username, u.full_name, u.email, u.team_role, u.profile_picture
+        FROM team_members AS tm
+        JOIN users_data AS u ON u.id = tm.user_id
+        WHERE tm.team_id = ? AND tm.status = 'active'
+        ORDER BY CASE tm.role WHEN 'Owner' THEN 0 ELSE 1 END, tm.joined_at ASC
+    """, (team_id,))
+    members = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return members
+
+
+def user_can_manage_team(team_id, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 1
+        FROM teams AS t
+        LEFT JOIN team_members AS tm
+          ON tm.team_id = t.id
+         AND tm.user_id = ?
+         AND tm.status = 'active'
+        WHERE t.id = ?
+          AND (
+            t.owner_id = ?
+            OR tm.role IN ('Owner', 'Leader')
+          )
+    """, (user_id, team_id, user_id))
+    allowed = cursor.fetchone() is not None
+    conn.close()
+    return allowed
+
+
+def get_team_membership(team_id, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT *
+        FROM team_members
+        WHERE team_id = ? AND user_id = ? AND status = 'active'
+    """, (team_id, user_id))
+    membership = row_to_dict(cursor.fetchone())
+    conn.close()
+    return membership
+
+
+def user_is_team_member(team_id, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 1
+        FROM team_members
+        WHERE team_id = ? AND user_id = ? AND status = 'active'
+    """, (team_id, user_id))
+    is_member = cursor.fetchone() is not None
+    conn.close()
+    return is_member
+
+
+def leave_team(team_id, user_id):
+    team = get_team(team_id)
+    if not team:
+        raise ValueError("Team not found.")
+    if int(team["owner_id"]) == int(user_id):
+        raise ValueError("Team creators cannot leave their own team. Delete the team instead.")
+    if not user_is_team_member(team_id, user_id):
+        raise ValueError("You are not a member of this team.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE team_members
+        SET status = 'left'
+        WHERE team_id = ? AND user_id = ? AND status = 'active'
+    """, (team_id, user_id))
+    conn.commit()
+    conn.close()
+    log_activity("teams", "left", f"Left team {team['name']}.", actor_id=user_id)
+    return team
+
+
+def delete_team(team_id, user_id):
+    team = get_team(team_id)
+    if not team:
+        raise ValueError("Team not found.")
+    if not user_can_manage_team(team_id, user_id):
+        raise ValueError("Only the team creator or a team leader can delete this team.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT stored_filename FROM team_files WHERE team_id = ?", (team_id,))
+    stored_files = [row["stored_filename"] for row in cursor.fetchall()]
+    cursor.execute("DELETE FROM team_invites WHERE team_id = ?", (team_id,))
+    cursor.execute("DELETE FROM team_messages WHERE team_id = ?", (team_id,))
+    cursor.execute("DELETE FROM team_files WHERE team_id = ?", (team_id,))
+    cursor.execute("DELETE FROM team_members WHERE team_id = ?", (team_id,))
+    cursor.execute("UPDATE submissions SET team_id = NULL WHERE team_id = ?", (team_id,))
+    cursor.execute("DELETE FROM teams WHERE id = ?", (team_id,))
+    conn.commit()
+    conn.close()
+    log_activity("teams", "deleted", f"Deleted team {team['name']}.", actor_id=user_id)
+    return {"team": team, "stored_files": stored_files}
+
+
+def search_joinable_teams(query, user_id, limit=8):
+    query = (query or "").strip()
+    if len(query) < 2:
+        return []
+    like = f"%{query.lower()}%"
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT t.id, t.name, t.description, t.owner_id, t.created_at,
+               owner.username AS owner_username,
+               owner.full_name AS owner_full_name,
+               COUNT(tm.id) AS member_count
+        FROM teams AS t
+        JOIN users_data AS owner ON owner.id = t.owner_id
+        LEFT JOIN team_members AS tm
+          ON tm.team_id = t.id AND tm.status = 'active'
+        WHERE lower(t.name) LIKE ?
+          AND NOT EXISTS (
+            SELECT 1
+            FROM team_members AS mine
+            WHERE mine.team_id = t.id
+              AND mine.user_id = ?
+              AND mine.status = 'active'
+          )
+        GROUP BY t.id
+        ORDER BY t.name COLLATE NOCASE
+        LIMIT ?
+    """, (like, user_id, max(1, min(int(limit), 20))))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def join_team(team_id, user_id):
+    team = get_team(team_id)
+    if not team:
+        raise ValueError("Team not found.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR IGNORE INTO team_members (team_id, user_id, role, status)
+        VALUES (?, ?, 'Member', 'active')
+    """, (team_id, user_id))
+    joined = cursor.rowcount == 1
+    conn.commit()
+    conn.close()
+    if not joined:
+        raise ValueError("You are already on this team.")
+    log_activity("teams", "joined", f"Joined team {team['name']}.", actor_id=user_id)
+    return get_team(team_id)
+
+
+def search_team_candidates(query, current_user_id, limit=8):
+    query = (query or "").strip()
+    if len(query) < 2:
+        return []
+    like = f"%{query.lower()}%"
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, username, email, full_name, team_role, skills, profile_picture
+        FROM users_data
+        WHERE id != ?
+          AND is_verified = 1
+          AND (
+            lower(username) LIKE ?
+            OR lower(email) LIKE ?
+            OR lower(full_name) LIKE ?
+            OR lower(skills) LIKE ?
+            OR lower(team_role) LIKE ?
+          )
+        ORDER BY full_name COLLATE NOCASE, username COLLATE NOCASE
+        LIMIT ?
+    """, (current_user_id, like, like, like, like, like, max(1, min(int(limit), 20))))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def create_team_invite(team_id, inviter_id, invitee_id, email, token, invite_link, expires_at=None, email_status="not_sent", error_message=""):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id
+        FROM team_members
+        WHERE team_id = ? AND user_id = ? AND status = 'active'
+    """, (team_id, invitee_id))
+    if cursor.fetchone():
+        conn.close()
+        raise ValueError("That member is already on this team.")
+
+    cursor.execute("""
+        SELECT id
+        FROM team_invites
+        WHERE team_id = ? AND invitee_id = ? AND status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 1
+    """, (team_id, invitee_id))
+    if cursor.fetchone():
+        conn.close()
+        raise ValueError("That member already has a pending invite.")
+
+    cursor.execute("""
+        INSERT INTO team_invites (
+            team_id, inviter_id, invitee_id, email, token, invite_link,
+            expires_at, email_status, error_message
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        team_id,
+        inviter_id,
+        invitee_id,
+        (email or "").strip().lower(),
+        token,
+        invite_link,
+        expires_at,
+        email_status,
+        error_message[:500],
+    ))
+    invite_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return invite_id
+
+
+def update_team_invite_delivery(invite_id, email_status, error_message=""):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE team_invites
+        SET email_status = ?, error_message = ?
+        WHERE id = ?
+    """, (email_status, (error_message or "")[:500], invite_id))
+    conn.commit()
+    conn.close()
+
+
+def get_team_invite_by_token(token):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT ti.*, t.name AS team_name, t.description AS team_description,
+               inviter.username AS inviter_username,
+               inviter.full_name AS inviter_full_name,
+               invitee.username AS invitee_username,
+               invitee.full_name AS invitee_full_name
+        FROM team_invites AS ti
+        JOIN teams AS t ON t.id = ti.team_id
+        JOIN users_data AS inviter ON inviter.id = ti.inviter_id
+        LEFT JOIN users_data AS invitee ON invitee.id = ti.invitee_id
+        WHERE ti.token = ?
+        LIMIT 1
+    """, (token,))
+    invite = row_to_dict(cursor.fetchone())
+    conn.close()
+    return invite
+
+
+def list_team_invites_for_user(user_id, status=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT ti.*, t.name AS team_name, inviter.username AS inviter_username,
+               inviter.full_name AS inviter_full_name
+        FROM team_invites AS ti
+        JOIN teams AS t ON t.id = ti.team_id
+        JOIN users_data AS inviter ON inviter.id = ti.inviter_id
+        WHERE ti.invitee_id = ?
+    """
+    params = [user_id]
+    if status:
+        query += " AND ti.status = ?"
+        params.append(status)
+    query += " ORDER BY ti.created_at DESC, ti.id DESC"
+    cursor.execute(query, params)
+    invites = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return invites
+
+
+def accept_team_invite(token, user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT *
+        FROM team_invites
+        WHERE token = ?
+        LIMIT 1
+    """, (token,))
+    invite = row_to_dict(cursor.fetchone())
+    if not invite:
+        conn.close()
+        raise ValueError("Team invite was not found.")
+    if invite["status"] != "pending":
+        conn.close()
+        raise ValueError("This team invite has already been used.")
+    if invite.get("invitee_id") and int(invite["invitee_id"]) != int(user_id):
+        conn.close()
+        raise ValueError("This invite belongs to another account.")
+    if invite.get("expires_at"):
+        cursor.execute("SELECT datetime(?) < datetime('now') AS expired", (invite["expires_at"],))
+        if cursor.fetchone()["expired"]:
+            cursor.execute("UPDATE team_invites SET status = 'expired' WHERE id = ?", (invite["id"],))
+            conn.commit()
+            conn.close()
+            raise ValueError("This team invite has expired.")
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO team_members (team_id, user_id, role, status)
+        VALUES (?, ?, 'Member', 'active')
+    """, (invite["team_id"], user_id))
+    cursor.execute("""
+        UPDATE team_invites
+        SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """, (invite["id"],))
+    conn.commit()
+    conn.close()
+    log_activity("teams", "joined", "Accepted a team invite.", actor_id=user_id)
+    return get_team(invite["team_id"])
+
+
+def create_team_message(team_id, user_id, message):
+    message = (message or "").strip()
+    if not message:
+        raise ValueError("Message is required.")
+    if len(message) > 1000:
+        raise ValueError("Message must be 1000 characters or fewer.")
+    if not user_is_team_member(team_id, user_id):
+        raise ValueError("Only team members can post messages.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO team_messages (team_id, user_id, message)
+        VALUES (?, ?, ?)
+    """, (team_id, user_id, message))
+    message_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return message_id
+
+
+def list_team_messages(team_id, limit=50):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT tm.*, u.username, u.full_name, u.profile_picture
+        FROM team_messages AS tm
+        JOIN users_data AS u ON u.id = tm.user_id
+        WHERE tm.team_id = ?
+        ORDER BY tm.created_at DESC, tm.id DESC
+        LIMIT ?
+    """, (team_id, max(1, min(int(limit), 100))))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return list(reversed(rows))
+
+
+def create_team_file(team_id, user_id, original_filename, stored_filename, mime_type="", size=0):
+    if not user_is_team_member(team_id, user_id):
+        raise ValueError("Only team members can upload files.")
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO team_files (
+            team_id, user_id, original_filename, stored_filename, mime_type, size
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        team_id,
+        user_id,
+        original_filename,
+        stored_filename,
+        mime_type or "",
+        int(size or 0),
+    ))
+    file_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return file_id
+
+
+def list_team_files(team_id, limit=50):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT tf.*, u.username, u.full_name
+        FROM team_files AS tf
+        JOIN users_data AS u ON u.id = tf.user_id
+        WHERE tf.team_id = ?
+        ORDER BY tf.created_at DESC, tf.id DESC
+        LIMIT ?
+    """, (team_id, max(1, min(int(limit), 100))))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_team_file(file_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT tf.*, t.name AS team_name
+        FROM team_files AS tf
+        JOIN teams AS t ON t.id = tf.team_id
+        WHERE tf.id = ?
+    """, (file_id,))
+    team_file = row_to_dict(cursor.fetchone())
+    conn.close()
+    return team_file
+
+
+def search_team_contributors(team_id, query, current_user_id, limit=8):
+    query = (query or "").strip()
+    if len(query) < 2:
+        return []
+    if not user_is_team_member(team_id, current_user_id):
+        return []
+    like = f"%{query.lower()}%"
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT u.id, u.username, u.email, u.full_name, u.team_role, u.skills, u.profile_picture
+        FROM team_members AS tm
+        JOIN users_data AS u ON u.id = tm.user_id
+        WHERE tm.team_id = ?
+          AND tm.status = 'active'
+          AND (
+            lower(u.username) LIKE ?
+            OR lower(u.email) LIKE ?
+            OR lower(u.full_name) LIKE ?
+            OR lower(u.skills) LIKE ?
+            OR lower(u.team_role) LIKE ?
+          )
+        ORDER BY u.full_name COLLATE NOCASE, u.username COLLATE NOCASE
+        LIMIT ?
+    """, (team_id, like, like, like, like, like, max(1, min(int(limit), 20))))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def create_game_submission(title, description, submission_type, user_id, team_id=None, contributor_ids=None):
+    title = (title or "").strip()
+    description = (description or "").strip()
+    submission_type = (submission_type or "").strip().lower()
+    if not 2 <= len(title) <= 120:
+        raise ValueError("Game title must be between 2 and 120 characters.")
+    if len(description) > 1000:
+        raise ValueError("Description must be 1000 characters or fewer.")
+    if submission_type not in {"individual", "team"}:
+        raise ValueError("Choose individual or team submission.")
+
+    contributor_ids = [int(value) for value in (contributor_ids or [])]
+    if submission_type == "individual":
+        team_id = None
+        contributor_ids = [user_id]
+    else:
+        if not team_id or not user_is_team_member(team_id, user_id):
+            raise ValueError("Choose one of your teams for a team submission.")
+        if not contributor_ids:
+            raise ValueError("Add at least one contributor for a team submission.")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    contributor_rows = []
+    placeholders = ", ".join(["?"] * len(contributor_ids))
+    if submission_type == "team":
+        cursor.execute(f"""
+            SELECT u.id, u.full_name, u.username
+            FROM users_data AS u
+            JOIN team_members AS tm ON tm.user_id = u.id
+            WHERE tm.team_id = ?
+              AND tm.status = 'active'
+              AND u.id IN ({placeholders})
+            ORDER BY u.full_name COLLATE NOCASE, u.username COLLATE NOCASE
+        """, [team_id] + contributor_ids)
+        contributor_rows = [row_to_dict(row) for row in cursor.fetchall()]
+        if len(contributor_rows) != len(set(contributor_ids)):
+            conn.close()
+            raise ValueError("Contributors must be active members of the selected team.")
+    else:
+        cursor.execute("SELECT id, full_name, username FROM users_data WHERE id = ?", (user_id,))
+        contributor_rows = [row_to_dict(cursor.fetchone())]
+
+    contributor_names = [
+        (row.get("full_name") or row.get("username") or "").strip()
+        for row in contributor_rows
+        if row
+    ]
+    contributor_names_text = ", ".join(contributor_names)
+
+    cursor.execute("""
+        INSERT INTO submissions (
+            title, description, submission_type, user_id, team_id, contributor_names
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        title,
+        description,
+        submission_type,
+        user_id,
+        team_id,
+        contributor_names_text,
+    ))
+    submission_id = cursor.lastrowid
+    for row in contributor_rows:
+        cursor.execute("""
+            INSERT OR IGNORE INTO submission_contributors (
+                submission_id, user_id, contributor_name
+            )
+            VALUES (?, ?, ?)
+        """, (
+            submission_id,
+            row["id"],
+            (row.get("full_name") or row.get("username") or "").strip(),
+        ))
+    conn.commit()
+    conn.close()
+    log_activity("submissions", "created", f"Submitted game {title}.", actor_id=user_id)
+    return submission_id
+
+
+def create_submission_file(submission_id, original_filename, stored_filename, mime_type="", size=0):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO submission_files (
+            submission_id, original_filename, stored_filename, mime_type, size
+        )
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        submission_id,
+        original_filename,
+        stored_filename,
+        mime_type or "",
+        int(size or 0),
+    ))
+    file_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return file_id
+
+
+def list_user_submissions(user_id, limit=20):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT s.*, t.name AS team_name,
+               COUNT(sf.id) AS file_count
+        FROM submissions AS s
+        LEFT JOIN teams AS t ON t.id = s.team_id
+        LEFT JOIN submission_files AS sf ON sf.submission_id = s.id
+        WHERE s.user_id = ?
+           OR s.id IN (
+               SELECT submission_id
+               FROM submission_contributors
+               WHERE user_id = ?
+           )
+        GROUP BY s.id
+        ORDER BY s.created_at DESC, s.id DESC
+        LIMIT ?
+    """, (user_id, user_id, max(1, min(int(limit), 100))))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
 
 
 def update_user_data(verified_email, first_name, last_name, email, password_hash, phone, member_type=None, address=None):

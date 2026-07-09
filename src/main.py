@@ -89,11 +89,16 @@ load_local_env()
 app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
 
 # Upload configuration
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+GAME_SUBMISSION_MAX_SIZE = 10 * 1024 * 1024 * 1024  # 10 GB
+app.config["MAX_CONTENT_LENGTH"] = GAME_SUBMISSION_MAX_SIZE
 app.config["UPLOAD_FOLDER"] = os.path.join(PROJECT_ROOT, "secure_uploads")
 app.config["MEETING_MINUTES_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "meeting_minutes")
+app.config["TEAM_FILES_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "team_files")
+app.config["GAME_SUBMISSIONS_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "game_submissions")
 app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
+app.config["GAME_SUBMISSION_MAX_SIZE"] = GAME_SUBMISSION_MAX_SIZE
 app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
+app.config["GAME_SUBMISSION_ALLOWED_EXTENSIONS"] = app.config["ALLOWED_EXTENSIONS"] | {".zip", ".html", ".js", ".css", ".json", ".mp4", ".webm"}
 app.config["IMPORT_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "imports")
 app.config["IMPORT_ALLOWED_EXTENSIONS"] = {".csv", ".xlsx", ".json", ".sql", ".db", ".sqlite"}
 app.config["WHATSAPP_IMPORT_ALLOWED_EXTENSIONS"] = {".txt"}
@@ -119,6 +124,8 @@ serializer = URLSafeTimedSerializer(app.secret_key)
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs(app.config["IMPORT_FOLDER"], exist_ok=True)
 os.makedirs(app.config["MEETING_MINUTES_FOLDER"], exist_ok=True)
+os.makedirs(app.config["TEAM_FILES_FOLDER"], exist_ok=True)
+os.makedirs(app.config["GAME_SUBMISSIONS_FOLDER"], exist_ok=True)
 try:
     os.chmod(app.config["UPLOAD_FOLDER"], 0o700)
 except Exception:
@@ -766,6 +773,67 @@ def create_password_reset_email(user):
     )
 
 
+def team_invite_email_message(team, inviter, invite_link):
+    inviter_name = inviter.get("full_name") or inviter.get("username") or "A teammate"
+    team_name = team.get("name") or "a Pexel team"
+    return {
+        "subject": f"{inviter_name} invited you to join {team_name}",
+        "text": (
+            f"{inviter_name} invited you to join {team_name} on Pexel.\n\n"
+            "Open this invite link to join the team:\n"
+            f"{invite_link}\n\n"
+            "If you were not expecting this invite, you can ignore this message."
+        ),
+        "html": (
+            f"<p>{inviter_name} invited you to join <strong>{team_name}</strong> on Pexel.</p>"
+            f'<p><a href="{invite_link}">Open team invite</a></p>'
+            "<p>If you were not expecting this invite, you can ignore this message.</p>"
+        ),
+    }
+
+
+def prepare_submission_files(uploaded_files):
+    prepared = []
+    for uploaded in uploaded_files:
+        if not uploaded or not uploaded.filename:
+            continue
+        original_name = secure_filename(uploaded.filename)
+        ext = os.path.splitext(original_name)[1].lower()
+        if ext not in app.config["GAME_SUBMISSION_ALLOWED_EXTENSIONS"]:
+            raise ValueError(f"Invalid game file type: {ext}")
+        content = uploaded.read()
+        if len(content) > app.config["GAME_SUBMISSION_MAX_SIZE"]:
+            raise ValueError(f"Game submission file too large: {original_name}. Maximum size is 10 GB.")
+        prepared.append({
+            "original_name": original_name,
+            "ext": ext,
+            "content": content,
+            "mime_type": uploaded.mimetype or mimetypes.guess_type(original_name)[0] or "application/octet-stream",
+        })
+    if not prepared:
+        raise ValueError("Upload at least one game file.")
+    return prepared
+
+
+def save_prepared_submission_files(prepared_files, submission_id):
+    saved = []
+    for prepared in prepared_files:
+        original_name = prepared["original_name"]
+        stored_name = f"{uuid.uuid4().hex}{prepared['ext']}"
+        content = prepared["content"]
+        with open(os.path.join(app.config["GAME_SUBMISSIONS_FOLDER"], stored_name), "wb") as out:
+            out.write(content)
+        database.create_submission_file(
+            submission_id,
+            original_name,
+            stored_name,
+            prepared["mime_type"],
+            len(content),
+        )
+        saved.append(original_name)
+    return saved
+
+
 @app.route("/")
 def home():
     return render_template("HomePage.html")
@@ -971,6 +1039,7 @@ def dashboard():
     user = current_user()
     stats = get_dashboard_stats(user["id"])
     activities = get_recent_activity(user["id"])
+    sidebar_teams = database.list_user_teams(user["id"]) if not session.get("admin_username") else []
     member_stats = get_member_statistics() if session.get("admin_username") else None
     member_growth = get_member_growth_history() if session.get("admin_username") else []
     import_stats = get_import_dashboard_stats() if session.get("admin_username") else None
@@ -980,10 +1049,332 @@ def dashboard():
         user=user,
         stats=stats,
         activities=activities,
+        sidebar_teams=sidebar_teams,
         member_stats=member_stats,
         member_growth=member_growth,
         import_stats=import_stats,
         activity=activity,
+    )
+
+
+@app.route("/submit-game", methods=["GET", "POST"])
+@login_required
+def submit_game():
+    user = current_user()
+    if session.get("admin_username"):
+        return render_template(
+            "SubmitGamePage.html",
+            user=user,
+            teams=[],
+            submissions=[],
+            error="Admin demo accounts cannot submit games.",
+        )
+
+    error = None
+    success = None
+    teams = database.list_user_teams(user["id"])
+    if request.method == "POST":
+        submission_type = request.form.get("submission_type", "individual").strip().lower()
+        try:
+            team_id = request.form.get("team_id", "").strip()
+            team_id = int(team_id) if team_id else None
+            contributor_ids = []
+            raw_contributors = request.form.get("contributor_ids", "").strip()
+            if raw_contributors:
+                contributor_ids = [
+                    int(value)
+                    for value in raw_contributors.split(",")
+                    if value.strip()
+                ]
+            prepared_files = prepare_submission_files(request.files.getlist("game_files"))
+            submission_id = database.create_game_submission(
+                request.form.get("title", ""),
+                request.form.get("description", ""),
+                submission_type,
+                user["id"],
+                team_id=team_id,
+                contributor_ids=contributor_ids,
+            )
+            save_prepared_submission_files(prepared_files, submission_id)
+            success = "Game submitted successfully."
+        except (TypeError, ValueError) as exc:
+            error = str(exc)
+
+    return render_template(
+        "SubmitGamePage.html",
+        user=user,
+        teams=teams,
+        submissions=database.list_user_submissions(user["id"]),
+        error=error,
+        success=success,
+    )
+
+
+@app.route("/teams", methods=["GET", "POST"])
+@login_required
+def teams_page():
+    user = current_user()
+    error = None
+    success = None
+    if request.args.get("left"):
+        success = "You left the team."
+    if request.args.get("deleted"):
+        success = "Team deleted."
+
+    if session.get("admin_username"):
+        error = "Admin demo accounts cannot create teams."
+    elif request.method == "POST":
+        action = request.form.get("action", "").strip()
+        try:
+            if action == "create_team":
+                team_name = request.form.get("team_name", "").strip()
+                description = request.form.get("description", "").strip()
+                team_id = database.create_team(user["id"], team_name, description)
+                success = f"Created team {team_name}."
+                return redirect(url_for("team_detail", team_id=team_id, created=1))
+            else:
+                error = "Unsupported team action."
+        except (TypeError, ValueError) as exc:
+            error = str(exc)
+
+    teams = database.list_user_teams(user["id"]) if not session.get("admin_username") else []
+    pending_invites = database.list_team_invites_for_user(user["id"], "pending") if not session.get("admin_username") else []
+
+    return render_template(
+        "TeamsPage.html",
+        user=user,
+        teams=teams,
+        pending_invites=pending_invites,
+        error=error,
+        success=success,
+    )
+
+
+@app.route("/join-team", methods=["GET", "POST"])
+@login_required
+def join_team_page():
+    user = current_user()
+    error = None
+    if session.get("admin_username"):
+        error = "Admin demo accounts cannot join teams."
+    elif request.method == "POST":
+        try:
+            team_id = int(request.form.get("team_id", "0"))
+            team = database.join_team(team_id, user["id"])
+            return redirect(url_for("team_detail", team_id=team["id"], joined=1))
+        except (TypeError, ValueError) as exc:
+            error = str(exc)
+
+    return render_template("JoinTeamPage.html", user=user, error=error)
+
+
+@app.route("/teams/<int:team_id>", methods=["GET", "POST"])
+@login_required
+def team_detail(team_id):
+    user = current_user()
+    if session.get("admin_username") or not database.user_is_team_member(team_id, user["id"]):
+        abort(403)
+
+    error = None
+    success = None
+    invite_link = None
+    if request.method == "POST":
+        action = request.form.get("action", "").strip()
+        try:
+            if action == "leave_team":
+                database.leave_team(team_id, user["id"])
+                return redirect(url_for("teams_page", left=1))
+            if action == "delete_team":
+                deletion = database.delete_team(team_id, user["id"])
+                for stored_name in deletion.get("stored_files", []):
+                    file_path = os.path.join(app.config["TEAM_FILES_FOLDER"], stored_name)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                return redirect(url_for("teams_page", deleted=1))
+            if action == "invite_member":
+                invitee_id = int(request.form.get("invitee_id", "0"))
+                if not database.user_can_manage_team(team_id, user["id"]):
+                    raise ValueError("Only the team creator or a team leader can send invites.")
+                invitee = get_user_by_id(invitee_id)
+                if not invitee or int(invitee.get("is_verified", 0)) != 1:
+                    raise ValueError("Choose a verified member to invite.")
+                team = database.get_team(team_id)
+                token = uuid.uuid4().hex
+                invite_link = url_for("accept_team_invite", token=token, _external=True)
+                expires_at = (datetime.now() + timedelta(days=7)).isoformat(timespec="seconds")
+                invite_id = database.create_team_invite(
+                    team_id,
+                    user["id"],
+                    invitee["id"],
+                    invitee["email"],
+                    token,
+                    invite_link,
+                    expires_at=expires_at,
+                )
+                message = team_invite_email_message(team, user, invite_link)
+                delivery = send_transactional_email(
+                    invitee["email"],
+                    message["subject"],
+                    message["text"],
+                    message["html"],
+                )
+                database.update_team_invite_delivery(
+                    invite_id,
+                    "email_sent" if delivery["sent"] else "email_failed",
+                    delivery["detail"],
+                )
+                if delivery["sent"]:
+                    success = f"Invite sent to {invitee['email']}."
+                else:
+                    success = (
+                        f"Invite link created for {invitee['email']}, but email was not sent. "
+                        "Copy the link below and send it manually."
+                    )
+            elif action == "post_message":
+                database.create_team_message(team_id, user["id"], request.form.get("message", ""))
+                return redirect(url_for("team_detail", team_id=team_id))
+            elif action == "upload_file":
+                uploaded = request.files.get("team_file")
+                if not uploaded or not uploaded.filename:
+                    raise ValueError("Choose a file to upload.")
+                original_name = secure_filename(uploaded.filename)
+                ext = os.path.splitext(original_name)[1].lower()
+                if ext not in app.config["ALLOWED_EXTENSIONS"]:
+                    raise ValueError(f"Invalid file type: {ext}")
+                content = uploaded.read()
+                if len(content) > app.config["PER_FILE_MAX_SIZE"]:
+                    raise ValueError(f"File too large: {original_name}")
+                stored_name = f"{uuid.uuid4().hex}{ext}"
+                with open(os.path.join(app.config["TEAM_FILES_FOLDER"], stored_name), "wb") as out:
+                    out.write(content)
+                database.create_team_file(
+                    team_id,
+                    user["id"],
+                    original_name,
+                    stored_name,
+                    uploaded.mimetype or mimetypes.guess_type(original_name)[0] or "application/octet-stream",
+                    len(content),
+                )
+                return redirect(url_for("team_detail", team_id=team_id))
+            else:
+                error = "Unsupported team action."
+        except (TypeError, ValueError) as exc:
+            error = str(exc)
+
+    if request.args.get("created"):
+        success = success or "Team created. Search for members to invite."
+    if request.args.get("joined"):
+        success = success or "Team joined. It now appears under your Teams list."
+
+    team = database.get_team(team_id)
+    membership = database.get_team_membership(team_id, user["id"])
+    return render_template(
+        "TeamDetailPage.html",
+        user=user,
+        team=team,
+        membership=membership,
+        can_manage_team=database.user_can_manage_team(team_id, user["id"]),
+        teams=database.list_user_teams(user["id"]),
+        members=database.get_team_members(team_id),
+        messages=database.list_team_messages(team_id),
+        files=database.list_team_files(team_id),
+        error=error,
+        success=success,
+        invite_link=invite_link,
+    )
+
+
+@app.route("/team-files/<int:file_id>")
+@login_required
+def download_team_file(file_id):
+    user = current_user()
+    team_file = database.get_team_file(file_id)
+    if not team_file:
+        abort(404)
+    if session.get("admin_username") or not database.user_is_team_member(team_file["team_id"], user["id"]):
+        abort(403)
+    return send_from_directory(
+        app.config["TEAM_FILES_FOLDER"],
+        team_file["stored_filename"],
+        as_attachment=True,
+        download_name=team_file["original_filename"],
+    )
+
+
+@app.route("/api/teams/member-search")
+@login_required
+def api_team_member_search():
+    user = current_user()
+    if session.get("admin_username"):
+        return jsonify({"members": []})
+    members = database.search_team_candidates(
+        request.args.get("q", ""),
+        user["id"],
+        limit=request.args.get("limit", 8),
+    )
+    return jsonify({"members": members})
+
+
+@app.route("/api/teams/search")
+@login_required
+def api_team_search():
+    user = current_user()
+    if session.get("admin_username"):
+        return jsonify({"teams": []})
+    teams = database.search_joinable_teams(
+        request.args.get("q", ""),
+        user["id"],
+        limit=request.args.get("limit", 8),
+    )
+    return jsonify({"teams": teams})
+
+
+@app.route("/api/submissions/contributor-search")
+@login_required
+def api_submission_contributor_search():
+    user = current_user()
+    if session.get("admin_username"):
+        return jsonify({"members": []})
+    try:
+        team_id = int(request.args.get("team_id", "0"))
+    except (TypeError, ValueError):
+        return jsonify({"members": []})
+    members = database.search_team_contributors(
+        team_id,
+        request.args.get("q", ""),
+        user["id"],
+        limit=request.args.get("limit", 8),
+    )
+    return jsonify({"members": members})
+
+
+@app.route("/team-invite/<token>")
+@login_required
+def accept_team_invite(token):
+    user = current_user()
+    error = None
+    success = None
+    team = None
+    invite = database.get_team_invite_by_token(token)
+    if not invite:
+        error = "Team invite was not found."
+    elif session.get("admin_username"):
+        error = "Admin demo accounts cannot accept team invites."
+    else:
+        try:
+            team = database.accept_team_invite(token, user["id"])
+            success = f"You joined {team['name']}."
+        except ValueError as exc:
+            error = str(exc)
+            team = database.get_team(invite["team_id"]) if invite else None
+
+    return render_template(
+        "TeamInvitePage.html",
+        user=user,
+        invite=invite,
+        team=team,
+        error=error,
+        success=success,
     )
 
 
