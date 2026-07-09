@@ -8,18 +8,18 @@ IDMS is a Flask application backed by SQLite and server-rendered HTML templates.
 
 Primary layers:
 
-- `main.py`: Flask app setup, authentication decorators, request parsing, routes, API endpoints, file download responses, and CSV exports.
-- `database.py`: SQLite schema creation, migrations, validation, persistence helpers, reporting queries, and activity logging.
+- `src/main.py`: Flask app setup, authentication decorators, request parsing, routes, API endpoints, file download responses, and CSV exports.
+- `src/database.py`: SQLite schema creation, migrations, validation, persistence helpers, reporting queries, and activity logging.
 - `frontend/pages/`: Jinja HTML templates for browser-facing pages.
 - `secure_uploads/`: Runtime storage for uploaded files and meeting minutes.
-- `test_*.py`: `unittest` regression suite using temporary SQLite databases.
+- `src/test_*.py`: `unittest` regression suite using temporary SQLite databases.
 - `documentation/`: user, testing, and technical documentation.
 
 Request flow:
 
 1. Browser or API client sends a form or JSON request to a Flask route.
 2. Route enforces `login_required` and, where needed, `admin_required`.
-3. Route normalizes request data and calls a `database.py` helper.
+3. Route normalizes request data and calls a `src/database.py` helper.
 4. Helper validates input, reads/writes SQLite, and logs activity when relevant.
 5. Route returns rendered HTML, JSON, file download, or CSV download.
 
@@ -36,7 +36,7 @@ Important settings:
 - `PEXEL_SMTP_USE_TLS`, `PEXEL_SMTP_USE_SSL`: SMTP transport options.
 - `PEXEL_EMAIL_TIMEOUT`: Email timeout in seconds.
 
-Upload limits and folders are configured in `main.py`:
+Upload limits and folders are configured in `src/main.py`:
 
 - `MAX_CONTENT_LENGTH`: 16 MB request limit.
 - `PER_FILE_MAX_SIZE`: 5 MB per uploaded file.
@@ -80,7 +80,7 @@ Decorators:
 - `login_required`: requires either a member session or admin session.
 - `admin_required`: requires an admin session.
 
-Admin accounts are configured as demo username/password lists in `main.py`. Member authentication uses bcrypt password hashes stored in `users_data.password_hash`.
+Admin accounts are configured as demo username/password lists in `src/main.py`. Member authentication uses bcrypt password hashes stored in `users_data.password_hash`.
 
 Email verification and password reset links are signed with `itsdangerous.URLSafeTimedSerializer`.
 
@@ -189,7 +189,7 @@ Uploads use `werkzeug.utils.secure_filename`, UUID-based stored names, size limi
 Run all tests:
 
 ```powershell
-python -m unittest
+python -m unittest discover -s src
 ```
 
 Test design:
@@ -204,16 +204,15 @@ Test design:
 When adding a feature:
 
 1. Add or migrate schema in `database.init_db()`.
-2. Add validation in `database.py`, not only in route code.
+2. Add validation in `src/database.py`, not only in route code.
 3. Keep route handlers thin and use helper functions for persistence.
 4. Add activity logging for admin-visible workflows.
 5. Protect admin features with `admin_required`.
 6. Add focused `unittest` coverage.
 7. Update `documentation/user_manual.md` for user-facing behavior.
 8. Update this technical guide for schema, routes, or API changes.
-9. Run `python -m unittest`.
+9. Run `python -m unittest discover -s src`.
 
 ## Review Notes
 
-This document was reviewed against `main.py`, `database.py`, `frontend/pages`, and the current test suite on 2026-07-08.
-
+This document was reviewed against `src/main.py`, `src/database.py`, `frontend/pages`, and the current test suite on 2026-07-09.

@@ -36,10 +36,10 @@
         <h2>Architecture</h2>
         <p>IDMS is a Flask application with SQLite persistence and server-rendered Jinja pages.</p>
         <ul>
-          <li><strong>main.py:</strong> routes, auth decorators, request parsing, file responses, CSV exports.</li>
-          <li><strong>database.py:</strong> schema, migrations, validation, persistence, reports.</li>
+          <li><strong>src/main.py:</strong> routes, auth decorators, request parsing, file responses, CSV exports.</li>
+          <li><strong>src/database.py:</strong> schema, migrations, validation, persistence, reports.</li>
           <li><strong>frontend/pages:</strong> HTML templates.</li>
-          <li><strong>test_*.py:</strong> unittest regression suites using temporary databases.</li>
+          <li><strong>src/test_*.py:</strong> unittest regression suites using temporary databases.</li>
         </ul>
       </div>
       <div class="panel">
@@ -86,12 +86,12 @@ bug_reports -> defect workflow</div>
       <h2>Maintenance Checklist</h2>
       <ol>
         <li>Add schema and migrations in `database.init_db()`.</li>
-        <li>Validate inputs in `database.py` helper functions.</li>
+        <li>Validate inputs in `src/database.py` helper functions.</li>
         <li>Keep Flask routes thin and protected by the correct decorators.</li>
         <li>Log activity for admin-visible workflows.</li>
         <li>Add or update focused unittest coverage.</li>
         <li>Update user and technical documentation.</li>
-        <li>Run `python -m unittest` before publishing.</li>
+        <li>Run `python -m unittest discover -s src` before publishing.</li>
       </ol>
     </section>
   </main>

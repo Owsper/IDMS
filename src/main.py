@@ -63,10 +63,13 @@ except ImportError:  # pragma: no cover - optional dependency
 from datetime import datetime, timedelta
 import database
 
-app = Flask(__name__, template_folder="frontend/pages")
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+app = Flask(__name__, template_folder=os.path.join(PROJECT_ROOT, "frontend", "pages"))
 
 
-def load_local_env(path=".env"):
+def load_local_env(path=None):
+    path = path or os.path.join(PROJECT_ROOT, ".env")
     if not os.path.exists(path):
         return
     with open(path, encoding="utf-8") as handle:
@@ -86,7 +89,7 @@ app.secret_key = os.environ.get("PEXEL_SECRET_KEY", "pexel-dev-secret-key")
 
 # Upload configuration
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
-app.config["UPLOAD_FOLDER"] = os.path.join(os.getcwd(), "secure_uploads")
+app.config["UPLOAD_FOLDER"] = os.path.join(PROJECT_ROOT, "secure_uploads")
 app.config["MEETING_MINUTES_FOLDER"] = os.path.join(app.config["UPLOAD_FOLDER"], "meeting_minutes")
 app.config["PER_FILE_MAX_SIZE"] = 5 * 1024 * 1024  # 5 MB per file
 app.config["ALLOWED_EXTENSIONS"] = {".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"}
