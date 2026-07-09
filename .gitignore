@@ -1,4 +1,4 @@
-/*__pycache__
+__pycache__/
 .env
 .env.*
 !.env.example
@@ -9,5 +9,6 @@ main_db.db
 git_comm.txt
 database/*__pycache__
 clean.py
-src/*__pycache__
+__pycache__/
+
 
