@@ -1096,6 +1096,7 @@
             <a href="{{ url_for('notifications_page') }}">Notifications</a>
             <a href="{{ url_for('activity_summary_page') }}">Activity</a>
             <a href="{{ url_for('admin_import_data') }}">Import Data</a>
+            <a href="{{ url_for('admin_import_members') }}">Import Members</a>
             <a href="{{ url_for('bugs_page') }}">Bugs</a>
             <a href="{{ url_for('help_page') }}">Help</a>
             <a href="{{ url_for('developer_guide_page') }}">Dev Guide</a>
@@ -1122,10 +1123,12 @@
     <main class="main">
       <header class="topbar">
         <h1 id="dashboardTitle">Dashboard</h1>
-        <div class="top-actions">
-          <a class="button" href="{{ url_for('profile') }}">Edit Profile</a>
-          <a class="button primary" href="{{ url_for('submit_game') }}">Submit Game</a>
-        </div>
+        {% if user.role != 'Admin' %}
+          <div class="top-actions">
+            <a class="button" href="{{ url_for('profile') }}">Edit Profile</a>
+            <a class="button primary" href="{{ url_for('submit_game') }}">Submit Game</a>
+          </div>
+        {% endif %}
       </header>
 
       <div class="content" id="dashboardContent">
@@ -1275,22 +1278,24 @@
             </div>
 
             <div class="quick-grid">
-              <a class="quick-action" href="{{ url_for('profile') }}">
-                <strong>Edit Profile</strong>
-                <span>Update your bio, skills, and role.</span>
-              </a>
-              <a class="quick-action" id="teams" href="{{ url_for('teams_page') }}">
-                <strong>Create Team</strong>
-                <span>Start a new jam squad.</span>
-              </a>
-              <a class="quick-action" href="{{ url_for('join_team_page') }}">
-                <strong>Join Team</strong>
-                <span>Find collaborators for the jam.</span>
-              </a>
-              <a class="quick-action" id="submit" href="{{ url_for('submit_game') }}">
-                <strong>Submit Game</strong>
-                <span>Add your build, screenshots, and links.</span>
-              </a>
+              {% if user.role != 'Admin' %}
+                <a class="quick-action" href="{{ url_for('profile') }}">
+                  <strong>Edit Profile</strong>
+                  <span>Update your bio, skills, and role.</span>
+                </a>
+                <a class="quick-action" id="teams" href="{{ url_for('teams_page') }}">
+                  <strong>Create Team</strong>
+                  <span>Start a new jam squad.</span>
+                </a>
+                <a class="quick-action" href="{{ url_for('join_team_page') }}">
+                  <strong>Join Team</strong>
+                  <span>Find collaborators for the jam.</span>
+                </a>
+                <a class="quick-action" id="submit" href="{{ url_for('submit_game') }}">
+                  <strong>Submit Game</strong>
+                  <span>Add your build, screenshots, and links.</span>
+                </a>
+              {% endif %}
               <a class="quick-action" href="{{ url_for('meetings') }}">
                 <strong>View Meetings</strong>
                 <span>See kickoff, check-ins, and deadlines.</span>
@@ -1303,6 +1308,10 @@
                 <a class="quick-action" href="{{ url_for('admin_import_data') }}">
                   <strong>Import Data</strong>
                   <span>Review and merge external records.</span>
+                </a>
+                <a class="quick-action" href="{{ url_for('admin_import_members') }}">
+                  <strong>Import Members</strong>
+                  <span>Clean, preview, and import old member CSV files.</span>
                 </a>
                 <a class="quick-action" href="{{ url_for('admin_document_categories') }}">
                   <strong>Manage Categories</strong>

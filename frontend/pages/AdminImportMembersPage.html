@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Import Members — Pexel</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{min-height:100vh;background:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),radial-gradient(circle at 25% 12%,rgba(124,58,237,.18),transparent 28%),radial-gradient(circle at 78% 4%,rgba(6,182,212,.12),transparent 24%),#05070d;background-size:42px 42px;color:#f3f5ff;font-family:Inter,Arial,sans-serif}
+    .layout{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
+    .sidebar{position:sticky;top:0;height:100vh;padding:22px 14px;background:rgba(8,11,19,.94);border-right:1px solid rgba(129,72,255,.24);display:flex;flex-direction:column;justify-content:space-between}
+    .brand{display:flex;gap:12px;align-items:center;padding:0 8px 24px;font-size:20px;font-weight:900}
+    .brand-icon,.avatar{display:grid;place-items:center;color:white;background:linear-gradient(135deg,#7d39ff,#9a45ff);box-shadow:0 0 26px rgba(124,58,255,.28)}
+    .brand-icon{width:38px;height:38px;border-radius:10px}
+    .avatar{width:38px;height:38px;border-radius:50%;font-weight:900}
+    .nav{display:grid;gap:6px}
+    .nav a{min-height:42px;padding:0 12px;border-radius:8px;color:#8ea0c8;display:flex;align-items:center;text-decoration:none;font-size:14px;font-weight:800;border:1px solid transparent}
+    .nav a:hover,.nav a.active{color:white;background:rgba(124,58,237,.16);border:1px solid rgba(124,58,237,.36)}
+    .account{padding:14px 8px 0;border-top:1px solid rgba(129,72,255,.22);display:flex;gap:10px;align-items:center}
+    .account a{color:#8293c4;text-decoration:none;font-size:12px}
+    .topbar{min-height:70px;padding:18px 28px;border-bottom:1px solid rgba(129,72,255,.22);background:rgba(5,7,13,.86);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+    .topbar h1,.section-title{font-family:Orbitron,sans-serif}
+    .content{width:min(1180px,100%);margin:0 auto;padding:28px;display:grid;gap:20px}
+    .panel,.stat{border:1px solid rgba(129,72,255,.28);border-radius:8px;background:rgba(15,20,32,.9);padding:20px}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .stat span{display:block;color:#94a3c7;font-size:12px;font-weight:900;text-transform:uppercase}
+    .stat strong{display:block;margin-top:8px;font-size:26px}
+    .muted{color:#94a3c7;font-size:13px;line-height:1.5}
+    .field{display:grid;gap:8px}
+    .input{width:100%;border:1px solid rgba(129,72,255,.3);border-radius:7px;background:#0b1020;color:#f3f5ff;min-height:42px;padding:10px 12px}
+    .button{min-height:40px;border-radius:7px;padding:0 14px;border:1px solid rgba(129,72,255,.35);background:#1a1f2d;color:white;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;font-weight:900;cursor:pointer}
+    .button.primary{border:0;background:linear-gradient(135deg,#7d39ff,#8d45ff)}
+    .alert{border-radius:8px;padding:12px 14px;font-size:14px;font-weight:800}
+    .alert.ok{background:rgba(16,185,129,.13);border:1px solid rgba(16,185,129,.35);color:#b8f7d5}
+    .alert.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fecaca}
+    .table-wrap{overflow-x:auto}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{padding:10px;border-bottom:1px solid rgba(129,72,255,.18);text-align:left;vertical-align:top;font-size:13px}
+    .table th{color:#8ea0c8;text-transform:uppercase;font-size:11px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    code{color:#b8f4ff}
+    @media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto}.grid{grid-template-columns:1fr 1fr}.topbar{position:static}}
+    @media(max-width:620px){.grid{grid-template-columns:1fr}.content{padding:18px}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div>
+      <div class="brand"><div class="brand-icon">P</div><span>Pexel</span></div>
+      <nav class="nav" aria-label="Admin navigation">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('admin_members') }}">Members</a>
+        <a class="active" href="{{ url_for('admin_import_members') }}">Import Members</a>
+        <a href="{{ url_for('admin_import_data') }}">Import Data</a>
+      </nav>
+    </div>
+    <div class="account">
+      <div class="avatar">{{ (user.full_name or user.username or 'A')[:2].upper() }}</div>
+      <div><strong>{{ user.full_name or user.username }}</strong><br><a href="{{ url_for('logout') }}">Logout</a></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1>Import Members</h1>
+      <a class="button" href="{{ url_for('admin_members') }}">View Members</a>
+    </header>
+    <section class="content">
+      {% if success %}<div class="alert ok">{{ success }}</div>{% endif %}
+      {% if error %}<div class="alert err">{{ error }}</div>{% endif %}
+
+      <section class="panel">
+        <h2 class="section-title">Upload CSV</h2>
+        <p class="muted">Supported columns: {% for column in supported_columns %}<code>{{ column }}</code>{% if not loop.last %}, {% endif %}{% endfor %}. Email is the unique identifier.</p>
+        <br>
+        <form method="POST" enctype="multipart/form-data" class="field">
+          <input class="input" type="file" name="file" accept=".csv" required>
+          <div class="actions">
+            <button class="button primary" type="submit">Process CSV</button>
+            <a class="button" href="{{ url_for('static', filename='sample_members_import.csv') }}">Sample CSV</a>
+          </div>
+        </form>
+      </section>
+
+      {% if batch %}
+        <section class="grid" aria-label="Import preview summary">
+          <article class="stat"><span>Total rows</span><strong>{{ batch.total_rows }}</strong></article>
+          <article class="stat"><span>Valid</span><strong>{{ batch.valid_rows }}</strong></article>
+          <article class="stat"><span>Duplicate file rows</span><strong>{{ batch.duplicate_rows }}</strong></article>
+          <article class="stat"><span>Existing users</span><strong>{{ batch.existing_rows }}</strong></article>
+        </section>
+
+        <section class="panel">
+          <div class="actions" style="justify-content:space-between">
+            <div>
+              <h2 class="section-title">Rows Ready To Import</h2>
+              <p class="muted">{{ batch.valid_rows }} cleaned member rows are ready. Imported accounts receive generated temporary password hashes; no plain text passwords are stored.</p>
+            </div>
+            {% if batch.status != 'imported' and batch.valid_rows > 0 %}
+              <form method="POST" action="{{ url_for('admin_import_members_confirm', batch_id=batch.id) }}">
+                <button class="button primary" type="submit">Confirm Import</button>
+              </form>
+            {% endif %}
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>Username</th><th>Email</th><th>Name</th><th>Role</th><th>Team Role</th></tr></thead>
+              <tbody>
+                {% for row in batch.cleaned_rows[:25] %}
+                  <tr><td>{{ row.username }}</td><td>{{ row.email }}</td><td>{{ row.full_name }}</td><td>{{ row.role }}</td><td>{{ row.team_role }}</td></tr>
+                {% else %}
+                  <tr><td colspan="5" class="muted">No valid rows to import.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 class="section-title">Invalid Or Skipped Rows</h2>
+          <p class="muted">{{ batch.error_rows }} rows were skipped because they were invalid, duplicates, or already existed.</p>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>CSV row</th><th>Email</th><th>Reason</th></tr></thead>
+              <tbody>
+                {% for row in batch.errors[:50] %}
+                  <tr><td>{{ row.row_number }}</td><td>{{ row.email or 'None' }}</td><td>{{ row.reason }}</td></tr>
+                {% else %}
+                  <tr><td colspan="3" class="muted">No invalid or skipped rows.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {% endif %}
+
+      <section class="panel">
+        <h2 class="section-title">Recent Member Imports</h2>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>File</th><th>Status</th><th>Total</th><th>Imported</th><th>Skipped</th><th>Created</th></tr></thead>
+            <tbody>
+              {% for item in history %}
+                <tr>
+                  <td>{{ item.filename }}</td>
+                  <td>{{ item.status }}</td>
+                  <td>{{ item.total_rows }}</td>
+                  <td>{{ item.imported_rows }}</td>
+                  <td>{{ item.skipped_rows }}</td>
+                  <td>{{ item.created_at }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="6" class="muted">No member imports yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+</body>
+</html>

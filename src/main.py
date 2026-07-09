@@ -43,6 +43,10 @@ from database import (
     get_import_row,
     update_import_row,
     get_import_history,
+    create_member_import_batch,
+    get_member_import_batch,
+    list_member_import_batches,
+    import_member_batch,
 )
 import uuid
 import hashlib
@@ -56,6 +60,7 @@ import io
 import smtplib
 import ssl
 from email.utils import parseaddr
+import bcrypt
 
 try:
     import certifi
@@ -283,6 +288,167 @@ def parse_csv_file(path):
     with open(path, newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         return [{key: value for key, value in row.items()} for row in reader]
+
+
+MEMBER_IMPORT_COLUMNS = [
+    "first_name", "last_name", "username", "email", "phone",
+    "role", "member_type", "team_name",
+]
+MEMBER_IMPORT_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def normalize_member_import_header(header):
+    return str(header or "").strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def normalize_member_import_row(row):
+    normalized = {}
+    for key, value in row.items():
+        normalized[normalize_member_import_header(key)] = "" if value is None else str(value).strip()
+    return normalized
+
+
+def clean_phone_number(phone):
+    phone = (phone or "").strip()
+    if not phone:
+        return ""
+    prefix = "+" if phone.startswith("+") else ""
+    digits = re.sub(r"\D+", "", phone)
+    if not digits:
+        return ""
+    return f"{prefix}{digits}"
+
+
+def slugify_username(value):
+    value = (value or "").strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value).strip("-")
+    return value or "member"
+
+
+def unique_import_username(base, used_usernames):
+    base = slugify_username(base)
+    candidate = base
+    index = 2
+    while candidate.lower() in used_usernames:
+        candidate = f"{base}-{index}"
+        index += 1
+    used_usernames.add(candidate.lower())
+    return candidate
+
+
+def existing_member_identity_sets():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT lower(email) AS email, lower(username) AS username FROM users_data")
+    emails = set()
+    usernames = set()
+    for row in cursor.fetchall():
+        if row["email"]:
+            emails.add(row["email"])
+        if row["username"]:
+            usernames.add(row["username"])
+    conn.close()
+    return emails, usernames
+
+
+def build_member_import_record(raw_row, used_usernames):
+    first_name = raw_row.get("first_name", "")
+    last_name = raw_row.get("last_name", "")
+    email = raw_row.get("email", "").lower()
+    supplied_username = raw_row.get("username", "")
+    email_prefix = email.split("@")[0] if email else ""
+    full_name = " ".join(part for part in [first_name, last_name] if part).strip()
+    username_source = supplied_username or email_prefix or full_name
+    username = unique_import_username(username_source, used_usernames)
+    phone = clean_phone_number(raw_row.get("phone", ""))
+    role_value = raw_row.get("role", "").strip()
+    member_type = raw_row.get("member_type", "").strip()
+    team_name = raw_row.get("team_name", "").strip()
+    app_role = role_value if role_value in {"Admin", "Participant"} else "Participant"
+    team_role = member_type or team_name or role_value or "Member"
+    bio_parts = []
+    if phone:
+        bio_parts.append(f"Phone: {phone}")
+    if team_name:
+        bio_parts.append(f"Team: {team_name}")
+    if member_type:
+        bio_parts.append(f"Member type: {member_type}")
+    return {
+        "username": username,
+        "email": email,
+        "password_hash": bcrypt.hashpw(uuid.uuid4().hex.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"),
+        "full_name": full_name or username,
+        "bio": " | ".join(bio_parts),
+        "skills": "",
+        "team_role": team_role,
+        "profile_picture": "",
+        "role": app_role,
+        "is_verified": 1,
+        "notification_opt_in": 1,
+        "phone": phone,
+        "team_name": team_name,
+        "member_type": member_type,
+    }
+
+
+def preprocess_member_import_rows(rows):
+    existing_emails, existing_usernames = existing_member_identity_sets()
+    used_emails = set()
+    used_usernames = set(existing_usernames)
+    valid_rows = []
+    invalid_rows = []
+    duplicate_rows = []
+    existing_rows = []
+
+    for row_number, source_row in enumerate(rows, start=2):
+        raw_row = normalize_member_import_row(source_row)
+        email = raw_row.get("email", "").lower()
+        reasons = []
+        if not email:
+            reasons.append("Missing email")
+        elif not MEMBER_IMPORT_EMAIL_RE.match(email):
+            reasons.append("Invalid email format")
+        if email and email in used_emails:
+            reasons.append("Duplicate email in file")
+        if email and email in existing_emails:
+            reasons.append("Email already exists")
+
+        if reasons:
+            target = invalid_rows
+            if "Duplicate email in file" in reasons:
+                target = duplicate_rows
+            elif "Email already exists" in reasons:
+                target = existing_rows
+            target.append({
+                "row_number": row_number,
+                "email": email,
+                "reason": "; ".join(reasons),
+                "raw_data": raw_row,
+            })
+            if email and "Duplicate email in file" not in reasons and email not in existing_emails:
+                used_emails.add(email)
+            continue
+
+        used_emails.add(email)
+        valid_rows.append({
+            "row_number": row_number,
+            "raw_data": raw_row,
+            "cleaned": build_member_import_record(raw_row, used_usernames),
+        })
+
+    skipped_rows = len(invalid_rows) + len(duplicate_rows) + len(existing_rows)
+    summary = {
+        "total_rows": len(rows),
+        "valid_rows": len(valid_rows),
+        "invalid_rows": len(invalid_rows),
+        "duplicate_rows": len(duplicate_rows),
+        "existing_rows": len(existing_rows),
+        "skipped_rows": skipped_rows,
+        "error_rows": skipped_rows,
+        "ready_to_import": len(valid_rows),
+    }
+    error_rows = invalid_rows + duplicate_rows + existing_rows
+    return summary, valid_rows, error_rows
 
 
 def parse_json_file(path):
@@ -1579,6 +1745,97 @@ def admin_import_data():
         import_stats=get_import_dashboard_stats(),
         history=get_import_history(limit=20),
     )
+
+
+@app.route("/admin/import-members", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_import_members():
+    user = current_user()
+    error = None
+    success = None
+    batch = None
+    history = list_member_import_batches(limit=10)
+    imported_batch_id = request.args.get("imported")
+    if imported_batch_id:
+        batch = get_member_import_batch(imported_batch_id)
+        if batch:
+            success = (
+                f"Import complete: {batch['imported_rows']} members imported, "
+                f"{batch['skipped_rows']} rows skipped."
+            )
+
+    if request.method == "POST":
+        uploaded = request.files.get("file")
+        if not uploaded or not uploaded.filename:
+            error = "Choose a CSV file to import."
+        else:
+            original_name = secure_filename(uploaded.filename)
+            ext = os.path.splitext(original_name)[1].lower()
+            if ext != ".csv":
+                error = "Import Members accepts CSV files only."
+            else:
+                content = uploaded.read()
+                if len(content) > app.config["IMPORT_MAX_SIZE"]:
+                    error = "File is too large."
+                else:
+                    try:
+                        text = content.decode("utf-8-sig")
+                        reader = csv.DictReader(io.StringIO(text))
+                        rows = [{key: value for key, value in row.items()} for row in reader]
+                        if not reader.fieldnames:
+                            raise ValueError("CSV header row is required.")
+                        summary, valid_rows, error_rows = preprocess_member_import_rows(rows)
+                        batch_id = create_member_import_batch(
+                            original_name,
+                            session["admin_username"],
+                            summary,
+                            [row["cleaned"] for row in valid_rows],
+                            error_rows,
+                        )
+                        batch = get_member_import_batch(batch_id)
+                        batch["preview_rows"] = valid_rows[:25]
+                        success = "CSV processed. Review the preview, then confirm the import."
+                        history = list_member_import_batches(limit=10)
+                    except UnicodeDecodeError:
+                        error = "CSV must be UTF-8 encoded."
+                    except Exception as exc:
+                        error = str(exc)
+
+    return render_template(
+        "AdminImportMembersPage.html",
+        user=user,
+        error=error,
+        success=success,
+        batch=batch,
+        history=history,
+        supported_columns=MEMBER_IMPORT_COLUMNS,
+    )
+
+
+@app.route("/admin/import-members/<int:batch_id>/confirm", methods=["POST"])
+@login_required
+@admin_required
+def admin_import_members_confirm(batch_id):
+    try:
+        result = import_member_batch(batch_id)
+        database.log_activity(
+            "Import Members",
+            "Members imported",
+            f"{result['imported_rows']} imported, {result['skipped_rows']} skipped",
+            actor_name=session.get("admin_username", ""),
+        )
+        return redirect(url_for("admin_import_members", imported=batch_id))
+    except ValueError as exc:
+        return render_template(
+            "AdminImportMembersPage.html",
+            user=current_user(),
+            error=str(exc),
+            success=None,
+            batch=get_member_import_batch(batch_id),
+            history=list_member_import_batches(limit=10),
+            supported_columns=MEMBER_IMPORT_COLUMNS,
+        ), 400
 
 
 @app.route("/api/admin/import/upload", methods=["POST"])

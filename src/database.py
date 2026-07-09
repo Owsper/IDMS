@@ -412,6 +412,39 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_import_changes_job ON import_changes(job_id)")
 
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS member_import_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            uploaded_by_admin_id TEXT NOT NULL DEFAULT '',
+            total_rows INTEGER NOT NULL DEFAULT 0,
+            valid_rows INTEGER NOT NULL DEFAULT 0,
+            imported_rows INTEGER NOT NULL DEFAULT 0,
+            skipped_rows INTEGER NOT NULL DEFAULT 0,
+            duplicate_rows INTEGER NOT NULL DEFAULT 0,
+            existing_rows INTEGER NOT NULL DEFAULT 0,
+            error_rows INTEGER NOT NULL DEFAULT 0,
+            cleaned_rows TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'preview',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            imported_at DATETIME
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS member_import_errors (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            batch_id INTEGER NOT NULL,
+            row_number INTEGER NOT NULL,
+            email TEXT NOT NULL DEFAULT '',
+            reason TEXT NOT NULL,
+            raw_data TEXT NOT NULL DEFAULT '{}',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(batch_id) REFERENCES member_import_batches(id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_member_import_batches_created ON member_import_batches(created_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_member_import_errors_batch ON member_import_errors(batch_id)")
+
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS activity_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             module TEXT NOT NULL,
@@ -2396,6 +2429,150 @@ def get_import_history(limit=50):
         rows.append(item)
     conn.close()
     return rows
+
+
+def create_member_import_batch(filename, admin_username, summary, cleaned_rows, error_rows):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO member_import_batches (
+            filename, uploaded_by_admin_id, total_rows, valid_rows, skipped_rows,
+            duplicate_rows, existing_rows, error_rows, cleaned_rows, status
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'preview')
+    """, (
+        filename,
+        admin_username,
+        int(summary.get("total_rows", 0)),
+        int(summary.get("valid_rows", 0)),
+        int(summary.get("skipped_rows", 0)),
+        int(summary.get("duplicate_rows", 0)),
+        int(summary.get("existing_rows", 0)),
+        int(summary.get("error_rows", 0)),
+        json.dumps(cleaned_rows, default=str),
+    ))
+    batch_id = cursor.lastrowid
+    cursor.executemany("""
+        INSERT INTO member_import_errors (batch_id, row_number, email, reason, raw_data)
+        VALUES (?, ?, ?, ?, ?)
+    """, [
+        (
+            batch_id,
+            int(row.get("row_number") or 0),
+            row.get("email") or "",
+            row.get("reason") or "",
+            json.dumps(row.get("raw_data") or {}, default=str),
+        )
+        for row in error_rows
+    ])
+    conn.commit()
+    conn.close()
+    return batch_id
+
+
+def get_member_import_batch(batch_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM member_import_batches WHERE id = ?", (batch_id,))
+    batch = row_to_dict(cursor.fetchone())
+    if not batch:
+        conn.close()
+        return None
+    batch["cleaned_rows"] = json.loads(batch.get("cleaned_rows") or "[]")
+    cursor.execute("""
+        SELECT row_number, email, reason, raw_data
+        FROM member_import_errors
+        WHERE batch_id = ?
+        ORDER BY row_number, id
+    """, (batch_id,))
+    errors = []
+    for row in cursor.fetchall():
+        item = row_to_dict(row)
+        item["raw_data"] = json.loads(item.get("raw_data") or "{}")
+        errors.append(item)
+    batch["errors"] = errors
+    conn.close()
+    return batch
+
+
+def list_member_import_batches(limit=10):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, filename, uploaded_by_admin_id, total_rows, valid_rows,
+               imported_rows, skipped_rows, duplicate_rows, existing_rows,
+               error_rows, status, created_at, imported_at
+        FROM member_import_batches
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?
+    """, (max(1, min(int(limit), 50)),))
+    rows = [row_to_dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def import_member_batch(batch_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("BEGIN")
+        cursor.execute("SELECT * FROM member_import_batches WHERE id = ?", (batch_id,))
+        batch = row_to_dict(cursor.fetchone())
+        if not batch:
+            raise ValueError("Import batch not found.")
+        if batch["status"] == "imported":
+            raise ValueError("This member import has already been confirmed.")
+
+        cleaned_rows = json.loads(batch.get("cleaned_rows") or "[]")
+        imported = 0
+        skipped = 0
+        for row in cleaned_rows:
+            email = (row.get("email") or "").strip().lower()
+            if not email:
+                skipped += 1
+                continue
+            cursor.execute("SELECT id FROM users_data WHERE lower(email) = lower(?) LIMIT 1", (email,))
+            if cursor.fetchone():
+                skipped += 1
+                continue
+
+            cursor.execute("""
+                INSERT INTO users_data (
+                    username, email, password_hash, full_name, bio, skills,
+                    team_role, profile_picture, role, is_verified,
+                    notification_opt_in, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (
+                row.get("username") or email.split("@")[0],
+                email,
+                row["password_hash"],
+                row.get("full_name") or row.get("username") or email,
+                row.get("bio") or "",
+                row.get("skills") or "",
+                row.get("team_role") or "Member",
+                row.get("profile_picture") or "",
+                row.get("role") or "Participant",
+                int(row.get("is_verified", 1)),
+                int(row.get("notification_opt_in", 1)),
+            ))
+            imported += 1
+
+        cursor.execute("""
+            UPDATE member_import_batches
+            SET imported_rows = ?,
+                skipped_rows = skipped_rows + ?,
+                status = 'imported',
+                imported_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (imported, skipped, batch_id))
+        conn.commit()
+        return {"imported_rows": imported, "skipped_rows": skipped}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def log_activity(module, action, detail="", actor_id=None, actor_name=""):

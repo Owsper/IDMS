@@ -23,6 +23,12 @@
     }
     h1 { margin: 0; font-family: Orbitron, sans-serif; }
     .muted { color: #8293c4; }
+    .page-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
     .search-form {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto;
@@ -83,6 +89,7 @@
     @media (max-width: 600px) {
       .search-form { grid-template-columns: 1fr; }
       .item { align-items: flex-start; flex-direction: column; }
+      .page-heading { flex-direction: column; }
     }
   
     /* Pexel shared register theme */
@@ -216,8 +223,13 @@
 </head>
 <body>
   <main class="wrap">
-    <h1>Search Documents</h1>
-    <p class="muted">Find and download documents approved by administrators.</p>
+    <div class="page-heading">
+      <div>
+        <h1>Search Documents</h1>
+        <p class="muted">Find and download documents approved by administrators.</p>
+      </div>
+      <a class="btn" href="{{ url_for('import_files') }}">Upload Documents</a>
+    </div>
 
     <form class="search-form" id="documentSearchForm" role="search">
       <div class="search-control">

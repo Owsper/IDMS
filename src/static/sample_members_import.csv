@@ -1,0 +1,9 @@
+first_name,last_name,username,email,phone,role,member_type,team_name
+  Alice  ,  Stone  ,alice-stone,ALICE.STONE@example.com,"(555) 010-1000",Participant,Developer,Pixel Pioneers
+Ben,Rivera,,ben.rivera@example.com,+1 555 010 1001,,Designer,Art Squad
+Missing,Email,missing-email,,"555.010.1002",Participant,Tester,QA Crew
+Bad,Email,bad-email,not-an-email,5550101003,Participant,Developer,Core Team
+Alice,Duplicate,alice-duplicate,alice.stone@example.com,5550101004,Participant,Developer,Pixel Pioneers
+Existing,Member,existing-member,existing@example.com,5550101005,Participant,Coordinator,Legacy Team
+No,Phone,no-phone,no.phone@example.com,,Participant,Analyst,Data Team
+  Upper , Case ,,UPPER.CASE@EXAMPLE.COM,"+44 20 7946 0958",,Member,Global Team
