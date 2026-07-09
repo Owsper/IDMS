@@ -21,14 +21,15 @@ class RegistrationPasswordPolicyTest(unittest.TestCase):
     def tearDown(self):
         os.remove(self.db_path)
 
-    def register(self, password):
+    def register(self, password, email="new@example.com", confirm_password=None):
+        confirm_password = password if confirm_password is None else confirm_password
         return self.client.post(
             "/register",
             data={
                 "username": "new-member",
-                "email": "new@example.com",
+                "email": email,
                 "password": password,
-                "confirm_password": password,
+                "confirm_password": confirm_password,
             },
         )
 
@@ -37,6 +38,24 @@ class RegistrationPasswordPolicyTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"at least 8 characters", response.data)
         self.assertIsNone(database.get_user_by_email("new@example.com"))
+
+    def test_password_policy_error_preserves_non_password_fields_only(self):
+        response = self.register("weakpass")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'value="new-member"', response.data)
+        self.assertIn(b'value="new@example.com"', response.data)
+        self.assertNotIn(b'value="weakpass"', response.data)
+
+    def test_password_mismatch_preserves_non_password_fields_only(self):
+        response = self.register("StrongPass1", confirm_password="DifferentPass1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Passwords do not match.", response.data)
+        self.assertIn(b'value="new-member"', response.data)
+        self.assertIn(b'value="new@example.com"', response.data)
+        self.assertNotIn(b'value="StrongPass1"', response.data)
+        self.assertNotIn(b'value="DifferentPass1"', response.data)
 
     def test_registration_accepts_policy_compliant_password(self):
         with patch.object(main, "send_transactional_email", return_value={"sent": True, "detail": "sent"}):
@@ -79,9 +98,20 @@ class RegistrationPasswordPolicyTest(unittest.TestCase):
             response = self.register("StrongPass1")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"could not be sent", response.data)
+        self.assertIn(b"could not send a verification email", response.data)
         self.assertNotIn(b"/verify-email/", response.data)
-        self.assertEqual(len(database.list_auth_email_links("email_failed")), 1)
+        self.assertIsNone(database.get_user_by_email("new@example.com"))
+        self.assertEqual(len(database.list_auth_email_links("email_failed")), 0)
+
+    def test_registration_rejects_invalid_email_without_storing_user(self):
+        with patch.object(main, "send_transactional_email") as send_email:
+            response = self.register("StrongPass1", email="not-an-email")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Please enter a valid email address.", response.data)
+        self.assertIsNone(database.get_user_by_email("not-an-email"))
+        self.assertEqual(database.list_auth_email_links(), [])
+        send_email.assert_not_called()
 
     def test_policy_requires_uppercase_lowercase_and_number(self):
         self.assertIsNotNone(main.password_policy_error("lowercase1"))

@@ -497,12 +497,12 @@
         <form method="POST" novalidate>
           <div class="form-group">
             <label>Username</label>
-            <input type="text" name="username" placeholder="cool_gamedev" required />
+            <input type="text" name="username" value="{{ form_data.username if form_data else '' }}" placeholder="cool_gamedev" required />
           </div>
 
           <div class="form-group">
             <label>Email</label>
-            <input type="email" name="email" placeholder="dev@pexel.io" required />
+            <input type="email" name="email" value="{{ form_data.email if form_data else '' }}" placeholder="dev@pexel.io" required />
           </div>
 
           <div class="form-group">

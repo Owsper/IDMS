@@ -55,6 +55,7 @@ import re
 import io
 import smtplib
 import ssl
+from email.utils import parseaddr
 
 try:
     import certifi
@@ -158,6 +159,16 @@ def password_policy_error(password):
     if not any(character.isdigit() for character in password):
         return "Password must include a number."
     return None
+
+
+def is_valid_email_address(email):
+    """Return True when the address has a reasonable user@domain shape."""
+    if not email:
+        return False
+    parsed_name, parsed_email = parseaddr(email)
+    if parsed_name or parsed_email != email:
+        return False
+    return re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) is not None
 
 
 def login_required(view):
@@ -703,6 +714,23 @@ def create_verification_email(email, username, user_id=None):
     )
 
 
+def send_registration_verification_email(email):
+    token = generate_verification_token(email)
+    verify_url = url_for("verify_email", token=token, _external=True)
+    message = account_email_message("registration_verification", verify_url)
+    delivery = send_transactional_email(
+        email,
+        message["subject"],
+        message["text"],
+        message["html"],
+    )
+    return {
+        "sent": delivery["sent"],
+        "detail": delivery["detail"],
+        "link": verify_url,
+    }
+
+
 def password_reset_fingerprint(user):
     """Tie a reset link to the current password so it can only be used once."""
     return hashlib.sha256(user["password_hash"].encode("utf-8")).hexdigest()[:16]
@@ -747,15 +775,19 @@ def home():
 def register():
     error = None
     success = None
+    form_data = {"username": "", "email": ""}
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
         confirm_password = request.form.get("confirm_password", "")
+        form_data = {"username": username, "email": email}
 
         if not username or not email or not password or not confirm_password:
             error = "All fields are required."
+        elif not is_valid_email_address(email):
+            error = "Please enter a valid email address."
         elif password != confirm_password:
             error = "Passwords do not match."
         elif password_policy_error(password):
@@ -766,15 +798,26 @@ def register():
             elif fetch_unique_email(email):
                 error = "Email already exists."
             else:
-                create_user(username, email, password)
-                user = get_user_by_email(email)
-                delivery = create_verification_email(email, username, user["id"] if user else None)
+                delivery = send_registration_verification_email(email)
                 if delivery["sent"]:
+                    create_user(username, email, password)
+                    user = get_user_by_email(email)
+                    database.create_auth_email_link(
+                        "registration_verification",
+                        email,
+                        delivery["link"],
+                        user["id"] if user else None,
+                        status="email_sent",
+                        error_message=delivery["detail"],
+                    )
                     success = "Account created. Check your email for the verification link."
                 else:
-                    error = "Account created, but the verification email could not be sent. Ask an administrator to configure email delivery."
+                    error = "We could not send a verification email to that address. Please check the email address and try again."
 
-    return render_template("RegisterPage.html", error=error, success=success)
+    if success:
+        form_data = {"username": "", "email": ""}
+
+    return render_template("RegisterPage.html", error=error, success=success, form_data=form_data)
 
 
 @app.route("/verify-email/<token>")
