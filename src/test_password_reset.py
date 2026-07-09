@@ -195,6 +195,22 @@ class PasswordResetFlowTest(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn(b"invalid or has already been used", response.data)
 
+    def test_reset_form_has_show_password_buttons(self):
+        with patch.object(main, "send_transactional_email", return_value={"sent": True, "detail": "sent"}):
+            self.client.post(
+                "/forgot-password",
+                data={"email": "reset@example.com"},
+            )
+        reset_path = urlparse(database.list_auth_email_links("email_sent")[0]["link"]).path
+
+        response = self.client.get(reset_path)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'id="password" type="password"', response.data)
+        self.assertIn(b'id="confirm_password" type="password"', response.data)
+        self.assertIn(b'data-target="password"', response.data)
+        self.assertIn(b'data-target="confirm_password"', response.data)
+
     def test_new_password_is_validated(self):
         with patch.object(main, "send_transactional_email", return_value={"sent": True, "detail": "sent"}):
             self.client.post(

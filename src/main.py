@@ -810,7 +810,8 @@ def register():
                         status="email_sent",
                         error_message=delivery["detail"],
                     )
-                    success = "Account created. Check your email for the verification link."
+                    session["pending_verification_email"] = email
+                    return redirect(url_for("check_email"))
                 else:
                     error = "We could not send a verification email to that address. Please check the email address and try again."
 
@@ -818,6 +819,12 @@ def register():
         form_data = {"username": "", "email": ""}
 
     return render_template("RegisterPage.html", error=error, success=success, form_data=form_data)
+
+
+@app.route("/check-email")
+def check_email():
+    email = session.get("pending_verification_email", "")
+    return render_template("CheckEmailPage.html", email=email)
 
 
 @app.route("/verify-email/<token>")
@@ -835,7 +842,11 @@ def verify_email(token):
         return render_template("VerifyPage.html", error="User not found.")
 
     if int(user.get("is_verified", 0)) == 1:
-        return render_template("VerifyPage.html", success="Your account is already verified.")
+        return render_template(
+            "VerifyPage.html",
+            success="Your account is already verified.",
+            redirect_to_login=True,
+        )
 
     verification_email_link = database.get_active_auth_email_link(
         "registration_verification",
@@ -847,7 +858,12 @@ def verify_email(token):
 
     mark_user_verified(user["id"])
     database.mark_auth_email_link_used(verification_link)
-    return render_template("VerifyPage.html", success="Email verified successfully. You can now log in.")
+    session.pop("pending_verification_email", None)
+    return render_template(
+        "VerifyPage.html",
+        success="Email verified successfully. Redirecting you to sign in.",
+        redirect_to_login=True,
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])

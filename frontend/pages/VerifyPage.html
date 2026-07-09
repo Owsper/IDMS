@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  {% if redirect_to_login %}
+    <meta http-equiv="refresh" content="4; url={{ url_for('login') }}" />
+  {% endif %}
   <title>Pexel Email Verification</title>
 
   <style>
@@ -409,6 +412,10 @@
           <h2>Email verified</h2>
           <p class="message">{{ success }}</p>
 
+          <div class="actions">
+            <a class="btn btn-primary" href="{{ url_for('login') }}">Sign in now</a>
+          </div>
+
         {% else %}
           <div class="status-icon error">!</div>
           <h2>Verification failed</h2>
@@ -423,5 +430,12 @@
       </div>
     </section>
   </div>
+  {% if redirect_to_login %}
+    <script>
+      window.setTimeout(function () {
+        window.location.href = "{{ url_for('login') }}";
+      }, 4000);
+    </script>
+  {% endif %}
 </body>
 </html>

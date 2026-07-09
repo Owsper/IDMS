@@ -63,8 +63,11 @@ class RegistrationPasswordPolicyTest(unittest.TestCase):
         user = database.get_user_by_email("new@example.com")
         links = database.list_auth_email_links("email_sent")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Account created", response.data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/check-email")
+        check_email_response = self.client.get("/check-email")
+        self.assertIn(b"Check your email", check_email_response.data)
+        self.assertIn(b"new@example.com", check_email_response.data)
         self.assertNotIn(b"/verify-email/", response.data)
         self.assertIsNotNone(user)
         self.assertEqual(len(links), 1)
@@ -91,6 +94,8 @@ class RegistrationPasswordPolicyTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Email verified successfully", response.data)
+        self.assertIn(b'content="4; url=/login"', response.data)
+        self.assertIn(b"window.location.href = \"/login\"", response.data)
         self.assertEqual(database.get_user_by_email("new@example.com")["is_verified"], 1)
 
     def test_registration_reports_email_delivery_failure_without_showing_link(self):

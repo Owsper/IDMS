@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pexel Check Email</title>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap");
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background: #05070d;
+      color: #ffffff;
+      font-family: "Inter", Arial, sans-serif;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .left {
+      position: relative;
+      padding: 48px;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        radial-gradient(circle at 58% 66%, rgba(0, 194, 230, 0.16), transparent 28%),
+        radial-gradient(circle at 44% 48%, rgba(124, 58, 255, 0.28), transparent 34%),
+        #11101e;
+      background-size: 40px 40px, 40px 40px, auto, auto;
+      overflow: hidden;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      font-size: 22px;
+      letter-spacing: 0.3px;
+      color: #f3f5ff;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #7d39ff, #9a45ff);
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: white;
+      font-weight: 900;
+    }
+
+    .hero {
+      margin-top: 210px;
+      max-width: 560px;
+    }
+
+    .hero h1 {
+      font-family: "Orbitron", sans-serif;
+      font-size: 44px;
+      line-height: 1.35;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #7a39ff, #4d75ff, #08c6e9);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero p {
+      margin-top: 26px;
+      color: #8293c4;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 44px;
+      left: 48px;
+      color: #6f7da3;
+      font-size: 13px;
+    }
+
+    .right {
+      background: #0d1017;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      padding: 40px;
+    }
+
+    .back {
+      position: absolute;
+      top: 30px;
+      left: 26px;
+      color: #8293c4;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .back:hover {
+      color: #ffffff;
+    }
+
+    .status-box {
+      width: 100%;
+      max-width: 430px;
+    }
+
+    .status-icon {
+      width: 62px;
+      height: 62px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      font-size: 26px;
+      font-weight: 900;
+      background: rgba(34, 197, 94, 0.14);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      color: #4ade80;
+      box-shadow: 0 0 32px rgba(34, 197, 94, 0.14);
+    }
+
+    h2 {
+      font-family: "Orbitron", sans-serif;
+      font-size: 28px;
+      margin-bottom: 12px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: #f3f5ff;
+    }
+
+    .message {
+      color: #8293c4;
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 26px;
+    }
+
+    .email {
+      color: #ffffff;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      min-height: 44px;
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 900;
+      transition: 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7d39ff, #8d45ff);
+      color: #ffffff;
+      box-shadow: 0 0 28px rgba(124, 58, 255, 0.28);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #8c48ff, #9b55ff);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #1a1f2d;
+      color: #dbe4ff;
+      border: 1px solid rgba(129, 72, 255, 0.35);
+    }
+
+    .btn-secondary:hover {
+      border-color: #8c48ff;
+      color: #ffffff;
+    }
+
+    @media (max-width: 900px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .left {
+        min-height: 380px;
+      }
+
+      .hero {
+        margin-top: 110px;
+      }
+
+      .right {
+        min-height: 500px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .left,
+      .right {
+        padding: 28px;
+      }
+
+      .hero h1 {
+        font-size: 34px;
+      }
+
+      .actions {
+        grid-template-columns: 1fr;
+      }
+
+      .footer {
+        left: 28px;
+        bottom: 28px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <section class="left">
+      <div class="brand">
+        <div class="brand-icon">P</div>
+        <span>Pexel</span>
+      </div>
+
+      <div class="hero">
+        <h1>
+          Check.<br />
+          <span class="gradient-text">Confirm.</span><br />
+          Play.
+        </h1>
+
+        <p>
+          Your account is almost ready. Confirm your email and keep this tab open,
+          close it, or come back later.
+        </p>
+      </div>
+
+      <div class="footer">2026 Pexel Platform - Built for Game Devs</div>
+    </section>
+
+    <section class="right">
+      <a href="{{ url_for('home') }}" class="back">Back</a>
+
+      <div class="status-box">
+        <div class="status-icon">OK</div>
+        <h2>Check your email</h2>
+        <p class="message">
+          We sent a verification link{% if email %} to <span class="email">{{ email }}</span>{% endif %}.
+          Open that link from your inbox to confirm your account.
+        </p>
+
+        <div class="actions">
+          <a class="btn btn-primary" href="{{ url_for('login') }}">Sign in</a>
+          <a class="btn btn-secondary" href="{{ url_for('register') }}">Use another email</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
